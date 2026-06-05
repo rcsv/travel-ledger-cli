@@ -26,6 +26,13 @@ pub enum ItineraryCategory {
     Museum,
 }
 
+/// カテゴリの表示名と標準チェックリスト候補
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CategoryDefinition {
+    pub display_name: &'static str,
+    pub default_checklist: &'static [&'static str],
+}
+
 impl ItineraryCategory {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -38,6 +45,59 @@ impl ItineraryCategory {
             Self::Beach => "beach",
             Self::Museum => "museum",
         }
+    }
+
+    /// カテゴリ定義（表示名・標準チェックリスト候補）を返す
+    pub fn definition(self) -> CategoryDefinition {
+        match self {
+            Self::Flight => CategoryDefinition {
+                display_name: "フライト",
+                default_checklist: &["航空券確認", "身分証明書確認", "空港到着時刻確認"],
+            },
+            Self::Hotel => CategoryDefinition {
+                display_name: "ホテル",
+                default_checklist: &["宿泊予約確認", "チェックイン時間確認", "住所確認"],
+            },
+            Self::Restaurant => CategoryDefinition {
+                display_name: "食事",
+                default_checklist: &["予約確認", "営業時間確認"],
+            },
+            Self::Activity => CategoryDefinition {
+                display_name: "アクティビティ",
+                default_checklist: &["予約確認", "所要時間確認", "服装確認"],
+            },
+            Self::Transport => CategoryDefinition {
+                display_name: "移動",
+                default_checklist: &["移動手段確認", "所要時間確認"],
+            },
+            Self::Shopping => CategoryDefinition {
+                display_name: "買い物",
+                default_checklist: &["営業時間確認", "支払い方法確認"],
+            },
+            Self::Beach => CategoryDefinition {
+                display_name: "ビーチ",
+                default_checklist: &["水着", "タオル", "日焼け止め"],
+            },
+            Self::Museum => CategoryDefinition {
+                display_name: "博物館・展示",
+                default_checklist: &["営業時間確認", "チケット確認"],
+            },
+        }
+    }
+
+    /// 定義済みの全カテゴリを返す
+    #[allow(dead_code)]
+    pub fn all() -> [Self; 8] {
+        [
+            Self::Flight,
+            Self::Hotel,
+            Self::Restaurant,
+            Self::Activity,
+            Self::Transport,
+            Self::Shopping,
+            Self::Beach,
+            Self::Museum,
+        ]
     }
 }
 
@@ -110,11 +170,64 @@ pub struct TripExport {
 
 #[cfg(test)]
 mod tests {
-    use crate::models::parse_itinerary_category;
+    use crate::models::{parse_itinerary_category, CategoryDefinition, ItineraryCategory};
 
     #[test]
     fn test_parse_invalid_itinerary_category() {
         assert!(parse_itinerary_category("invalid").is_err());
         assert!(parse_itinerary_category("lodging").is_err());
+    }
+
+    #[test]
+    fn test_category_definition_flight() {
+        let def = ItineraryCategory::Flight.definition();
+        assert_eq!(def.display_name, "フライト");
+        assert_eq!(
+            def.default_checklist,
+            &["航空券確認", "身分証明書確認", "空港到着時刻確認"]
+        );
+    }
+
+    #[test]
+    fn test_category_definition_hotel() {
+        let def = ItineraryCategory::Hotel.definition();
+        assert_eq!(def.display_name, "ホテル");
+        assert_eq!(
+            def.default_checklist,
+            &["宿泊予約確認", "チェックイン時間確認", "住所確認"]
+        );
+    }
+
+    #[test]
+    fn test_category_definition_beach() {
+        let def = ItineraryCategory::Beach.definition();
+        assert_eq!(def.display_name, "ビーチ");
+        assert_eq!(def.default_checklist, &["水着", "タオル", "日焼け止め"]);
+    }
+
+    #[test]
+    fn test_all_itinerary_categories_have_definitions() {
+        for category in ItineraryCategory::all() {
+            let def = category.definition();
+            assert!(
+                !def.display_name.is_empty(),
+                "display_name が空: {}",
+                category.as_str()
+            );
+            assert!(
+                !def.default_checklist.is_empty(),
+                "default_checklist が空: {}",
+                category.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_category_definition_matches_storage_key() {
+        for category in ItineraryCategory::all() {
+            let parsed = parse_itinerary_category(category.as_str()).unwrap();
+            assert_eq!(parsed, category);
+            let _def: CategoryDefinition = parsed.definition();
+        }
     }
 }

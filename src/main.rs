@@ -114,6 +114,12 @@ enum TripAction {
         /// 比較先 JSON ファイル
         new_file: String,
     },
+    /// カテゴリ定義からチェックリストを自動生成
+    #[command(name = "checklist-generate")]
+    ChecklistGenerate {
+        /// 旅行 ID
+        id: i64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -457,6 +463,10 @@ fn main() -> Result<()> {
             }
             TripAction::Diff { old_file, new_file } => {
                 crate::diff::run_trip_diff(&old_file, &new_file)?;
+            }
+            TripAction::ChecklistGenerate { id } => {
+                let result = crate::checklist::generate_checklist_from_itinerary(&conn, id)?;
+                crate::checklist::print_checklist_generate_result(&result);
             }
         },
     }

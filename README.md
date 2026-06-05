@@ -247,6 +247,68 @@ cargo run -- itinerary update 1 --title "首里城公園" --travel 25
 cargo run -- itinerary delete 1
 ```
 
+### カテゴリ
+
+日程にカテゴリを付与できます（定義済みの8種類のみ）。
+
+```bash
+cargo run -- itinerary update 1 --category hotel
+cargo run -- itinerary update 1 --category none   # 解除
+```
+
+| 保存値 | 表示名 | 標準チェックリスト候補（将来の自動生成用） |
+|---|---|---|
+| `flight` | フライト | 航空券確認、身分証明書確認、空港到着時刻確認 |
+| `hotel` | ホテル | 宿泊予約確認、チェックイン時間確認、住所確認 |
+| `restaurant` | 食事 | 予約確認、営業時間確認 |
+| `activity` | アクティビティ | 予約確認、所要時間確認、服装確認 |
+| `transport` | 移動 | 移動手段確認、所要時間確認 |
+| `shopping` | 買い物 | 営業時間確認、支払い方法確認 |
+| `beach` | ビーチ | 水着、タオル、日焼け止め |
+| `museum` | 博物館・展示 | 営業時間確認、チケット確認 |
+
+Rust 側では `CategoryDefinition` 構造体として `display_name` と `default_checklist` を保持しています。DB には従来どおり lowercase 文字列（例: `hotel`）で保存され、将来の checklist-generate 機能でこの定義を参照する想定です。
+
+```rust
+// 例: ItineraryCategory::Hotel.definition()
+//   display_name: "ホテル"
+//   default_checklist: ["宿泊予約確認", "チェックイン時間確認", "住所確認"]
+```
+
+### チェックリスト自動生成
+
+日程に設定されたカテゴリの `CategoryDefinition.default_checklist` から、チェックリスト項目を自動追加します。
+
+```bash
+cargo run -- trip checklist-generate 1
+```
+
+| ルール | 説明 |
+|---|---|
+| 対象 | カテゴリが設定されている itinerary items |
+| 重複防止 | 同じ trip 内に同じ title が既にある場合は追加しない |
+| 並び順 | 既存の最大 `sort_order` の次から採番 |
+| 0件追加 | エラーにせず成功として扱う |
+
+出力例:
+
+```
+チェックリストを自動生成しました
+追加: 5 件
+スキップ: 2 件
+
+追加された項目:
+- 宿泊予約確認
+- チェックイン時間確認
+- 水着
+- タオル
+- 日焼け止め
+
+スキップされた項目:
+- 住所確認
+- 営業時間確認
+```
+
 ## Checklist（持ち物・準備リスト）の使い方
 
 チェックリストは **Trip ID** に紐づきます。
@@ -332,11 +394,17 @@ cargo run -- itinerary list 1
 
 ```
 caglla-cli/
-├── src/main.rs    # アプリ本体（CLI・DB・テストをすべて含む）
+├── src/
+│   ├── main.rs       # CLI の入口
+│   ├── models.rs     # Trip / ItineraryItem / ItineraryCategory / CategoryDefinition など
+│   ├── db.rs         # DB 接続・マイグレーション
+│   ├── trip.rs       # Trip CRUD・JSON export/import
+│   ├── itinerary.rs  # Itinerary CRUD・タイムライン
+│   ├── checklist.rs  # Checklist CRUD
+│   ├── markdown.rs   # trip export-md
+│   └── diff.rs       # trip diff
 ├── Cargo.toml
 ├── Makefile
-├── caglla.db      # ローカル DB（実行時に自動作成、git 管理外）
+├── caglla.db         # ローカル DB（実行時に自動作成、git 管理外）
 └── README.md
 ```
-
-現時点では学習目的のため、`main.rs` 1 ファイルにまとめています。

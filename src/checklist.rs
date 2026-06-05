@@ -1,20 +1,107 @@
+use std::collections::HashSet;
+
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 
 use crate::models::ChecklistItem;
 
+/// チェックリスト自動生成の結果
+pub(crate) struct ChecklistGenerateResult {
+    pub added: Vec<String>,
+    pub skipped: Vec<String>,
+}
+
 /// 新しいチェックリスト項目を追加する
 pub(crate) fn add_checklist_item(conn: &Connection, trip_id: i64, title: &str) -> Result<i64> {
+    add_checklist_item_with_sort_order(conn, trip_id, title, 0)
+}
+
+/// 並び順を指定してチェックリスト項目を追加する
+pub(crate) fn add_checklist_item_with_sort_order(
+    conn: &Connection,
+    trip_id: i64,
+    title: &str,
+    sort_order: i64,
+) -> Result<i64> {
     crate::trip::get_trip(conn, trip_id)?;
     let now = crate::db::now_string();
     conn.execute(
         "INSERT INTO checklist_items
          (trip_id, title, is_done, sort_order, created_at, updated_at)
-         VALUES (?1, ?2, 0, 0, ?3, ?4)",
-        params![trip_id, title, &now, &now],
+         VALUES (?1, ?2, 0, ?3, ?4, ?5)",
+        params![trip_id, title, sort_order, &now, &now],
     )
     .context("チェックリスト項目の追加に失敗しました")?;
     Ok(conn.last_insert_rowid())
+}
+
+/// 日程のカテゴリ定義からチェックリスト項目を自動生成する
+pub(crate) fn generate_checklist_from_itinerary(
+    conn: &Connection,
+    trip_id: i64,
+) -> Result<ChecklistGenerateResult> {
+    crate::trip::get_trip(conn, trip_id)?;
+    let itinerary_items = crate::itinerary::list_itinerary_items(conn, trip_id)?;
+    let existing_items = list_checklist_items(conn, trip_id)?;
+
+    let mut known_titles: HashSet<String> = existing_items
+        .iter()
+        .map(|item| item.title.clone())
+        .collect();
+    let mut next_sort_order = existing_items
+        .iter()
+        .map(|item| item.sort_order)
+        .max()
+        .unwrap_or(-1)
+        + 1;
+
+    let mut added = Vec::new();
+    let mut skipped = Vec::new();
+
+    for item in &itinerary_items {
+        let Some(category) = item.category else {
+            continue;
+        };
+        let definition = category.definition();
+        for &title in definition.default_checklist {
+            if known_titles.contains(title) {
+                if !skipped.iter().any(|s| s == title) {
+                    skipped.push(title.to_string());
+                }
+                continue;
+            }
+
+            add_checklist_item_with_sort_order(conn, trip_id, title, next_sort_order)?;
+            known_titles.insert(title.to_string());
+            added.push(title.to_string());
+            next_sort_order += 1;
+        }
+    }
+
+    Ok(ChecklistGenerateResult { added, skipped })
+}
+
+/// チェックリスト自動生成の結果を表示する
+pub(crate) fn print_checklist_generate_result(result: &ChecklistGenerateResult) {
+    println!("チェックリストを自動生成しました");
+    println!("追加: {} 件", result.added.len());
+    println!("スキップ: {} 件", result.skipped.len());
+
+    if !result.added.is_empty() {
+        println!();
+        println!("追加された項目:");
+        for title in &result.added {
+            println!("- {title}");
+        }
+    }
+
+    if !result.skipped.is_empty() {
+        println!();
+        println!("スキップされた項目:");
+        for title in &result.skipped {
+            println!("- {title}");
+        }
+    }
 }
 
 /// 旅行に紐づくチェックリスト一覧を取得する
@@ -249,5 +336,196 @@ mod tests {
         let item = get_checklist_item(&conn, id).unwrap();
         assert_eq!(item.title, "旅券");
         assert_eq!(item.sort_order, 5);
+    }
+
+    #[test]
+    fn test_generate_checklist_from_categorized_itinerary() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "ホテル",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(crate::models::ItineraryCategory::Hotel),
+        )
+        .unwrap();
+
+        let result = generate_checklist_from_itinerary(&conn, trip_id).unwrap();
+        assert_eq!(result.added.len(), 3);
+        assert!(result.skipped.is_empty());
+        assert!(result.added.contains(&"宿泊予約確認".to_string()));
+        assert!(result.added.contains(&"チェックイン時間確認".to_string()));
+        assert!(result.added.contains(&"住所確認".to_string()));
+
+        let items = list_checklist_items(&conn, trip_id).unwrap();
+        assert_eq!(items.len(), 3);
+    }
+
+    #[test]
+    fn test_generate_checklist_from_multiple_categories() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "ホテル",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(crate::models::ItineraryCategory::Hotel),
+        )
+        .unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            2,
+            "ビーチ",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(crate::models::ItineraryCategory::Beach),
+        )
+        .unwrap();
+
+        let result = generate_checklist_from_itinerary(&conn, trip_id).unwrap();
+        assert_eq!(result.added.len(), 6);
+        assert!(result.added.contains(&"水着".to_string()));
+        assert!(result.added.contains(&"宿泊予約確認".to_string()));
+    }
+
+    #[test]
+    fn test_generate_checklist_skips_duplicate_title() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        add_checklist_item(&conn, trip_id, "タオル").unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "ビーチ",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(crate::models::ItineraryCategory::Beach),
+        )
+        .unwrap();
+
+        let result = generate_checklist_from_itinerary(&conn, trip_id).unwrap();
+        assert_eq!(result.added.len(), 2);
+        assert_eq!(result.skipped.len(), 1);
+        assert!(result.added.contains(&"水着".to_string()));
+        assert!(result.added.contains(&"日焼け止め".to_string()));
+        assert!(result.skipped.contains(&"タオル".to_string()));
+    }
+
+    #[test]
+    fn test_generate_checklist_sort_order_after_max() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let existing_id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
+        update_checklist_item(&conn, existing_id, None, Some(3)).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "ホテル",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(crate::models::ItineraryCategory::Hotel),
+        )
+        .unwrap();
+
+        generate_checklist_from_itinerary(&conn, trip_id).unwrap();
+
+        let items = list_checklist_items(&conn, trip_id).unwrap();
+        let hotel_items: Vec<_> = items.iter().filter(|i| i.title != "パスポート").collect();
+        assert_eq!(hotel_items.len(), 3);
+        assert_eq!(hotel_items[0].sort_order, 4);
+        assert_eq!(hotel_items[1].sort_order, 5);
+        assert_eq!(hotel_items[2].sort_order, 6);
+    }
+
+    #[test]
+    fn test_generate_checklist_ignores_items_without_category() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "首里城",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "ビーチ",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(crate::models::ItineraryCategory::Beach),
+        )
+        .unwrap();
+
+        let result = generate_checklist_from_itinerary(&conn, trip_id).unwrap();
+        assert_eq!(result.added.len(), 3);
+        assert!(result.added.contains(&"水着".to_string()));
+    }
+
+    #[test]
+    fn test_generate_checklist_succeeds_with_zero_additions() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "首里城",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let result = generate_checklist_from_itinerary(&conn, trip_id).unwrap();
+        assert!(result.added.is_empty());
+        assert!(result.skipped.is_empty());
+        assert!(list_checklist_items(&conn, trip_id).unwrap().is_empty());
     }
 }
