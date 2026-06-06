@@ -1,3 +1,4 @@
+mod advisor;
 mod checklist;
 mod db;
 mod diff;
@@ -132,6 +133,11 @@ enum TripAction {
     },
     /// 旅行計画を点検する
     Doctor {
+        /// 旅行 ID
+        trip_id: i64,
+    },
+    /// 旅行計画の改善提案を表示する
+    Advisor {
         /// 旅行 ID
         trip_id: i64,
     },
@@ -487,6 +493,9 @@ fn main() -> Result<()> {
             }
             TripAction::Doctor { trip_id } => {
                 crate::doctor::run_trip_doctor(&conn, trip_id)?;
+            }
+            TripAction::Advisor { trip_id } => {
+                crate::advisor::run_trip_advisor(&conn, trip_id)?;
             }
         },
     }

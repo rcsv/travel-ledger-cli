@@ -1,0 +1,21 @@
+# trip advisor validation: missing duration
+# Generated: 2026-06-06T12:05:19Z
+#
+# MissingDuration warning + advice
+#
+# Command: cargo run -- trip advisor 1
+
+Trip Advisor
+============
+
+Trip: Missing Duration Trip
+
+Warning
+-------
+- 1 itinerary has no duration estimate
+
+Advice
+------
+- Add an estimated duration.
+- Even a rough estimate improves planning quality.
+

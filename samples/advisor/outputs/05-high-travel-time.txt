@@ -1,0 +1,21 @@
+# trip advisor validation: high travel time
+# Generated: 2026-06-06T12:05:17Z
+#
+# HighTravelTime warning + advice
+#
+# Command: cargo run -- trip advisor 1
+
+Trip Advisor
+============
+
+Trip: High Travel Trip
+
+Warning
+-------
+- Day 1 has high travel time (3h25m)
+
+Advice
+------
+- Consider reducing travel time.
+- Group nearby attractions together.
+

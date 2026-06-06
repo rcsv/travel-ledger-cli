@@ -1,0 +1,19 @@
+# trip advisor validation: empty itinerary
+# Generated: 2026-06-06T12:05:04Z
+#
+# Info + EmptyItinerary advice
+#
+# Command: cargo run -- trip advisor 1
+
+Trip Advisor
+============
+
+Trip: Empty Trip
+
+Info
+----
+- No itinerary found.
+
+Advice
+------
+- Start by adding at least one itinerary.

@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use rusqlite::Connection;
 
-use crate::models::{ItineraryCategory, ItineraryItem};
-use crate::stats::format_minutes_duration;
+use crate::models::{DoctorIssue, DoctorIssueCode, ItineraryCategory, ItineraryItem};
 
 const MAX_ITINERARIES_PER_DAY: usize = 7;
 const MAX_TRAVEL_MINUTES_PER_DAY: i64 = 180;
@@ -16,54 +15,59 @@ pub(crate) struct DoctorReport {
     pub info: Vec<String>,
 }
 
-fn format_missing_duration_warning(count: usize) -> String {
-    if count == 1 {
-        "1 itinerary has no duration estimate".to_string()
-    } else {
-        format!("{count} itineraries have no duration estimate")
-    }
-}
-
-/// 旅行計画を分析し、警告と提案を返す
-pub(crate) fn analyze_trip(conn: &Connection, trip_id: i64) -> Result<DoctorReport> {
+/// 旅行計画の問題一覧を構造化して返す
+pub(crate) fn analyze_trip_issues(conn: &Connection, trip_id: i64) -> Result<Vec<DoctorIssue>> {
     crate::trip::get_trip(conn, trip_id)?;
     let items = crate::itinerary::list_itinerary_items(conn, trip_id)?;
+    Ok(collect_trip_issues(&items))
+}
 
+fn collect_trip_issues(items: &[ItineraryItem]) -> Vec<DoctorIssue> {
     if items.is_empty() {
-        return Ok(DoctorReport {
-            warnings: vec![],
-            suggestions: vec![],
-            info: vec!["No itinerary found.".to_string()],
-        });
+        return vec![DoctorIssue {
+            code: DoctorIssueCode::EmptyItinerary,
+            day: None,
+            itinerary_count: None,
+            missing_duration_count: None,
+            travel_minutes: None,
+        }];
     }
 
     let mut by_day: HashMap<i64, Vec<&ItineraryItem>> = HashMap::new();
-    for item in &items {
+    for item in items {
         by_day.entry(item.day).or_default().push(item);
     }
 
     let mut days: Vec<i64> = by_day.keys().copied().collect();
     days.sort_unstable();
 
-    let mut warnings = Vec::new();
-    let mut suggestions = Vec::new();
+    let mut issues = Vec::new();
 
     for day in days {
         let day_items = &by_day[&day];
         let count = day_items.len();
 
         if count >= MAX_ITINERARIES_PER_DAY {
-            warnings.push(format!("Day {day} has many itineraries ({count})"));
+            issues.push(DoctorIssue {
+                code: DoctorIssueCode::OverloadedDay,
+                day: Some(day),
+                itinerary_count: Some(count),
+                missing_duration_count: None,
+                travel_minutes: None,
+            });
         }
 
         let has_restaurant = day_items
             .iter()
             .any(|item| item.category == Some(ItineraryCategory::Restaurant));
         if !has_restaurant {
-            warnings.push(format!("Day {day} has no restaurant"));
-            suggestions.push(format!(
-                "Consider adding a lunch or dinner plan to Day {day}"
-            ));
+            issues.push(DoctorIssue {
+                code: DoctorIssueCode::NoRestaurant,
+                day: Some(day),
+                itinerary_count: None,
+                missing_duration_count: None,
+                travel_minutes: None,
+            });
         }
 
         let travel_total: i64 = day_items
@@ -71,11 +75,13 @@ pub(crate) fn analyze_trip(conn: &Connection, trip_id: i64) -> Result<DoctorRepo
             .filter_map(|item| item.travel_minutes)
             .sum();
         if travel_total >= MAX_TRAVEL_MINUTES_PER_DAY {
-            warnings.push(format!(
-                "Day {day} has high travel time ({})",
-                format_minutes_duration(travel_total)
-            ));
-            suggestions.push(format!("Consider reducing travel time on Day {day}"));
+            issues.push(DoctorIssue {
+                code: DoctorIssueCode::HighTravelTime,
+                day: Some(day),
+                itinerary_count: None,
+                missing_duration_count: None,
+                travel_minutes: Some(travel_total),
+            });
         }
     }
 
@@ -84,14 +90,59 @@ pub(crate) fn analyze_trip(conn: &Connection, trip_id: i64) -> Result<DoctorRepo
         .filter(|item| item.duration_minutes.is_none())
         .count();
     if missing_duration > 0 {
-        warnings.push(format_missing_duration_warning(missing_duration));
+        issues.push(DoctorIssue {
+            code: DoctorIssueCode::MissingDuration,
+            day: None,
+            itinerary_count: None,
+            missing_duration_count: Some(missing_duration),
+            travel_minutes: None,
+        });
     }
 
-    Ok(DoctorReport {
+    issues
+}
+
+fn issues_to_doctor_report(issues: &[DoctorIssue]) -> DoctorReport {
+    let mut warnings = Vec::new();
+    let mut suggestions = Vec::new();
+    let mut info = Vec::new();
+
+    for issue in issues {
+        match issue.code {
+            DoctorIssueCode::EmptyItinerary => {
+                info.push(issue.warning_message());
+            }
+            DoctorIssueCode::NoRestaurant => {
+                warnings.push(issue.warning_message());
+                if let Some(day) = issue.day {
+                    suggestions.push(format!(
+                        "Consider adding a lunch or dinner plan to Day {day}"
+                    ));
+                }
+            }
+            DoctorIssueCode::HighTravelTime => {
+                warnings.push(issue.warning_message());
+                if let Some(day) = issue.day {
+                    suggestions.push(format!("Consider reducing travel time on Day {day}"));
+                }
+            }
+            DoctorIssueCode::OverloadedDay | DoctorIssueCode::MissingDuration => {
+                warnings.push(issue.warning_message());
+            }
+        }
+    }
+
+    DoctorReport {
         warnings,
         suggestions,
-        info: vec![],
-    })
+        info,
+    }
+}
+
+/// 旅行計画を分析し、警告と提案を返す
+pub(crate) fn analyze_trip(conn: &Connection, trip_id: i64) -> Result<DoctorReport> {
+    let issues = analyze_trip_issues(conn, trip_id)?;
+    Ok(issues_to_doctor_report(&issues))
 }
 
 /// 旅行計画の点検結果を表示する
@@ -181,6 +232,11 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w == "Day 2 has many itineraries (8)"));
+
+        let issues = analyze_trip_issues(&conn, trip_id).unwrap();
+        assert!(issues
+            .iter()
+            .any(|issue| issue.code == DoctorIssueCode::OverloadedDay));
     }
 
     #[test]
@@ -334,6 +390,7 @@ mod tests {
         assert!(report.warnings.is_empty());
         assert!(report.suggestions.is_empty());
         assert!(report.info.is_empty());
+        assert!(analyze_trip_issues(&conn, trip_id).unwrap().is_empty());
     }
 
     #[test]
@@ -345,6 +402,10 @@ mod tests {
         assert!(report.warnings.is_empty());
         assert!(report.suggestions.is_empty());
         assert_eq!(report.info, vec!["No itinerary found.".to_string()]);
+
+        let issues = analyze_trip_issues(&conn, trip_id).unwrap();
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, DoctorIssueCode::EmptyItinerary);
         run_trip_doctor(&conn, trip_id).unwrap();
     }
 }

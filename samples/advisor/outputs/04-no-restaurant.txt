@@ -1,0 +1,20 @@
+# trip advisor validation: no restaurant
+# Generated: 2026-06-06T12:05:13Z
+#
+# NoRestaurant warning + advice
+#
+# Command: cargo run -- trip advisor 1
+
+Trip Advisor
+============
+
+Trip: No Restaurant Trip
+
+Warning
+-------
+- Day 1 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+

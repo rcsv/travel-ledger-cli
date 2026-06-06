@@ -17,6 +17,7 @@ Caglla.Travel のコマンドライン版です。旅行の計画を、ターミ
 - **Markdown エクスポート**（`trip export-md`）による旅行しおり出力
 - **trip stats** による旅行統計（日数・件数・カテゴリ内訳・時間集計・チェックリスト進捗）
 - **trip doctor** による旅行計画の簡易点検（予定過多・食事不足・移動時間など）
+- **trip advisor** による旅行計画の改善提案（doctor が検出した問題への具体的アドバイス）
 - **db reset** による開発用 DB 初期化
 
 ## 必要な環境
@@ -331,6 +332,53 @@ Info
 bash samples/trip_doctor/generate_outputs.sh
 ```
 
+### 旅行計画の改善提案（trip advisor）
+
+`trip doctor` が検出した問題に対し、ルールベースで具体的な改善提案を表示します。
+
+| コマンド | 役割 |
+|---|---|
+| `trip doctor` | 問題の検出（Warnings / Suggestions / Info） |
+| `trip advisor` | 問題ごとの改善提案（Warning + Advice） |
+
+```bash
+cargo run -- trip advisor 1
+```
+
+出力例:
+
+```
+Trip Advisor
+============
+
+Trip: High Travel Trip
+
+Warning
+-------
+- Day 1 has high travel time (3h25m)
+
+Advice
+------
+- Consider reducing travel time.
+- Group nearby attractions together.
+
+Warning
+-------
+- Day 2 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+```
+
+問題がない場合は `No major issues found.` を表示します。itinerary 0件の場合は `Info` と改善提案を表示します。
+
+検証用の実出力サンプルは [`samples/advisor/`](samples/advisor/) を参照してください。再生成:
+
+```bash
+bash samples/advisor/generate_outputs.sh
+```
+
 ### JSON インポート
 
 `export` で出力した JSON を読み込み、**新しい Trip として**登録します。
@@ -597,10 +645,13 @@ caglla-cli/
 │   ├── markdown.rs   # trip export-md
 │   ├── stats.rs      # trip stats
 │   ├── doctor.rs     # trip doctor
+│   ├── advisor.rs    # trip advisor
 │   └── diff.rs       # trip diff
 ├── samples/
 │   ├── markdown_sample_commands.sh  # Markdown Export 確認用データ投入
-│   └── trip_doctor/                 # trip doctor 検証用サンプル・実出力
+│   ├── trip_doctor/                 # trip doctor 検証用サンプル・実出力
+│   ├── checklist_generate/          # checklist-generate 検証用サンプル
+│   └── advisor/                     # trip advisor 検証用サンプル
 ├── docs/
 │   └── releases/                    # GitHub Release 用ノート
 ├── Cargo.toml

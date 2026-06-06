@@ -1,0 +1,21 @@
+# trip advisor validation: overloaded day
+# Generated: 2026-06-06T12:05:11Z
+#
+# OverloadedDay warning + advice
+#
+# Command: cargo run -- trip advisor 1
+
+Trip Advisor
+============
+
+Trip: Overloaded Trip
+
+Warning
+-------
+- Day 1 has many itineraries (8)
+
+Advice
+------
+- Consider moving some activities to another day.
+- Leave buffer time for delays and rest.
+

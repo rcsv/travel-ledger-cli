@@ -1,0 +1,63 @@
+# trip advisor validation: combined issues
+# Generated: 2026-06-06T12:05:27Z
+#
+# 複数 issue ごとに Warning + Advice
+#
+# Command: cargo run -- trip advisor 1
+
+Trip Advisor
+============
+
+Trip: Combined Issues Trip
+
+Warning
+-------
+- Day 1 has many itineraries (8)
+
+Advice
+------
+- Consider moving some activities to another day.
+- Leave buffer time for delays and rest.
+
+Warning
+-------
+- Day 1 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+
+Warning
+-------
+- Day 1 has high travel time (3h20m)
+
+Advice
+------
+- Consider reducing travel time.
+- Group nearby attractions together.
+
+Warning
+-------
+- Day 2 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+
+Warning
+-------
+- Day 3 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+
+Warning
+-------
+- 1 itinerary has no duration estimate
+
+Advice
+------
+- Add an estimated duration.
+- Even a rough estimate improves planning quality.
+
