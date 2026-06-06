@@ -140,6 +140,9 @@ enum TripAction {
     Advisor {
         /// 旅行 ID
         trip_id: i64,
+        /// 改善提案に加えて次に試せる CLI コマンド例を表示する
+        #[arg(long)]
+        with_commands: bool,
     },
 }
 
@@ -494,8 +497,11 @@ fn main() -> Result<()> {
             TripAction::Doctor { trip_id } => {
                 crate::doctor::run_trip_doctor(&conn, trip_id)?;
             }
-            TripAction::Advisor { trip_id } => {
-                crate::advisor::run_trip_advisor(&conn, trip_id)?;
+            TripAction::Advisor {
+                trip_id,
+                with_commands,
+            } => {
+                crate::advisor::run_trip_advisor(&conn, trip_id, with_commands)?;
             }
         },
     }

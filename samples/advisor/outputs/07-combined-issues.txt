@@ -1,5 +1,5 @@
 # trip advisor validation: combined issues
-# Generated: 2026-06-06T12:05:27Z
+# Generated: 2026-06-06T15:41:04Z
 #
 # 複数 issue ごとに Warning + Advice
 #

@@ -1,73 +1,79 @@
-# trip advisor 確認サマリー (v0.8.0)
+# trip advisor 検証サマリー
 
-生成日: 2026-06-06  
-再生成: `bash samples/advisor/generate_outputs.sh`
+検証日: 2026-06-06  
+バージョン: v0.8.1（`--with-commands` 追加）  
+再生成:
 
-## 01-clean-trip
+```bash
+bash samples/advisor/generate_outputs.sh
+bash samples/advisor/generate_outputs_with_commands.sh
+```
 
-- **expected purpose**: 問題なし。advisor も issues なし。
-- **actual output file**: [`outputs/01-clean-trip.txt`](outputs/01-clean-trip.txt)
-- **confirmed points**:
-  - `No major issues found.` が表示される
-  - `Warning` / `Advice` ブロックは出ない
+## 品質確認
 
-## 02-empty-itinerary
+- cargo fmt: OK（警告・エラーなし）
+- cargo clippy: OK（`-D warnings`、警告なし）
+- cargo test: OK（101 passed, 0 failed）
+- cargo build: OK
 
-- **expected purpose**: EmptyItinerary → Info + advice。
-- **actual output file**: [`outputs/02-empty-itinerary.txt`](outputs/02-empty-itinerary.txt)
-- **confirmed points**:
-  - `Info` に `- No itinerary found.`
-  - `Advice` に `- Start by adding at least one itinerary.`
+## CLI コマンド体系（表記整合）
 
-## 03-overloaded-day
+| 種別 | 形式 | 例 |
+|---|---|---|
+| Trip 系 | `cargo run -- trip ...` | `trip advisor 1`, `trip doctor 1` |
+| Itinerary 系 | `cargo run -- itinerary ...` | `itinerary add`, `itinerary list`, `itinerary timeline` |
+| カテゴリ設定 | `itinerary update --category` | add 時点では不可 |
 
-- **expected purpose**: OverloadedDay → Warning + 2件の advice。
-- **actual output file**: [`outputs/03-overloaded-day.txt`](outputs/03-overloaded-day.txt)
-- **confirmed points**:
-  - `- Day 1 has many itineraries (8)`
-  - `- Consider moving some activities to another day.`
-  - `- Leave buffer time for delays and rest.`
+README / samples / `Try` 出力は上記に統一。`trip itinerary ...` 表記はリポジトリ内に存在しない。
 
-## 04-no-restaurant
+## サンプル確認（通常 `trip advisor`）
 
-- **expected purpose**: NoRestaurant → Warning + advice。
-- **actual output file**: [`outputs/04-no-restaurant.txt`](outputs/04-no-restaurant.txt)
-- **confirmed points**:
-  - `- Day 1 has no restaurant`
-  - `- Consider adding a lunch or dinner plan.`
+| Sample | Expected issue | Expected advice | Result |
+|---|---|---|---|
+| 01-clean-trip | none | no major issues / no advice | OK |
+| 02-empty-itinerary | EmptyItinerary | Start by adding at least one itinerary. | OK |
+| 03-overloaded-day | OverloadedDay | move activities / leave buffer time | OK |
+| 04-no-restaurant | NoRestaurant | add lunch or dinner plan | OK |
+| 05-high-travel-time | HighTravelTime | reduce travel time / group nearby attractions | OK |
+| 06-missing-duration | MissingDuration | add estimated duration | OK |
+| 07-combined-issues | multiple | all corresponding advice | OK |
 
-## 05-high-travel-time
+出力: [`outputs/`](outputs/) — `Try` なし
 
-- **expected purpose**: HighTravelTime → Warning + 2件の advice。
-- **actual output file**: [`outputs/05-high-travel-time.txt`](outputs/05-high-travel-time.txt)
-- **confirmed points**:
-  - `- Day 1 has high travel time (3h25m)`
-  - `- Consider reducing travel time.`
-  - `- Group nearby attractions together.`
+## `--with-commands` 確認
 
-## 06-missing-duration
+| Sample | Expected Try | Result |
+|---|---|---|
+| 01-clean-trip | Try なし | OK |
+| 02-empty-itinerary | `itinerary add ... "First activity"` | OK |
+| 03-overloaded-day | `itinerary timeline` + `itinerary list` | OK |
+| 04-no-restaurant | `itinerary add` + `itinerary update --category restaurant` | OK |
+| 05-high-travel-time | `itinerary timeline` + `itinerary list` | OK |
+| 06-missing-duration | `itinerary list` | OK |
+| 07-combined-issues | 各 issue に Advice + Try（Day 2/3 反映） | OK |
 
-- **expected purpose**: MissingDuration → Warning + 2件の advice。
-- **actual output file**: [`outputs/06-missing-duration.txt`](outputs/06-missing-duration.txt)
-- **confirmed points**:
-  - `- 1 itinerary has no duration estimate`
-  - `- Add an estimated duration.`
-  - `- Even a rough estimate improves planning quality.`
+出力: [`outputs_with_commands/`](outputs_with_commands/)
 
-## 07-combined-issues
+### Try コマンド実行確認
 
-- **expected purpose**: 複数 issue ごとに Warning + Advice ペアが表示される。
-- **actual output file**: [`outputs/07-combined-issues.txt`](outputs/07-combined-issues.txt)
-- **confirmed points**:
-  - Day 1: overloaded / no restaurant / high travel time それぞれ advice 付き
-  - Day 2 / Day 3: no restaurant + missing duration も個別ブロック
-  - doctor の Suggestions 一覧ではなく、issue 単位の Advice 形式
-
-## doctor との関係
-
-| コマンド | 役割 |
+| コマンド | 結果 |
 |---|---|
-| `trip doctor` | 問題検出（Warnings / Suggestions / Info） |
-| `trip advisor` | 問題ごとの改善提案（Warning + Advice） |
+| `itinerary add 1 --day 1 --time 12:00 --duration 60 "Lunch"` | OK |
+| `itinerary update 1 --category restaurant` | OK |
+| `itinerary timeline 1` | OK |
+| `itinerary list 1` | OK |
+| `itinerary add ... --category restaurant`（旧 Try 形式） | NG（add は `--category` 非対応）→ 2 段階に修正済み |
 
-doctor の既存出力形式は `analyze_trip_issues` 経由でも維持されています。
+## doctor / advisor 整合確認
+
+- doctor と advisor の issue 検出結果: **整合**
+- warning 表示の整合: **整合**
+- advice 欠落: **なし**
+- `--with-commands` は doctor 出力に影響なし
+
+## 総合判断
+
+v0.8.1 の `trip advisor --with-commands` は意図通り動作しているか:
+
+- OK
+- 理由: 品質ゲート成功。CLI 表記整合。Try コマンドは手動実行で成功（NoRestaurant は add + update の 2 段階）。

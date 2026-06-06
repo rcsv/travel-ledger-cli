@@ -27,8 +27,67 @@ pub(crate) fn generate_advice(issue: &DoctorIssue) -> Vec<String> {
     }
 }
 
+/// issue メッセージから Day N を抽出する（例: `Day 1 has no restaurant`）
+pub(crate) fn extract_day_from_message(message: &str) -> Option<i64> {
+    let rest = message.strip_prefix("Day ")?;
+    let day_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    if day_str.is_empty() {
+        return None;
+    }
+    day_str.parse().ok()
+}
+
+fn day_for_issue(issue: &DoctorIssue) -> i64 {
+    let day = issue
+        .day
+        .or_else(|| extract_day_from_message(&issue.warning_message()));
+    match day {
+        Some(d) if d > 0 => d,
+        _ => 1,
+    }
+}
+
+/// 1件の issue に対する CLI コマンド例を生成する
+pub(crate) fn generate_command_hints(issue: &DoctorIssue, trip_id: i64) -> Vec<String> {
+    match issue.code {
+        DoctorIssueCode::EmptyItinerary => vec![format!(
+            r#"cargo run -- itinerary add {trip_id} --day 1 --time 09:00 --duration 60 "First activity""#
+        )],
+        DoctorIssueCode::NoRestaurant => {
+            let day = day_for_issue(issue);
+            vec![
+                format!(
+                    r#"cargo run -- itinerary add {trip_id} --day {day} --time 12:00 --duration 60 "Lunch""#
+                ),
+                "cargo run -- itinerary update <itinerary_id> --category restaurant".to_string(),
+            ]
+        }
+        DoctorIssueCode::HighTravelTime | DoctorIssueCode::OverloadedDay => vec![
+            format!("cargo run -- itinerary timeline {trip_id}"),
+            format!("cargo run -- itinerary list {trip_id}"),
+        ],
+        DoctorIssueCode::MissingDuration => {
+            vec![format!("cargo run -- itinerary list {trip_id}")]
+        }
+    }
+}
+
+fn format_try_section(issue: &DoctorIssue, trip_id: i64) -> String {
+    let hints = generate_command_hints(issue, trip_id);
+    if hints.is_empty() {
+        return String::new();
+    }
+
+    let mut section = String::from("\nTry\n---\n");
+    for hint in hints {
+        section.push_str(&hint);
+        section.push('\n');
+    }
+    section
+}
+
 /// 旅行計画の改善提案を表示する
-pub(crate) fn run_trip_advisor(conn: &Connection, trip_id: i64) -> Result<()> {
+pub(crate) fn run_trip_advisor(conn: &Connection, trip_id: i64, with_commands: bool) -> Result<()> {
     let trip = crate::trip::get_trip(conn, trip_id)?;
     let issues = crate::doctor::analyze_trip_issues(conn, trip_id)?;
 
@@ -50,7 +109,7 @@ pub(crate) fn run_trip_advisor(conn: &Connection, trip_id: i64) -> Result<()> {
         println!("----");
         println!("- {}", issue.warning_message());
         println!();
-        print_advice_block(issue);
+        print_issue_followup(issue, trip_id, with_commands);
         return Ok(());
     }
 
@@ -62,7 +121,7 @@ pub(crate) fn run_trip_advisor(conn: &Connection, trip_id: i64) -> Result<()> {
         println!("-------");
         println!("- {}", issue.warning_message());
         println!();
-        print_advice_block(issue);
+        print_issue_followup(issue, trip_id, with_commands);
         println!();
     }
 
@@ -74,6 +133,16 @@ fn print_advice_block(issue: &DoctorIssue) {
     println!("------");
     for advice in generate_advice(issue) {
         println!("- {advice}");
+    }
+}
+
+fn print_issue_followup(issue: &DoctorIssue, trip_id: i64, with_commands: bool) {
+    print_advice_block(issue);
+    if with_commands {
+        let try_section = format_try_section(issue, trip_id);
+        if !try_section.is_empty() {
+            print!("{try_section}");
+        }
     }
 }
 
@@ -145,6 +214,170 @@ mod advisor_tests {
     }
 
     #[test]
+    fn test_extract_day_from_message() {
+        assert_eq!(extract_day_from_message("Day 1 has no restaurant"), Some(1));
+        assert_eq!(
+            extract_day_from_message("Day 3 has high travel time (3h25m)"),
+            Some(3)
+        );
+        assert_eq!(
+            extract_day_from_message("Day 2 has many itineraries (8)"),
+            Some(2)
+        );
+        assert_eq!(
+            extract_day_from_message("1 itinerary has no duration estimate"),
+            None
+        );
+        assert_eq!(extract_day_from_message("No itinerary found."), None);
+    }
+
+    #[test]
+    fn test_extract_day_from_message_does_not_panic_on_unexpected_input() {
+        assert_eq!(extract_day_from_message(""), None);
+        assert_eq!(extract_day_from_message("Day has no restaurant"), None);
+        assert_eq!(extract_day_from_message("Unexpected warning"), None);
+    }
+
+    #[test]
+    fn test_generate_command_hints_for_each_issue_code() {
+        let trip_id = 1;
+
+        let empty = DoctorIssue {
+            code: DoctorIssueCode::EmptyItinerary,
+            day: None,
+            itinerary_count: None,
+            missing_duration_count: None,
+            travel_minutes: None,
+        };
+        assert_eq!(
+            generate_command_hints(&empty, trip_id),
+            vec![r#"cargo run -- itinerary add 1 --day 1 --time 09:00 --duration 60 "First activity""#
+                .to_string()]
+        );
+
+        let restaurant = DoctorIssue {
+            code: DoctorIssueCode::NoRestaurant,
+            day: Some(2),
+            itinerary_count: None,
+            missing_duration_count: None,
+            travel_minutes: None,
+        };
+        assert_eq!(
+            generate_command_hints(&restaurant, trip_id),
+            vec![
+                r#"cargo run -- itinerary add 1 --day 2 --time 12:00 --duration 60 "Lunch""#
+                    .to_string(),
+                "cargo run -- itinerary update <itinerary_id> --category restaurant".to_string(),
+            ]
+        );
+
+        let travel = DoctorIssue {
+            code: DoctorIssueCode::HighTravelTime,
+            day: Some(1),
+            itinerary_count: None,
+            missing_duration_count: None,
+            travel_minutes: Some(205),
+        };
+        assert_eq!(
+            generate_command_hints(&travel, trip_id),
+            vec![
+                "cargo run -- itinerary timeline 1".to_string(),
+                "cargo run -- itinerary list 1".to_string(),
+            ]
+        );
+
+        let duration = DoctorIssue {
+            code: DoctorIssueCode::MissingDuration,
+            day: None,
+            itinerary_count: None,
+            missing_duration_count: Some(1),
+            travel_minutes: None,
+        };
+        assert_eq!(
+            generate_command_hints(&duration, trip_id),
+            vec!["cargo run -- itinerary list 1".to_string()]
+        );
+
+        let overloaded = DoctorIssue {
+            code: DoctorIssueCode::OverloadedDay,
+            day: Some(1),
+            itinerary_count: Some(8),
+            missing_duration_count: None,
+            travel_minutes: None,
+        };
+        assert_eq!(
+            generate_command_hints(&overloaded, trip_id),
+            vec![
+                "cargo run -- itinerary timeline 1".to_string(),
+                "cargo run -- itinerary list 1".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_no_restaurant_uses_day_from_message_when_day_field_missing() {
+        let issue = DoctorIssue {
+            code: DoctorIssueCode::NoRestaurant,
+            day: None,
+            itinerary_count: None,
+            missing_duration_count: None,
+            travel_minutes: None,
+        };
+        let hints = generate_command_hints(&issue, 5);
+        assert_eq!(hints.len(), 2);
+        assert!(hints[0].contains("--day 1"));
+        assert!(hints[1].contains("--category restaurant"));
+    }
+
+    #[test]
+    fn test_format_try_section_only_when_with_commands() {
+        let issue = DoctorIssue {
+            code: DoctorIssueCode::NoRestaurant,
+            day: Some(1),
+            itinerary_count: None,
+            missing_duration_count: None,
+            travel_minutes: None,
+        };
+
+        let advice_only = {
+            let mut lines = vec!["Advice".to_string(), "------".to_string()];
+            for advice in generate_advice(&issue) {
+                lines.push(format!("- {advice}"));
+            }
+            lines.join("\n")
+        };
+        let try_section = format_try_section(&issue, 1);
+
+        assert!(!advice_only.contains("Try"));
+        assert!(try_section.contains("Try"));
+        assert!(try_section.contains("itinerary add 1 --day 1"));
+        assert!(try_section.contains("update <itinerary_id> --category restaurant"));
+    }
+
+    #[test]
+    fn test_clean_trip_has_no_issues_and_no_try_sections() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "問題なし旅行", None, None).unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "昼食",
+            None,
+            None,
+            Some(1),
+            Some(60),
+            Some(20),
+            None,
+            Some(ItineraryCategory::Restaurant),
+        )
+        .unwrap();
+
+        let issues = crate::doctor::analyze_trip_issues(&conn, trip_id).unwrap();
+        assert!(issues.is_empty());
+    }
+
+    #[test]
     fn test_advisor_clean_trip_has_no_issues_message() {
         let conn = test_db();
         let trip_id = add_trip(&conn, "問題なし旅行", None, None).unwrap();
@@ -176,7 +409,20 @@ mod advisor_tests {
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].code, DoctorIssueCode::EmptyItinerary);
         assert_eq!(generate_advice(&issues[0]).len(), 1);
-        run_trip_advisor(&conn, trip_id).unwrap();
+        run_trip_advisor(&conn, trip_id, false).unwrap();
+    }
+
+    #[test]
+    fn test_advisor_empty_itinerary_with_commands_includes_try() {
+        let issue = DoctorIssue {
+            code: DoctorIssueCode::EmptyItinerary,
+            day: None,
+            itinerary_count: None,
+            missing_duration_count: None,
+            travel_minutes: None,
+        };
+        let try_section = format_try_section(&issue, 1);
+        assert!(try_section.contains("itinerary add 1"));
     }
 
     #[test]

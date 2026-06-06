@@ -1,0 +1,26 @@
+# trip advisor --with-commands validation: high travel time
+# Generated: 2026-06-06T15:41:19Z
+#
+# HighTravelTime warning + advice + timeline/list Try
+#
+# Command: cargo run -- trip advisor 1 --with-commands
+
+Trip Advisor
+============
+
+Trip: High Travel Trip
+
+Warning
+-------
+- Day 1 has high travel time (3h25m)
+
+Advice
+------
+- Consider reducing travel time.
+- Group nearby attractions together.
+
+Try
+---
+cargo run -- itinerary timeline 1
+cargo run -- itinerary list 1
+

@@ -1,0 +1,92 @@
+# trip advisor --with-commands validation: combined issues
+# Generated: 2026-06-06T15:41:30Z
+#
+# 複数 issue ごとに Warning + Advice + Try
+#
+# Command: cargo run -- trip advisor 1 --with-commands
+
+Trip Advisor
+============
+
+Trip: Combined Issues Trip
+
+Warning
+-------
+- Day 1 has many itineraries (8)
+
+Advice
+------
+- Consider moving some activities to another day.
+- Leave buffer time for delays and rest.
+
+Try
+---
+cargo run -- itinerary timeline 1
+cargo run -- itinerary list 1
+
+Warning
+-------
+- Day 1 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+
+Try
+---
+cargo run -- itinerary add 1 --day 1 --time 12:00 --duration 60 "Lunch"
+cargo run -- itinerary update <itinerary_id> --category restaurant
+
+Warning
+-------
+- Day 1 has high travel time (3h20m)
+
+Advice
+------
+- Consider reducing travel time.
+- Group nearby attractions together.
+
+Try
+---
+cargo run -- itinerary timeline 1
+cargo run -- itinerary list 1
+
+Warning
+-------
+- Day 2 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+
+Try
+---
+cargo run -- itinerary add 1 --day 2 --time 12:00 --duration 60 "Lunch"
+cargo run -- itinerary update <itinerary_id> --category restaurant
+
+Warning
+-------
+- Day 3 has no restaurant
+
+Advice
+------
+- Consider adding a lunch or dinner plan.
+
+Try
+---
+cargo run -- itinerary add 1 --day 3 --time 12:00 --duration 60 "Lunch"
+cargo run -- itinerary update <itinerary_id> --category restaurant
+
+Warning
+-------
+- 1 itinerary has no duration estimate
+
+Advice
+------
+- Add an estimated duration.
+- Even a rough estimate improves planning quality.
+
+Try
+---
+cargo run -- itinerary list 1
+

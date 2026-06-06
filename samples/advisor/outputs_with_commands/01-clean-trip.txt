@@ -1,0 +1,13 @@
+# trip advisor --with-commands validation: clean trip
+# Generated: 2026-06-06T15:41:05Z
+#
+# 問題なし → No major issues found.（Try なし）
+#
+# Command: cargo run -- trip advisor 1 --with-commands
+
+Trip Advisor
+============
+
+Trip: Clean Trip
+
+No major issues found.

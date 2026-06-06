@@ -343,7 +343,12 @@ bash samples/trip_doctor/generate_outputs.sh
 
 ```bash
 cargo run -- trip advisor 1
+cargo run -- trip advisor 1 --with-commands
 ```
+
+`--with-commands` を指定すると、改善提案に加えて次に試せる CLI コマンド例を表示します。
+
+Note: `trip advisor` は Trip 系の診断コマンドですが、予定の追加・一覧・タイムライン確認は `itinerary ...` コマンドを使います。カテゴリ設定は `itinerary add` ではなく `itinerary update --category` で行います。
 
 出力例:
 
@@ -373,10 +378,13 @@ Advice
 
 問題がない場合は `No major issues found.` を表示します。itinerary 0件の場合は `Info` と改善提案を表示します。
 
+`--with-commands` 指定時は各 issue の Advice の後に `Try` セクションでコマンド例を表示します（問題がない clean trip では `Try` は出ません）。
+
 検証用の実出力サンプルは [`samples/advisor/`](samples/advisor/) を参照してください。再生成:
 
 ```bash
 bash samples/advisor/generate_outputs.sh
+bash samples/advisor/generate_outputs_with_commands.sh
 ```
 
 ### JSON インポート

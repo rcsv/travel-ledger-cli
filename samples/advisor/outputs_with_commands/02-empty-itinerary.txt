@@ -1,0 +1,23 @@
+# trip advisor --with-commands validation: empty itinerary
+# Generated: 2026-06-06T15:41:07Z
+#
+# Info + EmptyItinerary advice + itinerary add Try
+#
+# Command: cargo run -- trip advisor 1 --with-commands
+
+Trip Advisor
+============
+
+Trip: Empty Trip
+
+Info
+----
+- No itinerary found.
+
+Advice
+------
+- Start by adding at least one itinerary.
+
+Try
+---
+cargo run -- itinerary add 1 --day 1 --time 09:00 --duration 60 "First activity"
