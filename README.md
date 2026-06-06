@@ -20,6 +20,17 @@ Caglla.Travel のコマンドライン版です。旅行の計画を、ターミ
 - **trip advisor** による旅行計画の改善提案（doctor が検出した問題への具体的アドバイス）
 - **db reset** による開発用 DB 初期化
 
+## 制約・未対応機能
+
+v1.0.0 時点で README に記載している CLI の範囲外、または将来候補の機能です。
+
+| 項目 | 状態 |
+|---|---|
+| データ保存 | ローカル SQLite（`caglla.db`）のみ。Web 版・クラウド同期は未対応 |
+| JSON 出力（`--json`） | ツール連携・自動化向け。**内部仕様扱い**（構造は将来変更の可能性あり）。詳細は [JSON 出力について](#json-出力について) |
+| 費用管理・通貨換算 | 未対応 |
+| 類似旅行検索（Similarity） | 将来候補（現 CLI には未実装） |
+
 ## 必要な環境
 
 - [Rust](https://www.rust-lang.org/)（`cargo` が使えること）
@@ -40,7 +51,7 @@ cargo build
 |---|---|
 | Trip | `trip add`, `trip list`, `trip show`, `trip update`, `trip delete` |
 | Itinerary | `itinerary add`, `itinerary list`, `itinerary show`, `itinerary update`, `itinerary delete` |
-| Checklist | `checklist add`, `checklist list`, `checklist show`, `checklist check`, `checklist uncheck` |
+| Checklist | `checklist add`, `checklist list`, `checklist show`, `checklist update`, `checklist check`, `checklist uncheck`, `checklist delete` |
 | Timeline | `itinerary timeline` |
 | Stats | `trip stats` |
 | Doctor / Advisor | `trip doctor`, `trip advisor` |
@@ -51,7 +62,7 @@ cargo build
 ### DB
 
 - DB ファイル名: `caglla.db`（プロジェクト直下に作成されます）
-- 初回起動時に `trips` / `itinerary_items` テーブルが自動作成されます
+- 初回起動時に `trips` / `itinerary_items` / `checklist_items` テーブルが自動作成されます
 - 既存の DB がある場合は、不足している列を自動で追加します（マイグレーション）
 
 ### DB 初期化（開発用）
@@ -62,8 +73,7 @@ cargo build
 cargo run -- db reset
 ```
 
-- `itinerary_items` のデータを全削除
-- `trips` のデータを全削除
+- `checklist_items` / `itinerary_items` / `trips` のデータを全削除
 - テーブル定義は残す
 - ID の採番（AUTOINCREMENT）をリセット
 
