@@ -1,5 +1,5 @@
 # trip doctor validation: overloaded day
-# Generated: 2026-06-06T08:46:29Z
+# Generated: 2026-06-06T15:51:02Z
 #
 # Day 1 に 8件（7件以上で warning）
 #

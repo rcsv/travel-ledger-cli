@@ -1,5 +1,5 @@
 # trip advisor validation: combined issues
-# Generated: 2026-06-06T15:41:04Z
+# Generated: 2026-06-06T15:51:40Z
 #
 # 複数 issue ごとに Warning + Advice
 #
@@ -54,7 +54,7 @@ Advice
 
 Warning
 -------
-- 1 itinerary has no duration estimate
+- Itinerary 10 has no duration estimate
 
 Advice
 ------

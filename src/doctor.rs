@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use anyhow::Result;
 use rusqlite::Connection;
 
-use crate::models::{DoctorIssue, DoctorIssueCode, ItineraryCategory, ItineraryItem};
+use crate::models::{
+    DoctorIssue, DoctorIssueCode, DoctorIssueTarget, ItineraryCategory, ItineraryItem,
+};
 
 const MAX_ITINERARIES_PER_DAY: usize = 7;
 const MAX_TRAVEL_MINUTES_PER_DAY: i64 = 180;
@@ -26,9 +28,9 @@ fn collect_trip_issues(items: &[ItineraryItem]) -> Vec<DoctorIssue> {
     if items.is_empty() {
         return vec![DoctorIssue {
             code: DoctorIssueCode::EmptyItinerary,
+            target: DoctorIssueTarget::Trip,
             day: None,
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: None,
         }];
     }
@@ -50,9 +52,9 @@ fn collect_trip_issues(items: &[ItineraryItem]) -> Vec<DoctorIssue> {
         if count >= MAX_ITINERARIES_PER_DAY {
             issues.push(DoctorIssue {
                 code: DoctorIssueCode::OverloadedDay,
+                target: DoctorIssueTarget::Day(day),
                 day: Some(day),
                 itinerary_count: Some(count),
-                missing_duration_count: None,
                 travel_minutes: None,
             });
         }
@@ -63,9 +65,9 @@ fn collect_trip_issues(items: &[ItineraryItem]) -> Vec<DoctorIssue> {
         if !has_restaurant {
             issues.push(DoctorIssue {
                 code: DoctorIssueCode::NoRestaurant,
+                target: DoctorIssueTarget::Day(day),
                 day: Some(day),
                 itinerary_count: None,
-                missing_duration_count: None,
                 travel_minutes: None,
             });
         }
@@ -77,35 +79,46 @@ fn collect_trip_issues(items: &[ItineraryItem]) -> Vec<DoctorIssue> {
         if travel_total >= MAX_TRAVEL_MINUTES_PER_DAY {
             issues.push(DoctorIssue {
                 code: DoctorIssueCode::HighTravelTime,
+                target: DoctorIssueTarget::Day(day),
                 day: Some(day),
                 itinerary_count: None,
-                missing_duration_count: None,
                 travel_minutes: Some(travel_total),
             });
         }
     }
 
-    let missing_duration = items
-        .iter()
-        .filter(|item| item.duration_minutes.is_none())
-        .count();
-    if missing_duration > 0 {
-        issues.push(DoctorIssue {
-            code: DoctorIssueCode::MissingDuration,
-            day: None,
-            itinerary_count: None,
-            missing_duration_count: Some(missing_duration),
-            travel_minutes: None,
-        });
+    for item in items {
+        if item.duration_minutes.is_none() {
+            issues.push(DoctorIssue {
+                code: DoctorIssueCode::MissingDuration,
+                target: DoctorIssueTarget::Itinerary(item.id),
+                day: None,
+                itinerary_count: None,
+                travel_minutes: None,
+            });
+        }
     }
 
     issues
+}
+
+fn missing_duration_warning(count: usize) -> String {
+    if count == 1 {
+        "1 itinerary has no duration estimate".to_string()
+    } else {
+        format!("{count} itineraries have no duration estimate")
+    }
 }
 
 fn issues_to_doctor_report(issues: &[DoctorIssue]) -> DoctorReport {
     let mut warnings = Vec::new();
     let mut suggestions = Vec::new();
     let mut info = Vec::new();
+
+    let missing_duration_count = issues
+        .iter()
+        .filter(|issue| issue.code == DoctorIssueCode::MissingDuration)
+        .count();
 
     for issue in issues {
         match issue.code {
@@ -114,7 +127,7 @@ fn issues_to_doctor_report(issues: &[DoctorIssue]) -> DoctorReport {
             }
             DoctorIssueCode::NoRestaurant => {
                 warnings.push(issue.warning_message());
-                if let Some(day) = issue.day {
+                if let Some(day) = issue.target_day() {
                     suggestions.push(format!(
                         "Consider adding a lunch or dinner plan to Day {day}"
                     ));
@@ -122,14 +135,19 @@ fn issues_to_doctor_report(issues: &[DoctorIssue]) -> DoctorReport {
             }
             DoctorIssueCode::HighTravelTime => {
                 warnings.push(issue.warning_message());
-                if let Some(day) = issue.day {
+                if let Some(day) = issue.target_day() {
                     suggestions.push(format!("Consider reducing travel time on Day {day}"));
                 }
             }
-            DoctorIssueCode::OverloadedDay | DoctorIssueCode::MissingDuration => {
+            DoctorIssueCode::OverloadedDay => {
                 warnings.push(issue.warning_message());
             }
+            DoctorIssueCode::MissingDuration => {}
         }
+    }
+
+    if missing_duration_count > 0 {
+        warnings.push(missing_duration_warning(missing_duration_count));
     }
 
     DoctorReport {
@@ -206,6 +224,76 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_itinerary_has_trip_target() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "空の旅行", None, None).unwrap();
+
+        let issues = analyze_trip_issues(&conn, trip_id).unwrap();
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, DoctorIssueCode::EmptyItinerary);
+        assert_eq!(issues[0].target, DoctorIssueTarget::Trip);
+    }
+
+    #[test]
+    fn test_day_issues_have_day_target() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "食事なし旅行", None, None).unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            3,
+            "観光",
+            None,
+            None,
+            Some(1),
+            Some(90),
+            None,
+            None,
+            Some(ItineraryCategory::Activity),
+        )
+        .unwrap();
+
+        let issues = analyze_trip_issues(&conn, trip_id).unwrap();
+        let restaurant = issues
+            .iter()
+            .find(|issue| issue.code == DoctorIssueCode::NoRestaurant)
+            .expect("restaurant issue");
+        assert_eq!(restaurant.target, DoctorIssueTarget::Day(3));
+    }
+
+    #[test]
+    fn test_missing_duration_issues_have_itinerary_target() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "時間未設定旅行", None, None).unwrap();
+        for i in 1..=3 {
+            add_itinerary_item(
+                &conn,
+                trip_id,
+                1,
+                &format!("予定{i}"),
+                None,
+                None,
+                Some(i),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        }
+
+        let issues = analyze_trip_issues(&conn, trip_id).unwrap();
+        let missing: Vec<_> = issues
+            .iter()
+            .filter(|issue| issue.code == DoctorIssueCode::MissingDuration)
+            .collect();
+        assert_eq!(missing.len(), 3);
+        for issue in missing {
+            assert!(matches!(issue.target, DoctorIssueTarget::Itinerary(_)));
+        }
+    }
+
+    #[test]
     fn test_doctor_detects_many_itineraries_per_day() {
         let conn = test_db();
         let trip_id = add_trip(&conn, "詰め込み旅行", None, None).unwrap();
@@ -234,9 +322,11 @@ mod tests {
             .any(|w| w == "Day 2 has many itineraries (8)"));
 
         let issues = analyze_trip_issues(&conn, trip_id).unwrap();
-        assert!(issues
+        let overloaded = issues
             .iter()
-            .any(|issue| issue.code == DoctorIssueCode::OverloadedDay));
+            .find(|issue| issue.code == DoctorIssueCode::OverloadedDay)
+            .expect("overloaded issue");
+        assert_eq!(overloaded.target, DoctorIssueTarget::Day(2));
     }
 
     #[test]
@@ -311,6 +401,13 @@ mod tests {
             .suggestions
             .iter()
             .any(|s| s == "Consider reducing travel time on Day 4"));
+
+        let issues = analyze_trip_issues(&conn, trip_id).unwrap();
+        let travel = issues
+            .iter()
+            .find(|issue| issue.code == DoctorIssueCode::HighTravelTime)
+            .expect("travel issue");
+        assert_eq!(travel.target, DoctorIssueTarget::Day(4));
     }
 
     #[test]
@@ -337,6 +434,13 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w == "1 itinerary has no duration estimate"));
+
+        let issues = analyze_trip_issues(&conn, trip_id).unwrap();
+        let missing = issues
+            .iter()
+            .find(|issue| issue.code == DoctorIssueCode::MissingDuration)
+            .expect("missing duration issue");
+        assert!(matches!(missing.target, DoctorIssueTarget::Itinerary(_)));
     }
 
     #[test]

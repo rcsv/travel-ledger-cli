@@ -22,42 +22,64 @@ pub enum DoctorIssueCode {
     MissingDuration,
 }
 
+/// trip doctor / advisor が検出した問題の対象
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DoctorIssueTarget {
+    Trip,
+    Day(i64),
+    Itinerary(i64),
+}
+
 /// trip doctor / advisor が扱う1件の問題
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DoctorIssue {
     pub code: DoctorIssueCode,
+    pub target: DoctorIssueTarget,
     pub day: Option<i64>,
     pub itinerary_count: Option<usize>,
-    pub missing_duration_count: Option<usize>,
     pub travel_minutes: Option<i64>,
 }
 
 impl DoctorIssue {
-    /// 警告・Info 表示用の1行メッセージ
+    /// 対象 day（`DoctorIssueTarget::Day` または `day` フィールド）
+    pub fn target_day(&self) -> Option<i64> {
+        match self.target {
+            DoctorIssueTarget::Day(day) => Some(day),
+            _ => self.day,
+        }
+    }
+
+    /// 対象 itinerary ID（`DoctorIssueTarget::Itinerary`）
+    pub fn target_itinerary_id(&self) -> Option<i64> {
+        match self.target {
+            DoctorIssueTarget::Itinerary(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// 警告・Info 表示用の1行メッセージ（advisor および issue 単位の表示）
     pub fn warning_message(&self) -> String {
         match self.code {
             DoctorIssueCode::EmptyItinerary => "No itinerary found.".to_string(),
             DoctorIssueCode::OverloadedDay => format!(
                 "Day {} has many itineraries ({})",
-                self.day.unwrap_or(0),
+                self.target_day().unwrap_or(0),
                 self.itinerary_count.unwrap_or(0)
             ),
             DoctorIssueCode::NoRestaurant => {
-                format!("Day {} has no restaurant", self.day.unwrap_or(0))
+                format!("Day {} has no restaurant", self.target_day().unwrap_or(0))
             }
             DoctorIssueCode::HighTravelTime => format!(
                 "Day {} has high travel time ({})",
-                self.day.unwrap_or(0),
+                self.target_day().unwrap_or(0),
                 crate::stats::format_minutes_duration(self.travel_minutes.unwrap_or(0))
             ),
-            DoctorIssueCode::MissingDuration => {
-                let count = self.missing_duration_count.unwrap_or(0);
-                if count == 1 {
-                    "1 itinerary has no duration estimate".to_string()
-                } else {
-                    format!("{count} itineraries have no duration estimate")
+            DoctorIssueCode::MissingDuration => match self.target {
+                DoctorIssueTarget::Itinerary(id) => {
+                    format!("Itinerary {id} has no duration estimate")
                 }
-            }
+                _ => "1 itinerary has no duration estimate".to_string(),
+            },
         }
     }
 }

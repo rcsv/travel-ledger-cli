@@ -1,5 +1,5 @@
 # trip doctor validation: no restaurant
-# Generated: 2026-06-06T08:46:31Z
+# Generated: 2026-06-06T15:51:03Z
 #
 # restaurant カテゴリがない日
 #

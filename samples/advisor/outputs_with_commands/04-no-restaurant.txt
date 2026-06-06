@@ -1,5 +1,5 @@
 # trip advisor --with-commands validation: no restaurant
-# Generated: 2026-06-06T15:41:16Z
+# Generated: 2026-06-06T15:51:52Z
 #
 # NoRestaurant warning + advice + restaurant add Try
 #

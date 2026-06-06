@@ -378,7 +378,7 @@ Advice
 
 問題がない場合は `No major issues found.` を表示します。itinerary 0件の場合は `Info` と改善提案を表示します。
 
-`--with-commands` 指定時は各 issue の Advice の後に `Try` セクションでコマンド例を表示します（問題がない clean trip では `Try` は出ません）。
+`--with-commands` 指定時は各 issue の Advice の後に `Try` セクションでコマンド例を表示します（問題がない clean trip では `Try` は出ません）。`trip advisor --with-commands` は、DoctorIssue の構造化された対象情報を使って、より具体的なコマンド例を表示します。
 
 検証用の実出力サンプルは [`samples/advisor/`](samples/advisor/) を参照してください。再生成:
 

@@ -1,5 +1,5 @@
 # trip doctor validation: combined issues
-# Generated: 2026-06-06T08:46:47Z
+# Generated: 2026-06-06T15:51:16Z
 #
 # 複数の warning / suggestion が同時に出る
 #

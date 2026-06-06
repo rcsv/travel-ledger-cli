@@ -38,13 +38,11 @@ pub(crate) fn extract_day_from_message(message: &str) -> Option<i64> {
 }
 
 fn day_for_issue(issue: &DoctorIssue) -> i64 {
-    let day = issue
-        .day
-        .or_else(|| extract_day_from_message(&issue.warning_message()));
-    match day {
-        Some(d) if d > 0 => d,
-        _ => 1,
-    }
+    issue
+        .target_day()
+        .or_else(|| extract_day_from_message(&issue.warning_message()))
+        .filter(|&d| d > 0)
+        .unwrap_or(1)
 }
 
 /// 1件の issue に対する CLI コマンド例を生成する
@@ -67,7 +65,13 @@ pub(crate) fn generate_command_hints(issue: &DoctorIssue, trip_id: i64) -> Vec<S
             format!("cargo run -- itinerary list {trip_id}"),
         ],
         DoctorIssueCode::MissingDuration => {
-            vec![format!("cargo run -- itinerary list {trip_id}")]
+            if let Some(itinerary_id) = issue.target_itinerary_id() {
+                vec![format!(
+                    "cargo run -- itinerary update {itinerary_id} --duration 60"
+                )]
+            } else {
+                vec![format!("cargo run -- itinerary list {trip_id}")]
+            }
         }
     }
 }
@@ -151,7 +155,7 @@ mod advisor_tests {
     use super::*;
     use crate::db::open_db_at;
     use crate::itinerary::add_itinerary_item;
-    use crate::models::ItineraryCategory;
+    use crate::models::{DoctorIssueTarget, ItineraryCategory};
     use crate::trip::add_trip;
     use rusqlite::Connection;
 
@@ -163,9 +167,9 @@ mod advisor_tests {
     fn test_generate_advice_for_each_issue_code() {
         let empty = DoctorIssue {
             code: DoctorIssueCode::EmptyItinerary,
+            target: DoctorIssueTarget::Trip,
             day: None,
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: None,
         };
         assert_eq!(
@@ -175,9 +179,9 @@ mod advisor_tests {
 
         let restaurant = DoctorIssue {
             code: DoctorIssueCode::NoRestaurant,
+            target: DoctorIssueTarget::Day(1),
             day: Some(1),
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: None,
         };
         assert_eq!(
@@ -187,27 +191,27 @@ mod advisor_tests {
 
         let travel = DoctorIssue {
             code: DoctorIssueCode::HighTravelTime,
+            target: DoctorIssueTarget::Day(1),
             day: Some(1),
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: Some(200),
         };
         assert_eq!(generate_advice(&travel).len(), 2);
 
         let duration = DoctorIssue {
             code: DoctorIssueCode::MissingDuration,
+            target: DoctorIssueTarget::Itinerary(3),
             day: None,
             itinerary_count: None,
-            missing_duration_count: Some(2),
             travel_minutes: None,
         };
         assert_eq!(generate_advice(&duration).len(), 2);
 
         let overloaded = DoctorIssue {
             code: DoctorIssueCode::OverloadedDay,
+            target: DoctorIssueTarget::Day(1),
             day: Some(1),
             itinerary_count: Some(8),
-            missing_duration_count: None,
             travel_minutes: None,
         };
         assert_eq!(generate_advice(&overloaded).len(), 2);
@@ -225,7 +229,7 @@ mod advisor_tests {
             Some(2)
         );
         assert_eq!(
-            extract_day_from_message("1 itinerary has no duration estimate"),
+            extract_day_from_message("Itinerary 3 has no duration estimate"),
             None
         );
         assert_eq!(extract_day_from_message("No itinerary found."), None);
@@ -244,9 +248,9 @@ mod advisor_tests {
 
         let empty = DoctorIssue {
             code: DoctorIssueCode::EmptyItinerary,
+            target: DoctorIssueTarget::Trip,
             day: None,
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: None,
         };
         assert_eq!(
@@ -257,9 +261,9 @@ mod advisor_tests {
 
         let restaurant = DoctorIssue {
             code: DoctorIssueCode::NoRestaurant,
+            target: DoctorIssueTarget::Day(2),
             day: Some(2),
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: None,
         };
         assert_eq!(
@@ -273,9 +277,9 @@ mod advisor_tests {
 
         let travel = DoctorIssue {
             code: DoctorIssueCode::HighTravelTime,
+            target: DoctorIssueTarget::Day(1),
             day: Some(1),
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: Some(205),
         };
         assert_eq!(
@@ -288,21 +292,21 @@ mod advisor_tests {
 
         let duration = DoctorIssue {
             code: DoctorIssueCode::MissingDuration,
+            target: DoctorIssueTarget::Itinerary(3),
             day: None,
             itinerary_count: None,
-            missing_duration_count: Some(1),
             travel_minutes: None,
         };
         assert_eq!(
             generate_command_hints(&duration, trip_id),
-            vec!["cargo run -- itinerary list 1".to_string()]
+            vec!["cargo run -- itinerary update 3 --duration 60".to_string()]
         );
 
         let overloaded = DoctorIssue {
             code: DoctorIssueCode::OverloadedDay,
+            target: DoctorIssueTarget::Day(1),
             day: Some(1),
             itinerary_count: Some(8),
-            missing_duration_count: None,
             travel_minutes: None,
         };
         assert_eq!(
@@ -315,27 +319,71 @@ mod advisor_tests {
     }
 
     #[test]
-    fn test_no_restaurant_uses_day_from_message_when_day_field_missing() {
+    fn test_no_restaurant_uses_target_day() {
         let issue = DoctorIssue {
             code: DoctorIssueCode::NoRestaurant,
+            target: DoctorIssueTarget::Day(3),
             day: None,
             itinerary_count: None,
-            missing_duration_count: None,
+            travel_minutes: None,
+        };
+        let hints = generate_command_hints(&issue, 5);
+        assert_eq!(hints.len(), 2);
+        assert!(hints[0].contains("--day 3"));
+        assert!(hints[1].contains("--category restaurant"));
+    }
+
+    #[test]
+    fn test_no_restaurant_falls_back_to_message_parse_without_target_day() {
+        let issue = DoctorIssue {
+            code: DoctorIssueCode::NoRestaurant,
+            target: DoctorIssueTarget::Trip,
+            day: None,
+            itinerary_count: None,
             travel_minutes: None,
         };
         let hints = generate_command_hints(&issue, 5);
         assert_eq!(hints.len(), 2);
         assert!(hints[0].contains("--day 1"));
-        assert!(hints[1].contains("--category restaurant"));
+    }
+
+    #[test]
+    fn test_missing_duration_uses_itinerary_update_command() {
+        let issue = DoctorIssue {
+            code: DoctorIssueCode::MissingDuration,
+            target: DoctorIssueTarget::Itinerary(7),
+            day: None,
+            itinerary_count: None,
+            travel_minutes: None,
+        };
+        assert_eq!(
+            generate_command_hints(&issue, 1),
+            vec!["cargo run -- itinerary update 7 --duration 60".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_missing_duration_without_itinerary_target_falls_back_to_list() {
+        let issue = DoctorIssue {
+            code: DoctorIssueCode::MissingDuration,
+            target: DoctorIssueTarget::Trip,
+            day: None,
+            itinerary_count: None,
+            travel_minutes: None,
+        };
+        assert_eq!(
+            generate_command_hints(&issue, 1),
+            vec!["cargo run -- itinerary list 1".to_string()]
+        );
     }
 
     #[test]
     fn test_format_try_section_only_when_with_commands() {
         let issue = DoctorIssue {
             code: DoctorIssueCode::NoRestaurant,
+            target: DoctorIssueTarget::Day(1),
             day: Some(1),
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: None,
         };
 
@@ -416,9 +464,9 @@ mod advisor_tests {
     fn test_advisor_empty_itinerary_with_commands_includes_try() {
         let issue = DoctorIssue {
             code: DoctorIssueCode::EmptyItinerary,
+            target: DoctorIssueTarget::Trip,
             day: None,
             itinerary_count: None,
-            missing_duration_count: None,
             travel_minutes: None,
         };
         let try_section = format_try_section(&issue, 1);
