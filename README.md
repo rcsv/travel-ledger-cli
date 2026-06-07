@@ -451,6 +451,12 @@ bash samples/advisor/generate_outputs_with_commands.sh
 
 日程は **Trip ID** に紐づきます。先に `trip add` で旅行を作成してください。
 
+**ID の指定について:** `list` 系コマンドでは親リソース（旅行）の ID を指定します。`show` / `update` / `delete` 系では、対象の日程 ID を指定します。ID が `1`, `2`, `3` のように小さい整数でも、コマンドごとに意味が異なる点に注意してください。
+
+- `itinerary list 2` … 旅行 ID 2 に属する日程一覧を表示
+- `itinerary show 11` … 日程 ID 11 の詳細を表示
+- 日程 ID は `itinerary list <trip_id>` の一覧（先頭の `ID` 列）で確認できます
+
 ### 日程を追加
 
 ```bash
@@ -568,6 +574,12 @@ cargo run -- trip checklist-generate 1
 ### Checklist
 
 チェックリストは **Trip ID** に紐づきます。
+
+**ID の指定について:** Itinerary と同様に、`list` 系では旅行 ID、`show` / `update` / `check` / `uncheck` / `delete` 系ではチェックリスト項目 ID を指定します。
+
+- `checklist list 2` … 旅行 ID 2 に属するチェックリスト一覧を表示
+- `checklist show 5` … チェックリスト項目 ID 5 の詳細を表示
+- チェックリスト項目 ID は `checklist list <trip_id>` の一覧（各行先頭の番号）で確認できます
 
 ### 項目の追加・一覧
 
