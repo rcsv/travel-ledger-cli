@@ -79,7 +79,23 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
         [],
     )
     .context("checklist_items テーブルの作成に失敗しました")?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS days (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            trip_id     INTEGER NOT NULL,
+            day_number  INTEGER NOT NULL,
+            title       TEXT NOT NULL DEFAULT '',
+            description TEXT,
+            created_at  TEXT NOT NULL,
+            updated_at  TEXT NOT NULL,
+            FOREIGN KEY(trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+            UNIQUE(trip_id, day_number)
+        )",
+        [],
+    )
+    .context("days テーブルの作成に失敗しました")?;
     migrate_itinerary_items(conn)?;
+    migrate_days(conn)?;
     Ok(())
 }
 
@@ -105,6 +121,11 @@ fn add_column_if_not_exists(
             .with_context(|| format!("{table}.{column} 列の追加に失敗しました"))?;
     }
     Ok(())
+}
+
+/// 既存 DB 向け: Trip ごとに Day 行を backfill する
+pub(crate) fn migrate_days(conn: &Connection) -> Result<()> {
+    crate::day::migrate_days(conn)
 }
 
 /// 既存 DB 向け: itinerary_items に不足している列を追加する
@@ -133,10 +154,12 @@ pub(crate) fn reset_db(conn: &Connection) -> Result<()> {
         .context("checklist_items の全削除に失敗しました")?;
     conn.execute("DELETE FROM itinerary_items", [])
         .context("itinerary_items の全削除に失敗しました")?;
+    conn.execute("DELETE FROM days", [])
+        .context("days の全削除に失敗しました")?;
     conn.execute("DELETE FROM trips", [])
         .context("trips の全削除に失敗しました")?;
     conn.execute(
-        "DELETE FROM sqlite_sequence WHERE name IN ('checklist_items', 'itinerary_items', 'trips')",
+        "DELETE FROM sqlite_sequence WHERE name IN ('checklist_items', 'itinerary_items', 'days', 'trips')",
         [],
     )
     .context("AUTOINCREMENT のリセットに失敗しました")?;
@@ -153,7 +176,7 @@ mod tests {
     use super::*;
     use crate::db::{init_db, migrate_itinerary_items, open_db_at, reset_db};
     use crate::itinerary::add_itinerary_item;
-    use crate::trip::{add_trip, list_trips};
+    use crate::trip::{add_test_trip, list_trips};
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -248,7 +271,7 @@ mod tests {
     #[test]
     fn test_reset_db() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -269,7 +292,7 @@ mod tests {
         assert!(list_trips(&conn).unwrap().is_empty());
 
         // AUTOINCREMENT がリセットされ、次の ID は 1 から再開する
-        let new_trip_id = add_trip(&conn, "新規旅行", None, None).unwrap();
+        let new_trip_id = add_test_trip(&conn, "新規旅行").unwrap();
         assert_eq!(new_trip_id, 1);
 
         let new_item_id = add_itinerary_item(

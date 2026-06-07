@@ -194,7 +194,7 @@ mod tests {
     use crate::db::open_db_at;
     use crate::itinerary::add_itinerary_item;
     use crate::models::ItineraryCategory;
-    use crate::trip::add_trip;
+    use crate::trip::{add_test_trip, add_trip};
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn test_export_md_day_and_sort_order() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "並び順テスト", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "並び順テスト").unwrap();
 
         add_itinerary_item(
             &conn,
@@ -264,7 +264,7 @@ mod tests {
     #[test]
     fn test_export_md_includes_category() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "ハワイ旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "ハワイ旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn test_export_md_includes_checklist() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         let charger_id = add_checklist_item(&conn, trip_id, "充電器").unwrap();
         set_checklist_done(&conn, charger_id, true).unwrap();
@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_export_md_no_checklist_section() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
         assert!(!md.contains("## Checklist"));
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_export_md_omits_category_when_unset() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -343,7 +343,7 @@ mod tests {
     #[test]
     fn test_export_md_optional_fields_omitted() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "ミニマル旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "ミニマル旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn test_export_md_start_time_with_and_without() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "テスト旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "テスト旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -409,7 +409,7 @@ mod tests {
     #[test]
     fn test_export_md_with_itinerary() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", Some("2026-04-26"), Some("2026-04-29")).unwrap();
+        let trip_id = add_trip(&conn, "沖縄旅行", "2026-04-26", "2026-04-29").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -439,7 +439,7 @@ mod tests {
     #[test]
     fn test_export_md_includes_overview() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", Some("2026-04-26"), Some("2026-04-29")).unwrap();
+        let trip_id = add_trip(&conn, "沖縄旅行", "2026-04-26", "2026-04-29").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn test_export_md_overview_checklist_zero() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
         assert!(md.contains("## Overview"));
@@ -501,7 +501,7 @@ mod tests {
     #[test]
     fn test_write_trip_markdown_to_file() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "ファイル出力テスト", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "ファイル出力テスト").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -534,7 +534,7 @@ mod tests {
     #[test]
     fn test_write_trip_markdown_none_succeeds() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "標準出力テスト", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "標準出力テスト").unwrap();
         write_trip_markdown(&conn, trip_id, None).unwrap();
     }
 }

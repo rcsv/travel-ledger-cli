@@ -9,12 +9,8 @@ use crate::models::{
 };
 
 /// 新しい旅行を追加する
-pub(crate) fn add_trip(
-    conn: &Connection,
-    name: &str,
-    start: Option<&str>,
-    end: Option<&str>,
-) -> Result<i64> {
+pub(crate) fn add_trip(conn: &Connection, name: &str, start: &str, end: &str) -> Result<i64> {
+    let day_count = crate::day::validate_trip_date_range(start, end)?;
     let now = now_string();
     conn.execute(
         "INSERT INTO trips (name, start_date, end_date, created_at, updated_at)
@@ -22,7 +18,14 @@ pub(crate) fn add_trip(
         params![name, start, end, &now, &now],
     )
     .context("旅行の追加に失敗しました")?;
-    Ok(conn.last_insert_rowid())
+    let trip_id = conn.last_insert_rowid();
+    crate::day::create_days_for_trip(conn, trip_id, day_count)?;
+    Ok(trip_id)
+}
+
+#[cfg(test)]
+pub(crate) fn add_test_trip(conn: &Connection, name: &str) -> Result<i64> {
+    add_trip(conn, name, "2026-01-01", "2026-01-03")
 }
 
 /// すべての旅行を取得する
@@ -76,11 +79,23 @@ pub(crate) fn update_trip(
         trip.name = n.to_string();
     }
     if let Some(s) = start {
+        crate::day::parse_trip_date(s)?;
         trip.start_date = Some(s.to_string());
     }
     if let Some(e) = end {
+        crate::day::parse_trip_date(e)?;
         trip.end_date = Some(e.to_string());
     }
+
+    let start_date = trip
+        .start_date
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("開始日は必須です (--start)"))?;
+    let end_date = trip
+        .end_date
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("終了日は必須です (--end)"))?;
+    let day_count = crate::day::validate_trip_date_range(start_date, end_date)?;
 
     let now = now_string();
     conn.execute(
@@ -90,6 +105,7 @@ pub(crate) fn update_trip(
         params![trip.name, trip.start_date, trip.end_date, &now, id],
     )
     .context("旅行の更新に失敗しました")?;
+    crate::day::sync_days_to_trip_duration(conn, id, day_count)?;
     Ok(())
 }
 
@@ -150,9 +166,26 @@ pub(crate) fn validate_trip_export(export: &TripExport) -> Result<()> {
     if export.trip.name.trim().is_empty() {
         anyhow::bail!("trip.name は必須です");
     }
+    let start = export
+        .trip
+        .start_date
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("trip.start_date は必須です"))?;
+    let end = export
+        .trip
+        .end_date
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("trip.end_date は必須です"))?;
+    let day_count = crate::day::validate_trip_date_range(start, end)?;
     for (index, item) in export.itinerary_items.iter().enumerate() {
         if item.title.trim().is_empty() {
             anyhow::bail!("itinerary_items[{index}].title は必須です");
+        }
+        if item.day < 1 || item.day > day_count {
+            anyhow::bail!(
+                "itinerary_items[{index}].day ({}) は旅行期間 (1..={day_count}) の範囲外です",
+                item.day
+            );
         }
     }
     for (index, item) in export.checklist_items().iter().enumerate() {
@@ -417,8 +450,8 @@ pub(crate) fn import_trip_from_export(conn: &Connection, export: &TripExport) ->
     let new_trip_id = add_trip(
         conn,
         &export.trip.name,
-        export.trip.start_date.as_deref(),
-        export.trip.end_date.as_deref(),
+        export.trip.start_date.as_deref().expect("validated above"),
+        export.trip.end_date.as_deref().expect("validated above"),
     )?;
 
     let checklist_items: Vec<_> = export.checklist_items().to_vec();
@@ -646,7 +679,7 @@ mod tests {
     #[test]
     fn test_add_trip() {
         let conn = test_db();
-        let id = add_trip(&conn, "沖縄旅行", Some("2025-06-01"), Some("2025-06-05")).unwrap();
+        let id = add_trip(&conn, "沖縄旅行", "2025-06-01", "2025-06-05").unwrap();
 
         assert_eq!(id, 1);
         let trip = get_trip(&conn, id).unwrap();
@@ -656,9 +689,34 @@ mod tests {
     }
 
     #[test]
+    fn test_add_trip_creates_days() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "Day Trip", "2026-12-01", "2026-12-03").unwrap();
+        let days = crate::day::list_days(&conn, trip_id).unwrap();
+        assert_eq!(days.len(), 3);
+        assert_eq!(days[0].day_number, 1);
+        assert_eq!(days[2].day_number, 3);
+    }
+
+    #[test]
+    fn test_add_trip_rejects_invalid_date_range() {
+        let conn = test_db();
+        assert!(add_trip(&conn, "Bad Trip", "2026-12-04", "2026-12-01").is_err());
+    }
+
+    #[test]
+    fn test_update_trip_syncs_days_on_end_extension() {
+        let conn = test_db();
+        let id = add_trip(&conn, "Extend Trip", "2026-12-01", "2026-12-02").unwrap();
+        assert_eq!(crate::day::list_days(&conn, id).unwrap().len(), 2);
+        update_trip(&conn, id, None, None, Some("2026-12-04")).unwrap();
+        assert_eq!(crate::day::list_days(&conn, id).unwrap().len(), 4);
+    }
+
+    #[test]
     fn test_delete_trip() {
         let conn = test_db();
-        let id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         delete_trip(&conn, id).unwrap();
 
@@ -669,7 +727,7 @@ mod tests {
     #[test]
     fn test_export_import_roundtrip() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", Some("2026-04-26"), Some("2026-04-29")).unwrap();
+        let trip_id = add_trip(&conn, "沖縄旅行", "2026-04-26", "2026-04-29").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -700,7 +758,7 @@ mod tests {
         .unwrap();
 
         let json = export_trip_to_json(&conn, trip_id).unwrap();
-        add_trip(&conn, "別の旅行", None, None).unwrap();
+        add_test_trip(&conn, "別の旅行").unwrap();
 
         let new_id = import_trip_from_json(&conn, &json).unwrap();
         assert_eq!(new_id, 3);
@@ -720,7 +778,7 @@ mod tests {
     #[test]
     fn test_get_trip() {
         let conn = test_db();
-        let id = add_trip(&conn, "北海道旅行", Some("2025-08-01"), Some("2025-08-10")).unwrap();
+        let id = add_trip(&conn, "北海道旅行", "2025-08-01", "2025-08-10").unwrap();
 
         let trip = get_trip(&conn, id).unwrap();
         assert_eq!(trip.id, id);
@@ -732,7 +790,7 @@ mod tests {
     #[test]
     fn test_import_from_export_json_three_items() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         for (time, title) in [
             (Some("09:00"), "首里城"),
             (Some("10:50"), "国際通り"),
@@ -768,14 +826,14 @@ mod tests {
     #[test]
     fn test_import_trip_missing_required_field() {
         let conn = test_db();
-        let json = r#"{"trip":{"id":1,"name":"","start_date":null,"end_date":null,"created_at":"x","updated_at":"x"},"itinerary_items":[]}"#;
+        let json = r#"{"trip":{"id":1,"name":"","start_date":"2026-01-01","end_date":"2026-01-03","created_at":"x","updated_at":"x"},"itinerary_items":[]}"#;
         assert!(import_trip_from_json(&conn, json).is_err());
     }
 
     #[test]
     fn test_import_trip_remaps_ids() {
         let conn = test_db();
-        let old_trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let old_trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_itinerary_item(
             &conn,
             old_trip_id,
@@ -792,8 +850,8 @@ mod tests {
         .unwrap();
 
         let json = export_trip_to_json(&conn, old_trip_id).unwrap();
-        add_trip(&conn, "別の旅行", None, None).unwrap();
-        add_trip(&conn, "もう一つ", None, None).unwrap();
+        add_test_trip(&conn, "別の旅行").unwrap();
+        add_test_trip(&conn, "もう一つ").unwrap();
 
         let new_trip_id = import_trip_from_json(&conn, &json).unwrap();
         assert_eq!(new_trip_id, 4);
@@ -808,8 +866,8 @@ mod tests {
     #[test]
     fn test_list_trips() {
         let conn = test_db();
-        add_trip(&conn, "沖縄旅行", Some("2025-06-01"), Some("2025-06-05")).unwrap();
-        add_trip(&conn, "京都旅行", Some("2025-07-01"), Some("2025-07-03")).unwrap();
+        add_trip(&conn, "沖縄旅行", "2025-06-01", "2025-06-05").unwrap();
+        add_trip(&conn, "京都旅行", "2025-07-01", "2025-07-03").unwrap();
 
         let trips = list_trips(&conn).unwrap();
         assert_eq!(trips.len(), 2);
@@ -820,7 +878,7 @@ mod tests {
     #[test]
     fn test_trip_export_contains_trip_and_items() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", Some("2026-04-26"), Some("2026-04-29")).unwrap();
+        let trip_id = add_trip(&conn, "沖縄旅行", "2026-04-26", "2026-04-29").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -846,7 +904,7 @@ mod tests {
     #[test]
     fn test_trip_export_items_sorted_by_day_and_time() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         add_itinerary_item(
             &conn,
@@ -885,7 +943,7 @@ mod tests {
     #[test]
     fn test_trip_export_to_json_string() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let json = export_trip_to_json(&conn, trip_id).unwrap();
         assert!(json.contains("\"trip\""));
@@ -906,8 +964,8 @@ mod tests {
     #[test]
     fn test_print_json_trip_list() {
         let conn = test_db();
-        add_trip(&conn, "沖縄旅行", Some("2025-06-01"), Some("2025-06-05")).unwrap();
-        add_trip(&conn, "京都旅行", None, None).unwrap();
+        add_trip(&conn, "沖縄旅行", "2025-06-01", "2025-06-05").unwrap();
+        add_test_trip(&conn, "京都旅行").unwrap();
 
         let trips = list_trips(&conn).unwrap();
         let json = serde_json::to_string_pretty(&trips).unwrap();
@@ -922,7 +980,7 @@ mod tests {
     #[test]
     fn test_print_json_trip_show() {
         let conn = test_db();
-        let id = add_trip(&conn, "北海道旅行", Some("2025-08-01"), Some("2025-08-10")).unwrap();
+        let id = add_trip(&conn, "北海道旅行", "2025-08-01", "2025-08-10").unwrap();
 
         let trip = get_trip(&conn, id).unwrap();
         let json = serde_json::to_string_pretty(&trip).unwrap();
@@ -937,7 +995,7 @@ mod tests {
     #[test]
     fn test_update_trip() {
         let conn = test_db();
-        let id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         update_trip(
             &conn,
@@ -1036,7 +1094,7 @@ mod tests {
     #[test]
     fn test_export_includes_checklist_items() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         let charger_id = add_checklist_item(&conn, trip_id, "充電器").unwrap();
         set_checklist_done(&conn, charger_id, true).unwrap();
@@ -1082,8 +1140,8 @@ mod tests {
         let trip_id = add_trip(
             &conn,
             "Import Export Verify Trip",
-            Some("2026-06-01"),
-            Some("2026-06-03"),
+            "2026-06-01",
+            "2026-06-03",
         )
         .unwrap();
         add_itinerary_item(
@@ -1137,7 +1195,7 @@ mod tests {
     #[test]
     fn test_export_includes_schema_version() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Metadata Trip").unwrap();
 
         let json = export_trip_to_json(&conn, trip_id).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -1147,7 +1205,7 @@ mod tests {
     #[test]
     fn test_export_includes_exported_at() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Metadata Trip").unwrap();
 
         let json = export_trip_to_json(&conn, trip_id).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -1157,7 +1215,7 @@ mod tests {
     #[test]
     fn test_export_schema_version_is_one() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Metadata Trip").unwrap();
 
         let json = export_trip_to_json(&conn, trip_id).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -1167,7 +1225,7 @@ mod tests {
     #[test]
     fn test_exported_at_parses_as_rfc3339() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Metadata Trip").unwrap();
 
         let json = export_trip_to_json(&conn, trip_id).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -1178,7 +1236,7 @@ mod tests {
     #[test]
     fn test_build_trip_export_leaves_generator_metadata_unset() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Metadata Trip").unwrap();
 
         let export = build_trip_export(&conn, trip_id).unwrap();
         assert!(export.generator.is_none());
@@ -1190,7 +1248,7 @@ mod tests {
     #[test]
     fn test_export_includes_generator_metadata() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Metadata Trip").unwrap();
 
         let json = export_trip_to_json(&conn, trip_id).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -1202,7 +1260,7 @@ mod tests {
     #[test]
     fn test_comparable_trip_export_ignores_generator_metadata() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Roundtrip Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Roundtrip Trip").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -1238,8 +1296,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Legacy Metadata Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1262,8 +1320,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Unknown Generator Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1308,8 +1366,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Legacy With Checklist",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1345,13 +1403,7 @@ mod tests {
     #[test]
     fn test_duplicate_trip_copies_trip_itinerary_and_checklist() {
         let conn = test_db();
-        let trip_id = add_trip(
-            &conn,
-            "Okinawa Trip",
-            Some("2026-06-01"),
-            Some("2026-06-03"),
-        )
-        .unwrap();
+        let trip_id = add_trip(&conn, "Okinawa Trip", "2026-06-01", "2026-06-03").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -1391,7 +1443,7 @@ mod tests {
     #[test]
     fn test_duplicate_trip_with_custom_name() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Original", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Original").unwrap();
         add_itinerary_item(
             &conn, trip_id, 1, "Lunch", None, None, None, None, None, None, None,
         )
@@ -1414,13 +1466,7 @@ mod tests {
     #[test]
     fn test_export_import_reexport_structural_roundtrip_with_checklist() {
         let conn = test_db();
-        let trip_id = add_trip(
-            &conn,
-            "Roundtrip Trip",
-            Some("2026-07-01"),
-            Some("2026-07-05"),
-        )
-        .unwrap();
+        let trip_id = add_trip(&conn, "Roundtrip Trip", "2026-07-01", "2026-07-05").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -1470,7 +1516,7 @@ mod tests {
     #[test]
     fn test_analyze_trip_export_current_format_is_valid() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄家族旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄家族旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -1530,8 +1576,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Legacy Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1574,8 +1620,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Empty Checklist Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1600,8 +1646,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Future Schema Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1626,8 +1672,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "   ",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1649,8 +1695,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Bad Itinerary Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1699,8 +1745,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "No Itinerary Key",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1728,8 +1774,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Legacy Import Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1748,8 +1794,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Serialize Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1778,8 +1824,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Metadata Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1812,8 +1858,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Unknown Generator Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1839,8 +1885,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Bad Timestamp Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1868,8 +1914,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "沖縄家族旅行",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1921,8 +1967,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Legacy Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1937,7 +1983,7 @@ mod tests {
     #[test]
     fn test_import_summary_from_export_includes_generator_metadata() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Export Metadata Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Export Metadata Trip").unwrap();
         add_checklist_item(&conn, trip_id, "Passport").unwrap();
         let json = export_trip_to_json(&conn, trip_id).unwrap();
 
@@ -1957,8 +2003,8 @@ mod tests {
             "trip": {
                 "id": 1,
                 "name": "Legacy Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -1974,8 +2020,8 @@ mod tests {
     #[test]
     fn test_import_trip_from_json_with_summary_matches_import_only() {
         let conn = test_db();
-        let json = export_trip_to_json(&conn, add_trip(&conn, "Compare Trip", None, None).unwrap())
-            .unwrap();
+        let json =
+            export_trip_to_json(&conn, add_test_trip(&conn, "Compare Trip").unwrap()).unwrap();
 
         reset_db(&conn).unwrap();
         let id_only = import_trip_from_json(&conn, &json).unwrap();

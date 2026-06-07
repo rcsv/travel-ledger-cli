@@ -1,6 +1,18 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+/// days テーブルの1行分のデータ
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Day {
+    pub id: i64,
+    pub trip_id: i64,
+    pub day_number: i64,
+    pub title: String,
+    pub description: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 /// trips テーブルの1行分のデータ
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Trip {

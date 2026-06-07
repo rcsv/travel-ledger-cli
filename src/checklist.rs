@@ -337,7 +337,7 @@ pub(crate) fn print_checklist_detail(item: &ChecklistItem) {
 mod tests {
     use super::*;
     use crate::db::open_db_at;
-    use crate::trip::add_trip;
+    use crate::trip::add_test_trip;
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn test_add_checklist_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
 
         assert_eq!(id, 1);
@@ -361,7 +361,7 @@ mod tests {
     #[test]
     fn test_check_and_uncheck_checklist_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
 
         set_checklist_done(&conn, id, true).unwrap();
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn test_delete_checklist_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
 
         delete_checklist_item(&conn, id).unwrap();
@@ -387,8 +387,8 @@ mod tests {
     #[test]
     fn test_list_checklist_items_by_trip() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
-        let other_trip_id = add_trip(&conn, "京都旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
+        let other_trip_id = add_test_trip(&conn, "京都旅行").unwrap();
 
         add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         add_checklist_item(&conn, trip_id, "充電器").unwrap();
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn test_list_checklist_items_sorted() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let passport_id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         let etc_id = add_checklist_item(&conn, trip_id, "ETCカード").unwrap();
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn test_update_checklist_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
 
         update_checklist_item(&conn, id, Some("旅券"), Some(5)).unwrap();
@@ -439,7 +439,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_from_categorized_itinerary() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_from_multiple_categories() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -509,7 +509,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_skips_duplicate_title() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_checklist_item(&conn, trip_id, "タオル").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
@@ -537,7 +537,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_sort_order_after_max() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let existing_id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         update_checklist_item(&conn, existing_id, None, Some(3)).unwrap();
         crate::itinerary::add_itinerary_item(
@@ -568,7 +568,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_ignores_items_without_category() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -607,7 +607,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_succeeds_with_zero_additions() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -632,7 +632,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_flight_hotel_combination() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "フライト宿泊旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "フライト宿泊旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -672,7 +672,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_beach_activity_combination() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "ビーチアクティビティ旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "ビーチアクティビティ旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -712,7 +712,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_combination_skips_duplicate_with_existing() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "フライト宿泊旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "フライト宿泊旅行").unwrap();
         add_checklist_item(&conn, trip_id, "充電器").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
@@ -751,7 +751,7 @@ mod tests {
     #[test]
     fn test_generate_checklist_combination_applied_once_for_duplicate_categories() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "ショッピング旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "ショッピング旅行").unwrap();
         for i in 1..=3 {
             crate::itinerary::add_itinerary_item(
                 &conn,
@@ -782,7 +782,7 @@ mod tests {
     #[test]
     fn test_checklist_list_json_empty() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let items = list_checklist_items(&conn, trip_id).unwrap();
         let json = serde_json::to_string_pretty(&items).unwrap();
@@ -793,7 +793,7 @@ mod tests {
     #[test]
     fn test_checklist_list_json() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         add_checklist_item(&conn, trip_id, "充電器").unwrap();
         set_checklist_done(&conn, 2, true).unwrap();
@@ -813,7 +813,7 @@ mod tests {
     #[test]
     fn test_checklist_show_json() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         update_checklist_item(&conn, id, None, Some(5)).unwrap();
 
@@ -841,7 +841,7 @@ mod tests {
     #[test]
     fn test_dry_run_does_not_modify_db() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Dry Run Trip", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Dry Run Trip").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -873,7 +873,7 @@ mod tests {
     #[test]
     fn test_dry_run_shows_added_candidates() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Dry Run Added", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Dry Run Added").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -897,7 +897,7 @@ mod tests {
     #[test]
     fn test_dry_run_shows_skipped_candidates() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "Dry Run Skipped", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "Dry Run Skipped").unwrap();
         add_checklist_item(&conn, trip_id, "宿泊予約確認").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,

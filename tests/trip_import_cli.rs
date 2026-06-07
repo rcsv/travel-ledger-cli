@@ -24,9 +24,20 @@ fn temp_workdir() -> std::path::PathBuf {
 fn cli_trip_import_prints_enhanced_summary() {
     let dir = temp_workdir();
     assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(&dir, &["trip", "add", "Import Summary Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Import Summary Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
     assert!(run_cli(
         &dir,
         &["itinerary", "add", "1", "--day", "1", "Sightseeing"]
@@ -84,8 +95,8 @@ fn cli_trip_import_legacy_schema_summary() {
             "trip": {
                 "id": 1,
                 "name": "Legacy Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },

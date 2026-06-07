@@ -24,9 +24,20 @@ fn temp_workdir() -> std::path::PathBuf {
 fn cli_validate_export_current_format_succeeds() {
     let dir = temp_workdir();
     assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(&dir, &["trip", "add", "Validate Export Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Validate Export Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
     assert!(run_cli(
         &dir,
         &["itinerary", "add", "1", "--day", "1", "Sightseeing"]
@@ -80,8 +91,8 @@ fn cli_validate_export_json_includes_errors_array() {
             "trip": {
                 "id": 1,
                 "name": "Legacy Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -119,8 +130,8 @@ fn cli_validate_export_legacy_text_output_is_valid_with_warnings() {
             "trip": {
                 "id": 1,
                 "name": "Legacy Trip",
-                "start_date": null,
-                "end_date": null,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
                 "created_at": "2026-01-01 00:00:00",
                 "updated_at": "2026-01-01 00:00:00"
             },
@@ -149,9 +160,20 @@ fn cli_validate_export_legacy_text_output_is_valid_with_warnings() {
 fn cli_validate_export_json_includes_generator_metadata() {
     let dir = temp_workdir();
     assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(&dir, &["trip", "add", "JSON Metadata Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "JSON Metadata Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
 
     let export_path = dir.join("backup.json");
     assert!(run_cli(

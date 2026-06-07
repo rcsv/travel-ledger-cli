@@ -1,5 +1,6 @@
 mod advisor;
 mod checklist;
+mod day;
 mod db;
 mod diff;
 mod doctor;
@@ -67,11 +68,11 @@ enum TripAction {
         /// 旅行名（必須）
         name: String,
         /// 開始日 (YYYY-MM-DD)
-        #[arg(long)]
-        start: Option<String>,
+        #[arg(long, required = true)]
+        start: String,
         /// 終了日 (YYYY-MM-DD)
-        #[arg(long)]
-        end: Option<String>,
+        #[arg(long, required = true)]
+        end: String,
     },
     /// 旅行一覧を表示
     List {
@@ -504,11 +505,11 @@ fn main() -> Result<()> {
         },
         Command::Trip { action } => match action {
             TripAction::Add { name, start, end } => {
-                let id = crate::trip::add_trip(&conn, &name, start.as_deref(), end.as_deref())?;
+                let id = crate::trip::add_trip(&conn, &name, &start, &end)?;
                 println!("旅行を追加しました (ID: {id})");
                 println!("  名前   : {name}");
-                println!("  開始日 : {}", crate::trip::fmt_date(&start));
-                println!("  終了日 : {}", crate::trip::fmt_date(&end));
+                println!("  開始日 : {start}");
+                println!("  終了日 : {end}");
             }
             TripAction::List { json } => {
                 let trips = crate::trip::list_trips(&conn)?;

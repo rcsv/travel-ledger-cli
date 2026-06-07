@@ -183,7 +183,7 @@ mod advisor_tests {
     use crate::db::open_db_at;
     use crate::itinerary::add_itinerary_item;
     use crate::models::{DoctorIssueTarget, ItineraryCategory};
-    use crate::trip::add_trip;
+    use crate::trip::add_test_trip;
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -407,7 +407,7 @@ mod advisor_tests {
     #[test]
     fn test_clean_trip_has_no_issues_and_no_try_sections() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "問題なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -430,7 +430,7 @@ mod advisor_tests {
     #[test]
     fn test_advisor_clean_trip_has_no_issues_message() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "問題なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -453,7 +453,7 @@ mod advisor_tests {
     #[test]
     fn test_advisor_empty_itinerary_generates_advice() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "空の旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "空の旅行").unwrap();
 
         let issues = crate::doctor::analyze_trip_issues(&conn, trip_id).unwrap();
         assert_eq!(issues.len(), 1);
@@ -478,7 +478,7 @@ mod advisor_tests {
     #[test]
     fn test_advisor_no_restaurant_issue_has_advice() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "食事なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -505,7 +505,7 @@ mod advisor_tests {
     #[test]
     fn test_doctor_report_unchanged_for_existing_behavior() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "食事なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -535,7 +535,7 @@ mod advisor_tests {
     #[test]
     fn test_trip_advisor_json_clean_trip() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "問題なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -564,7 +564,7 @@ mod advisor_tests {
     #[test]
     fn test_trip_advisor_json_includes_advice_and_optional_commands() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "食事なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,

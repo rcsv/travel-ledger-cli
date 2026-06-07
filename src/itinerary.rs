@@ -368,7 +368,7 @@ mod tests {
     use super::*;
     use crate::db::open_db_at;
     use crate::models::ItineraryCategory;
-    use crate::trip::add_trip;
+    use crate::trip::add_test_trip;
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -382,7 +382,7 @@ mod tests {
     #[test]
     fn test_add_itinerary_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let id = add_itinerary_item(
             &conn,
@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn test_add_itinerary_item_with_duration_and_travel() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let id = add_itinerary_item(
             &conn,
@@ -436,7 +436,7 @@ mod tests {
     #[test]
     fn test_add_itinerary_item_with_location() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let id = add_itinerary_item(
             &conn,
@@ -460,7 +460,7 @@ mod tests {
     #[test]
     fn test_add_itinerary_item_with_start_time() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let id = add_itinerary_item(
             &conn,
@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn test_add_itinerary_item_without_start_time() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let id = add_itinerary_item(
             &conn,
@@ -518,7 +518,7 @@ mod tests {
     #[test]
     fn test_clear_itinerary_category() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -556,7 +556,7 @@ mod tests {
     #[test]
     fn test_delete_itinerary_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -581,7 +581,7 @@ mod tests {
     #[test]
     fn test_get_itinerary_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn test_itinerary_show_displays_category() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -632,7 +632,7 @@ mod tests {
     #[test]
     fn test_itinerary_show_omits_category_when_unset() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -655,7 +655,7 @@ mod tests {
     #[test]
     fn test_list_itinerary_items() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -694,7 +694,7 @@ mod tests {
     #[test]
     fn test_list_itinerary_items_sorted_by_day_and_time() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         // 登録順をバラバラにしても、一覧は day → 時刻順になること
         add_itinerary_item(
@@ -765,7 +765,7 @@ mod tests {
     #[test]
     fn test_timeline_items_sorted_by_day_and_time() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         add_itinerary_item(
             &conn,
@@ -822,7 +822,7 @@ mod tests {
     #[test]
     fn test_update_itinerary_item() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -862,7 +862,7 @@ mod tests {
     #[test]
     fn test_update_itinerary_item_category() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -900,7 +900,7 @@ mod tests {
     #[test]
     fn test_update_itinerary_item_duration_and_travel() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -939,7 +939,7 @@ mod tests {
     #[test]
     fn test_update_itinerary_item_location() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -977,7 +977,7 @@ mod tests {
     #[test]
     fn test_update_itinerary_item_start_time_and_sort_order() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,
@@ -1016,7 +1016,7 @@ mod tests {
     #[test]
     fn test_itinerary_list_json_empty() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
         let items = list_itinerary_items(&conn, trip_id).unwrap();
         let json = serde_json::to_string_pretty(&items).unwrap();
@@ -1027,7 +1027,7 @@ mod tests {
     #[test]
     fn test_itinerary_list_json() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -1072,7 +1072,7 @@ mod tests {
     #[test]
     fn test_itinerary_show_json() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id = add_itinerary_item(
             &conn,
             trip_id,

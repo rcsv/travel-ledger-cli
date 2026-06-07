@@ -24,9 +24,20 @@ fn temp_workdir() -> std::path::PathBuf {
 fn cli_trip_doctor_json_envelope_and_codes() {
     let dir = temp_workdir();
     assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(&dir, &["trip", "add", "Doctor JSON Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Doctor JSON Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
     assert!(run_cli(
         &dir,
         &[
@@ -69,9 +80,20 @@ fn cli_trip_doctor_json_envelope_and_codes() {
 fn cli_trip_advisor_json_envelope_and_commands_flag() {
     let dir = temp_workdir();
     assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(&dir, &["trip", "add", "Advisor JSON Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Advisor JSON Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
     assert!(run_cli(
         &dir,
         &["itinerary", "add", "1", "--day", "1", "Sightseeing"]

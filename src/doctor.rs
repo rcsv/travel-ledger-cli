@@ -233,7 +233,7 @@ mod tests {
     use crate::db::open_db_at;
     use crate::itinerary::add_itinerary_item;
     use crate::models::ItineraryCategory;
-    use crate::trip::add_trip;
+    use crate::trip::add_test_trip;
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_empty_itinerary_has_trip_target() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "空の旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "空の旅行").unwrap();
 
         let issues = analyze_trip_issues(&conn, trip_id).unwrap();
         assert_eq!(issues.len(), 1);
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn test_day_issues_have_day_target() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "食事なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn test_missing_duration_issues_have_itinerary_target() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "時間未設定旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "時間未設定旅行").unwrap();
         for i in 1..=3 {
             add_itinerary_item(
                 &conn,
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_many_itineraries_per_day() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "詰め込み旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "詰め込み旅行").unwrap();
 
         for i in 0..8 {
             add_itinerary_item(
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_missing_restaurant() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "食事なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -379,7 +379,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_high_travel_time() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "移動多め旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "移動多め旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_missing_duration_singular() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "時間未設定旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "時間未設定旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -463,7 +463,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_missing_duration_plural() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "時間未設定旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "時間未設定旅行").unwrap();
         for i in 1..=3 {
             add_itinerary_item(
                 &conn,
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn test_doctor_clean_trip_has_no_issues() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "問題なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -517,7 +517,7 @@ mod tests {
     #[test]
     fn test_doctor_empty_itinerary_reports_info() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "空の旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "空の旅行").unwrap();
 
         let report = analyze_trip(&conn, trip_id).unwrap();
         assert!(report.warnings.is_empty());
@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn test_trip_doctor_json_clean() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "問題なし旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -562,7 +562,7 @@ mod tests {
     #[test]
     fn test_trip_doctor_json_missing_duration() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "時間未設定旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "時間未設定旅行").unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn test_trip_doctor_json_combined_issues() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "複合問題旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "複合問題旅行").unwrap();
 
         for i in 0..8 {
             add_itinerary_item(

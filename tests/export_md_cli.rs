@@ -24,9 +24,20 @@ fn run_cli(dir: &PathBuf, args: &[&str]) -> std::process::Output {
 #[test]
 fn cli_export_md_stdout_mode() {
     let dir = temp_workdir();
-    assert!(run_cli(&dir, &["trip", "add", "Okinawa Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Okinawa Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
 
     let output = run_cli(&dir, &["trip", "export-md", "1"]);
     assert!(
@@ -47,9 +58,20 @@ fn cli_export_md_stdout_mode() {
 #[test]
 fn cli_export_md_output_file() {
     let dir = temp_workdir();
-    assert!(run_cli(&dir, &["trip", "add", "Okinawa Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Okinawa Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
 
     let output = run_cli(&dir, &["trip", "export-md", "1", "--output", "okinawa.md"]);
     assert!(
@@ -70,9 +92,20 @@ fn cli_export_md_output_file() {
 #[test]
 fn cli_export_md_output_overwrites_existing_file() {
     let dir = temp_workdir();
-    assert!(run_cli(&dir, &["trip", "add", "First Trip"])
-        .status
-        .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "First Trip",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-03",
+        ]
+    )
+    .status
+    .success());
     fs::write(dir.join("trip.md"), "old content").unwrap();
 
     assert!(

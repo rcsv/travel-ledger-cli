@@ -167,7 +167,7 @@ mod tests {
     use super::*;
     use crate::db::open_db_at;
     use crate::models::ItineraryCategory;
-    use crate::trip::add_trip;
+    use crate::trip::add_test_trip;
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn test_stats_itinerary_count() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn test_stats_category_breakdown() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn test_stats_checklist_completion() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         let id1 = crate::checklist::add_checklist_item(&conn, trip_id, "パスポート").unwrap();
         crate::checklist::add_checklist_item(&conn, trip_id, "充電器").unwrap();
         crate::checklist::add_checklist_item(&conn, trip_id, "タオル").unwrap();
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn test_stats_duration_total() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn test_stats_travel_time_total() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     fn test_stats_to_json() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
         crate::itinerary::add_itinerary_item(
             &conn,
             trip_id,
@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn test_stats_empty_itinerary_succeeds() {
         let conn = test_db();
-        let trip_id = add_trip(&conn, "空の旅行", None, None).unwrap();
+        let trip_id = add_test_trip(&conn, "空の旅行").unwrap();
 
         let stats = compute_trip_stats(&conn, trip_id).unwrap();
         assert_eq!(stats.itinerary_count, 0);
