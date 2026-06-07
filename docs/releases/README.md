@@ -4,6 +4,8 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v1.0.4 | Checklist export/import and release binaries | [v1.0.4-notes.md](v1.0.4-notes.md) |
+| v1.0.3 | Release workflow validation (prerelease) | [v1.0.3-notes.md](v1.0.3-notes.md) |
 | v1.0.2 | Markdown export and documentation polish | [v1.0.2-notes.md](v1.0.2-notes.md) |
 | v1.0.1 | Not found handling polish | [v1.0.1-notes.md](v1.0.1-notes.md) |
 | v1.0.0 | First stable CLI baseline | [v1.0.0-notes.md](v1.0.0-notes.md) |
