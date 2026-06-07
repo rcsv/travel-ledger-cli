@@ -309,6 +309,14 @@ pub struct ChecklistItem {
 pub struct TripExport {
     pub trip: Trip,
     pub itinerary_items: Vec<ItineraryItem>,
+    /// 旧フォーマットでは省略可能。省略時は空配列として扱う。
+    pub checklist_items: Option<Vec<ChecklistItem>>,
+}
+
+impl TripExport {
+    pub fn checklist_items(&self) -> &[ChecklistItem] {
+        self.checklist_items.as_deref().unwrap_or(&[])
+    }
 }
 
 #[cfg(test)]

@@ -93,9 +93,11 @@ pub(crate) fn update_trip(
 pub(crate) fn build_trip_export(conn: &Connection, trip_id: i64) -> Result<TripExport> {
     let trip = get_trip(conn, trip_id)?;
     let itinerary_items = crate::itinerary::list_itinerary_items(conn, trip_id)?;
+    let checklist_items = crate::checklist::list_checklist_items(conn, trip_id)?;
     Ok(TripExport {
         trip,
         itinerary_items,
+        checklist_items: Some(checklist_items),
     })
 }
 
@@ -132,6 +134,11 @@ pub(crate) fn validate_trip_export(export: &TripExport) -> Result<()> {
             anyhow::bail!("itinerary_items[{index}].title は必須です");
         }
     }
+    for (index, item) in export.checklist_items().iter().enumerate() {
+        if item.title.trim().is_empty() {
+            anyhow::bail!("checklist_items[{index}].title は必須です");
+        }
+    }
     Ok(())
 }
 
@@ -149,6 +156,8 @@ pub(crate) fn import_trip_from_json(conn: &Connection, json: &str) -> Result<i64
         export.trip.end_date.as_deref(),
     )?;
 
+    let checklist_items: Vec<_> = export.checklist_items().to_vec();
+
     for item in export.itinerary_items {
         crate::itinerary::add_itinerary_item(
             conn,
@@ -162,6 +171,16 @@ pub(crate) fn import_trip_from_json(conn: &Connection, json: &str) -> Result<i64
             item.travel_minutes,
             item.location.as_deref(),
             item.category,
+        )?;
+    }
+
+    for item in checklist_items {
+        crate::checklist::import_checklist_item(
+            conn,
+            new_trip_id,
+            &item.title,
+            item.is_done,
+            item.sort_order,
         )?;
     }
 
@@ -568,6 +587,125 @@ mod tests {
         assert_eq!(trip.name, "沖縄・瀬底旅行");
         assert_eq!(trip.start_date.as_deref(), Some("2025-06-01"));
         assert_eq!(trip.end_date.as_deref(), Some("2025-06-07"));
+    }
+
+    use crate::checklist::{add_checklist_item, set_checklist_done};
+    use crate::db::reset_db;
+    use crate::models::{ChecklistItem, ItineraryItem};
+
+    fn checklist_sem(items: &[ChecklistItem]) -> Vec<(String, bool, i64)> {
+        items
+            .iter()
+            .map(|item| (item.title.clone(), item.is_done, item.sort_order))
+            .collect()
+    }
+
+    fn itinerary_sem(items: &[ItineraryItem]) -> Vec<(i64, String, Option<String>)> {
+        items
+            .iter()
+            .map(|item| (item.day, item.title.clone(), item.start_time.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn test_export_includes_checklist_items() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "沖縄旅行", None, None).unwrap();
+        add_checklist_item(&conn, trip_id, "パスポート").unwrap();
+        let charger_id = add_checklist_item(&conn, trip_id, "充電器").unwrap();
+        set_checklist_done(&conn, charger_id, true).unwrap();
+
+        let export = build_trip_export(&conn, trip_id).unwrap();
+        assert_eq!(export.checklist_items().len(), 2);
+        assert_eq!(
+            checklist_sem(export.checklist_items()),
+            vec![
+                ("パスポート".to_string(), false, 0),
+                ("充電器".to_string(), true, 0),
+            ]
+        );
+
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+        assert!(json.contains("\"checklist_items\""));
+    }
+
+    #[test]
+    fn test_import_legacy_json_without_checklist() {
+        let conn = test_db();
+        let json = r#"{
+            "trip": {
+                "id": 1,
+                "name": "Legacy Trip",
+                "start_date": "2026-06-01",
+                "end_date": "2026-06-03",
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "itinerary_items": []
+        }"#;
+
+        let new_id = import_trip_from_json(&conn, json).unwrap();
+        let imported = build_trip_export(&conn, new_id).unwrap();
+        assert_eq!(imported.trip.name, "Legacy Trip");
+        assert!(imported.checklist_items().is_empty());
+    }
+
+    #[test]
+    fn test_export_import_full_roundtrip_with_checklist() {
+        let conn = test_db();
+        let trip_id = add_trip(
+            &conn,
+            "Import Export Verify Trip",
+            Some("2026-06-01"),
+            Some("2026-06-03"),
+        )
+        .unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Shuri Castle",
+            None,
+            Some("09:00"),
+            None,
+            Some(90),
+            Some(20),
+            Some("Naha"),
+            None,
+        )
+        .unwrap();
+        add_checklist_item(&conn, trip_id, "Passport").unwrap();
+        let charger_id = add_checklist_item(&conn, trip_id, "Charger").unwrap();
+        set_checklist_done(&conn, charger_id, true).unwrap();
+
+        let before = build_trip_export(&conn, trip_id).unwrap();
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+
+        reset_db(&conn).unwrap();
+
+        let new_id = import_trip_from_json(&conn, &json).unwrap();
+        assert_eq!(new_id, 1);
+
+        let after = build_trip_export(&conn, new_id).unwrap();
+        assert_eq!(before.trip.name, after.trip.name);
+        assert_eq!(before.trip.start_date, after.trip.start_date);
+        assert_eq!(before.trip.end_date, after.trip.end_date);
+        assert_eq!(
+            itinerary_sem(&before.itinerary_items),
+            itinerary_sem(&after.itinerary_items)
+        );
+        assert_eq!(
+            checklist_sem(before.checklist_items()),
+            checklist_sem(after.checklist_items())
+        );
+
+        let re_json = export_trip_to_json(&conn, new_id).unwrap();
+        let parsed_before: TripExport = serde_json::from_str(&json).unwrap();
+        let parsed_after: TripExport = serde_json::from_str(&re_json).unwrap();
+        assert_eq!(
+            checklist_sem(parsed_before.checklist_items()),
+            checklist_sem(parsed_after.checklist_items())
+        );
     }
 
     #[test]

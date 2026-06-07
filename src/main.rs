@@ -536,9 +536,11 @@ fn main() -> Result<()> {
                 let new_id = crate::trip::import_trip_from_file(&conn, &file)?;
                 let trip = crate::trip::get_trip(&conn, new_id)?;
                 let items = crate::itinerary::list_itinerary_items(&conn, new_id)?;
+                let checklist = crate::checklist::list_checklist_items(&conn, new_id)?;
                 println!("旅行をインポートしました (ID: {new_id})");
                 println!("  名前: {}", trip.name);
                 println!("  日程: {} 件", items.len());
+                println!("  チェックリスト: {} 件", checklist.len());
             }
             TripAction::Diff { old_file, new_file } => {
                 crate::diff::run_trip_diff(&old_file, &new_file)?;

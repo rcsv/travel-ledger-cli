@@ -328,10 +328,12 @@ mod tests {
         let old = TripExport {
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![],
+            checklist_items: None,
         };
         let new = TripExport {
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![make_test_item(1, "首里城", Some("09:00"))],
+            checklist_items: None,
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -357,10 +359,12 @@ mod tests {
         let old = TripExport {
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![old_item],
+            checklist_items: None,
         };
         let new = TripExport {
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![new_item],
+            checklist_items: None,
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -392,10 +396,12 @@ mod tests {
         let old = TripExport {
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![make_test_item(1, "万座毛", Some("10:00"))],
+            checklist_items: None,
         };
         let new = TripExport {
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![],
+            checklist_items: None,
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -409,10 +415,12 @@ mod tests {
         let old = TripExport {
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![],
+            checklist_items: None,
         };
         let new = TripExport {
             trip: make_test_trip("沖縄・瀬底旅行"),
             itinerary_items: vec![],
+            checklist_items: None,
         };
 
         let diff = compute_trip_diff(&old, &new);

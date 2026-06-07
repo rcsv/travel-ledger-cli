@@ -155,6 +155,25 @@ pub(crate) fn print_checklist_generate_result(result: &ChecklistGenerateResult) 
     }
 }
 
+/// import 用にチェックリスト項目を追加する（ID / 日時は新規採番）
+pub(crate) fn import_checklist_item(
+    conn: &Connection,
+    trip_id: i64,
+    title: &str,
+    is_done: bool,
+    sort_order: i64,
+) -> Result<i64> {
+    let now = crate::db::now_string();
+    conn.execute(
+        "INSERT INTO checklist_items
+         (trip_id, title, is_done, sort_order, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![trip_id, title, i64::from(is_done), sort_order, &now, &now],
+    )
+    .context("チェックリスト項目のインポートに失敗しました")?;
+    Ok(conn.last_insert_rowid())
+}
+
 /// 旅行に紐づくチェックリスト一覧を取得する
 pub(crate) fn list_checklist_items(conn: &Connection, trip_id: i64) -> Result<Vec<ChecklistItem>> {
     crate::trip::get_trip(conn, trip_id)?;

@@ -164,9 +164,9 @@ Total Time:  29h05m
 
 #### JSON エクスポート（trip export）
 
-旅行 1 件と、紐づく日程を JSON で出力します。将来の Web 版や Firebase / Firestore への移行を想定した形式です。
+旅行 1 件と、紐づく日程・チェックリストを JSON で出力します。将来の Web 版や Firebase / Firestore への移行を想定した形式です。
 
-**export / import の対象:** 現時点では **Trip** と **Itinerary（`itinerary_items`）** のみです。**Checklist は export / import 対象外** で、JSON にも含まれません。import 後もチェックリストは復元されません。
+**export / import の対象:** **Trip**、**Itinerary（`itinerary_items`）**、**Checklist（`checklist_items`）** です。`trip export` → `db reset` → `trip import` で、これら 3 種類のデータをバックアップ／リストアできます。
 
 ```bash
 # 標準出力に表示
@@ -199,11 +199,22 @@ cargo run -- trip export 1 --output trip-1.json
       "travel_minutes": 20,
       "location": "沖縄県那覇市首里金城町1-2"
     }
+  ],
+  "checklist_items": [
+    {
+      "id": 1,
+      "trip_id": 1,
+      "title": "パスポート",
+      "is_done": false,
+      "sort_order": 0
+    }
   ]
 }
 ```
 
-`itinerary_items` は一覧表示と同じく、日目・時刻・並び順でソートされた状態で出力されます。
+`itinerary_items` は一覧表示と同じく、日目・時刻・並び順でソートされた状態で出力されます。`checklist_items` は一覧表示と同じく、未完了 → 完了済み、同状態内では `sort_order` → `id` の順で出力されます。
+
+**旧フォーマットとの互換:** `checklist_items` が無い export JSON（v1.0.2 以前）も import できます。その場合、チェックリストは空として扱われます。
 
 #### JSON インポート（trip import）
 
@@ -216,11 +227,12 @@ cargo run -- trip import trip-1.json
 | 動作 | 説明 |
 |---|---|
 | ID の扱い | JSON 内の `id` / `trip_id` は無視し、DB の AUTOINCREMENT で新規採番 |
-| trip_id の変換 | 日程の `trip_id` は、新しく作成された Trip の ID に置き換わる |
+| trip_id の変換 | 日程・チェックリストの `trip_id` は、新しく作成された Trip の ID に置き換わる |
 | 日時 | `created_at` / `updated_at` はインポート時に新しく設定される |
-| Checklist | **復元されない**（export JSON に含まれない） |
+| Checklist | `checklist_items` があれば復元する。省略時は空配列として扱う |
+| 旧フォーマット | `checklist_items` フィールドが無い JSON も import 可能 |
 
-**import 後の Trip ID について:** export JSON 内の `trip.id` は、import 後の DB 上の ID を保証しません（他の Trip が既にある場合、採番は 2, 3, … になることもあります）。import 完了メッセージに表示される ID（例: `旅行をインポートしました (ID: 2)`）を使ってください。確認は `trip list` や `trip show <new_id>`、`itinerary list <new_id>` で行います。export 元の Trip ID をそのまま指定しないでください。
+**import 後の Trip ID について:** export JSON 内の `trip.id` は、import 後の DB 上の ID を保証しません（他の Trip が既にある場合、採番は 2, 3, … になることもあります）。import 完了メッセージに表示される ID（例: `旅行をインポートしました (ID: 2)`）を使ってください。確認は `trip list` や `trip show <new_id>`、`itinerary list <new_id>`、`checklist list <new_id>` で行います。export 元の Trip ID をそのまま指定しないでください。
 
 完了時の表示例:
 
@@ -228,6 +240,7 @@ cargo run -- trip import trip-1.json
 旅行をインポートしました (ID: 2)
   名前: 沖縄旅行
   日程: 3 件
+  チェックリスト: 2 件
 ```
 
 エクスポートとインポートの流れ:
