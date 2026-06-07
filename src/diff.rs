@@ -327,6 +327,8 @@ mod tests {
     fn test_diff_itinerary_added() {
         let old = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![],
@@ -334,6 +336,8 @@ mod tests {
         };
         let new = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![make_test_item(1, "首里城", Some("09:00"))],
@@ -362,6 +366,8 @@ mod tests {
 
         let old = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![old_item],
@@ -369,6 +375,8 @@ mod tests {
         };
         let new = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![new_item],
@@ -403,6 +411,8 @@ mod tests {
     fn test_diff_itinerary_removed() {
         let old = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![make_test_item(1, "万座毛", Some("10:00"))],
@@ -410,6 +420,8 @@ mod tests {
         };
         let new = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![],
@@ -426,6 +438,8 @@ mod tests {
     fn test_diff_trip_name_change() {
         let old = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄旅行"),
             itinerary_items: vec![],
@@ -433,6 +447,8 @@ mod tests {
         };
         let new = TripExport {
             schema_version: None,
+            generator: None,
+            generator_version: None,
             exported_at: None,
             trip: make_test_trip("沖縄・瀬底旅行"),
             itinerary_items: vec![],

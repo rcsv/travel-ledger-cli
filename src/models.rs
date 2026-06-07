@@ -449,12 +449,21 @@ pub struct ChecklistItem {
 /// trip export 用 JSON の schema バージョン
 pub const TRIP_EXPORT_SCHEMA_VERSION: i32 = 1;
 
+/// trip export の generator 名
+pub const TRIP_EXPORT_GENERATOR: &str = "caglla-cli";
+
 /// trip export 用の JSON 構造
 #[derive(Serialize, Deserialize)]
 pub struct TripExport {
     /// export 時に付与。旧フォーマット import では省略される。
     #[serde(default)]
     pub schema_version: Option<i32>,
+    /// export 生成元（v1.0.8+）。旧フォーマット import では省略される。
+    #[serde(default)]
+    pub generator: Option<String>,
+    /// export 生成元のバージョン（v1.0.8+）。旧フォーマット import では省略される。
+    #[serde(default)]
+    pub generator_version: Option<String>,
     /// export 実行時刻（RFC3339）。旧フォーマット import では省略される。
     #[serde(default)]
     pub exported_at: Option<String>,
@@ -467,6 +476,78 @@ pub struct TripExport {
 impl TripExport {
     pub fn checklist_items(&self) -> &[ChecklistItem] {
         self.checklist_items.as_deref().unwrap_or(&[])
+    }
+}
+
+/// export ファイル先頭のメタデータ（表示・レポート用。valid 判定には使わない）
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TripExportMetadata {
+    pub generator_present: bool,
+    pub generator: Option<String>,
+    pub generator_version_present: bool,
+    pub generator_version: Option<String>,
+    pub exported_at_present: bool,
+    pub exported_at: Option<String>,
+}
+
+impl TripExportMetadata {
+    pub fn from_parsed(root: &serde_json::Value, export: &TripExport) -> Self {
+        Self {
+            generator_present: root.get("generator").is_some(),
+            generator: export.generator.clone(),
+            generator_version_present: root.get("generator_version").is_some(),
+            generator_version: export.generator_version.clone(),
+            exported_at_present: root.get("exported_at").is_some(),
+            exported_at: export.exported_at.clone(),
+        }
+    }
+
+    pub fn display_generator(&self) -> &str {
+        if self.generator_present {
+            self.generator.as_deref().unwrap_or("-")
+        } else {
+            "不明"
+        }
+    }
+
+    pub fn display_generator_version(&self) -> &str {
+        if self.generator_version_present {
+            self.generator_version.as_deref().unwrap_or("-")
+        } else {
+            "不明"
+        }
+    }
+
+    pub fn display_exported_at(&self) -> &str {
+        if self.exported_at_present {
+            self.exported_at.as_deref().unwrap_or("-")
+        } else {
+            "不明"
+        }
+    }
+
+    pub fn json_generator(&self) -> Option<String> {
+        if self.generator_present {
+            self.generator.clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn json_generator_version(&self) -> Option<String> {
+        if self.generator_version_present {
+            self.generator_version.clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn json_exported_at(&self) -> Option<String> {
+        if self.exported_at_present {
+            self.exported_at.clone()
+        } else {
+            None
+        }
     }
 }
 
@@ -506,10 +587,18 @@ pub struct ExportValidationReport {
     pub export_schema_version: Option<i32>,
     pub itinerary_count: usize,
     pub checklist_count: usize,
+    /// ファイル内 `generator`（キーなしは `null`）
+    pub generator: Option<String>,
+    /// ファイル内 `generator_version`（キーなしは `null`）
+    pub generator_version: Option<String>,
+    /// ファイル内 `exported_at`（キーなしは `null`）
+    pub exported_at: Option<String>,
     pub checks: Vec<ExportValidationCheck>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
     pub errors: Vec<String>,
+    #[serde(skip)]
+    pub export_metadata: Option<TripExportMetadata>,
 }
 
 impl ExportValidationReport {
@@ -522,9 +611,13 @@ impl ExportValidationReport {
             export_schema_version: None,
             itinerary_count: 0,
             checklist_count: 0,
+            generator: None,
+            generator_version: None,
+            exported_at: None,
             checks: Vec::new(),
             warnings: Vec::new(),
             errors: Vec::new(),
+            export_metadata: None,
         }
     }
 }
@@ -539,6 +632,7 @@ pub struct TripImportSummary {
     /// export JSON に `schema_version` キーが存在するか
     pub schema_version_present: bool,
     pub export_schema_version: Option<i32>,
+    pub export_metadata: TripExportMetadata,
 }
 
 #[cfg(test)]

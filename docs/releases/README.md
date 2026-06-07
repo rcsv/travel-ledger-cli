@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v1.0.8 | Export metadata | [v1.0.8-notes.md](v1.0.8-notes.md) |
 | v1.0.7 | Backup validation and import summary | [v1.0.7-notes.md](v1.0.7-notes.md) |
 | v1.0.6 | Structured doctor/advisor JSON | [v1.0.6-notes.md](v1.0.6-notes.md) |
 | v1.0.5 | Data completeness and backup reliability | [v1.0.5-notes.md](v1.0.5-notes.md) |

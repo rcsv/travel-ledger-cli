@@ -61,6 +61,10 @@ fn cli_validate_export_current_format_succeeds() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Metadata:"));
+    assert!(stdout.contains("Generator : caglla-cli"));
+    assert!(stdout.contains("Version   :"));
+    assert!(stdout.contains("Exported  :"));
     assert!(stdout.contains("Warnings:"));
     assert!(stdout.contains("なし"));
     assert!(stdout.contains("有効な export ファイル"));
@@ -99,6 +103,9 @@ fn cli_validate_export_json_includes_errors_array() {
     let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(parsed["valid"], true);
     assert_eq!(parsed["errors"], serde_json::json!([]));
+    assert_eq!(parsed["generator"], serde_json::Value::Null);
+    assert_eq!(parsed["generator_version"], serde_json::Value::Null);
+    assert_eq!(parsed["exported_at"], serde_json::Value::Null);
     assert!(parsed["warnings"].as_array().unwrap().len() >= 2);
 }
 
@@ -132,6 +139,48 @@ fn cli_validate_export_legacy_text_output_is_valid_with_warnings() {
     assert!(stdout.contains("✗ checklist_items"));
     assert!(stdout.contains("有効な export ファイル"));
     assert!(stdout.contains("schema_version がありません（旧形式）"));
+    assert!(stdout.contains("Metadata:"));
+    assert!(stdout.contains("Generator : 不明"));
+    assert!(stdout.contains("Version   : 不明"));
+    assert!(stdout.contains("Exported  : 不明"));
+}
+
+#[test]
+fn cli_validate_export_json_includes_generator_metadata() {
+    let dir = temp_workdir();
+    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(run_cli(&dir, &["trip", "add", "JSON Metadata Trip"])
+        .status
+        .success());
+
+    let export_path = dir.join("backup.json");
+    assert!(run_cli(
+        &dir,
+        &[
+            "trip",
+            "export",
+            "1",
+            "--output",
+            export_path.to_str().unwrap(),
+        ]
+    )
+    .status
+    .success());
+
+    let output = run_cli(
+        &dir,
+        &[
+            "trip",
+            "validate-export",
+            export_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(parsed["generator"], "caglla-cli");
+    assert!(parsed["generator_version"].is_string());
+    assert!(parsed["exported_at"].is_string());
 }
 
 #[test]

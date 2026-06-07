@@ -69,6 +69,9 @@ fn cli_trip_import_prints_enhanced_summary() {
     assert!(stdout.contains("チェックリスト : 1 件"));
     assert!(stdout.contains("Schema:"));
     assert!(stdout.contains("version 1"));
+    assert!(stdout.contains("Export:"));
+    assert!(stdout.contains("generator : caglla-cli"));
+    assert!(stdout.contains("version   :"));
 }
 
 #[test]
@@ -96,4 +99,7 @@ fn cli_trip_import_legacy_schema_summary() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Legacy Trip (ID: 1)"));
     assert!(stdout.contains("未指定（旧形式）"));
+    assert!(stdout.contains("Export:"));
+    assert!(stdout.contains("generator : 不明"));
+    assert!(stdout.contains("version   : 不明"));
 }

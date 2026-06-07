@@ -5,7 +5,7 @@ use rusqlite::{params, Connection};
 use crate::db::now_string;
 use crate::models::{
     ExportValidationCheck, ExportValidationCheckId, ExportValidationReport, Trip, TripExport,
-    TripImportSummary, TRIP_EXPORT_SCHEMA_VERSION,
+    TripExportMetadata, TripImportSummary, TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
 };
 
 /// 新しい旅行を追加する
@@ -100,6 +100,8 @@ pub(crate) fn build_trip_export(conn: &Connection, trip_id: i64) -> Result<TripE
     let checklist_items = crate::checklist::list_checklist_items(conn, trip_id)?;
     Ok(TripExport {
         schema_version: None,
+        generator: None,
+        generator_version: None,
         exported_at: None,
         trip,
         itinerary_items,
@@ -114,6 +116,8 @@ fn export_timestamp_rfc3339() -> String {
 /// export 用 JSON にメタデータを付与する
 fn finalize_trip_export(mut export: TripExport) -> TripExport {
     export.schema_version = Some(TRIP_EXPORT_SCHEMA_VERSION);
+    export.generator = Some(TRIP_EXPORT_GENERATOR.to_string());
+    export.generator_version = Some(env!("CARGO_PKG_VERSION").to_string());
     export.exported_at = Some(export_timestamp_rfc3339());
     export
 }
@@ -262,11 +266,19 @@ pub(crate) fn analyze_trip_export_json(file: &str, json: &str) -> ExportValidati
             .push("checklist_items がありません（旧形式）".to_string());
     }
 
-    if let Some(exported_at) = export.exported_at.as_deref() {
-        if chrono::DateTime::parse_from_rfc3339(exported_at).is_err() {
-            report.warnings.push(format!(
-                "exported_at の形式が RFC3339 ではありません: {exported_at}"
-            ));
+    let metadata = TripExportMetadata::from_parsed(&root, &export);
+    report.export_metadata = Some(metadata.clone());
+    report.generator = metadata.json_generator();
+    report.generator_version = metadata.json_generator_version();
+    report.exported_at = metadata.json_exported_at();
+
+    if metadata.exported_at_present {
+        if let Some(exported_at) = metadata.exported_at.as_deref() {
+            if chrono::DateTime::parse_from_rfc3339(exported_at).is_err() {
+                report.warnings.push(format!(
+                    "exported_at の形式が RFC3339 ではありません: {exported_at}"
+                ));
+            }
         }
     }
 
@@ -338,6 +350,14 @@ pub(crate) fn print_export_validation_report(report: &ExportValidationReport) {
         );
         println!("  Itineraries  : {} 件", report.itinerary_count);
         println!("  Checklists   : {} 件", report.checklist_count);
+    }
+
+    if let Some(metadata) = &report.export_metadata {
+        println!();
+        println!("Metadata:");
+        println!("  Generator : {}", metadata.display_generator());
+        println!("  Version   : {}", metadata.display_generator_version());
+        println!("  Exported  : {}", metadata.display_exported_at());
     }
 
     println!();
@@ -436,6 +456,7 @@ fn trip_import_summary_from_export(
     new_trip_id: i64,
     export: &TripExport,
     schema_version_present: bool,
+    export_metadata: TripExportMetadata,
 ) -> TripImportSummary {
     TripImportSummary {
         trip_id: new_trip_id,
@@ -444,6 +465,7 @@ fn trip_import_summary_from_export(
         checklist_count: export.checklist_items().len(),
         schema_version_present,
         export_schema_version: export.schema_version,
+        export_metadata,
     }
 }
 
@@ -472,13 +494,25 @@ pub(crate) fn print_trip_import_summary(summary: &TripImportSummary) {
     println!();
     println!("Schema:");
     println!("{}", import_schema_display_line(summary));
+    println!();
+    println!("Export:");
+    println!(
+        "  generator : {}",
+        summary.export_metadata.display_generator()
+    );
+    println!(
+        "  version   : {}",
+        summary.export_metadata.display_generator_version()
+    );
 }
 
-fn parse_trip_export_for_import(json: &str) -> Result<(TripExport, bool)> {
+fn parse_trip_export_for_import(json: &str) -> Result<(TripExport, bool, TripExportMetadata)> {
     let root: serde_json::Value = serde_json::from_str(json).context("JSON の形式が不正です")?;
     let schema_version_present = root.get("schema_version").is_some();
-    let export: TripExport = serde_json::from_value(root).context("JSON の形式が不正です")?;
-    Ok((export, schema_version_present))
+    let export: TripExport =
+        serde_json::from_value(root.clone()).context("JSON の形式が不正です")?;
+    let export_metadata = TripExportMetadata::from_parsed(&root, &export);
+    Ok((export, schema_version_present, export_metadata))
 }
 
 /// JSON 文字列から旅行をインポートし、サマリーを返す
@@ -486,12 +520,13 @@ pub(crate) fn import_trip_from_json_with_summary(
     conn: &Connection,
     json: &str,
 ) -> Result<TripImportSummary> {
-    let (export, schema_version_present) = parse_trip_export_for_import(json)?;
+    let (export, schema_version_present, export_metadata) = parse_trip_export_for_import(json)?;
     let new_trip_id = import_trip_from_export(conn, &export)?;
     Ok(trip_import_summary_from_export(
         new_trip_id,
         &export,
         schema_version_present,
+        export_metadata,
     ))
 }
 
@@ -1141,6 +1176,109 @@ mod tests {
     }
 
     #[test]
+    fn test_build_trip_export_leaves_generator_metadata_unset() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+
+        let export = build_trip_export(&conn, trip_id).unwrap();
+        assert!(export.generator.is_none());
+        assert!(export.generator_version.is_none());
+        assert!(export.schema_version.is_none());
+        assert!(export.exported_at.is_none());
+    }
+
+    #[test]
+    fn test_export_includes_generator_metadata() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "Metadata Trip", None, None).unwrap();
+
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["generator"], TRIP_EXPORT_GENERATOR);
+        assert_eq!(parsed["generator_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(parsed["schema_version"], 1);
+    }
+
+    #[test]
+    fn test_comparable_trip_export_ignores_generator_metadata() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "Roundtrip Trip", None, None).unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Shuri Castle",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let before = build_trip_export(&conn, trip_id).unwrap();
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+        let exported: TripExport = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(exported.generator.as_deref(), Some(TRIP_EXPORT_GENERATOR));
+        assert_eq!(
+            comparable_trip_export(&before),
+            comparable_trip_export(&exported)
+        );
+    }
+
+    #[test]
+    fn test_import_legacy_json_without_generator_metadata() {
+        let conn = test_db();
+        let json = r#"{
+            "schema_version": 1,
+            "exported_at": "2026-06-07T00:00:00Z",
+            "trip": {
+                "id": 1,
+                "name": "Legacy Metadata Trip",
+                "start_date": null,
+                "end_date": null,
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "itinerary_items": [],
+            "checklist_items": []
+        }"#;
+
+        let new_id = import_trip_from_json(&conn, json).unwrap();
+        let imported = get_trip(&conn, new_id).unwrap();
+        assert_eq!(imported.name, "Legacy Metadata Trip");
+    }
+
+    #[test]
+    fn test_import_json_with_unknown_generator_is_allowed() {
+        let conn = test_db();
+        let json = r#"{
+            "schema_version": 1,
+            "generator": "unknown",
+            "generator_version": "0.9.0",
+            "trip": {
+                "id": 1,
+                "name": "Unknown Generator Trip",
+                "start_date": null,
+                "end_date": null,
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "itinerary_items": [],
+            "checklist_items": []
+        }"#;
+
+        let new_id = import_trip_from_json(&conn, json).unwrap();
+        assert_eq!(
+            get_trip(&conn, new_id).unwrap().name,
+            "Unknown Generator Trip"
+        );
+    }
+
+    #[test]
     fn test_import_new_format_with_metadata() {
         let conn = test_db();
         let json = r#"{
@@ -1380,6 +1518,10 @@ mod tests {
             &report,
             ExportValidationCheckId::ChecklistItems
         ));
+        assert_eq!(report.generator.as_deref(), Some(TRIP_EXPORT_GENERATOR));
+        assert!(report.generator_version.is_some());
+        assert!(report.exported_at.is_some());
+        assert!(report.export_metadata.is_some());
     }
 
     #[test]
@@ -1415,6 +1557,13 @@ mod tests {
             ExportValidationCheckId::ChecklistItems
         ));
         assert!(check_passed(&report, ExportValidationCheckId::Trip));
+        assert_eq!(report.generator, None);
+        assert_eq!(report.generator_version, None);
+        assert_eq!(report.exported_at, None);
+        let metadata = report.export_metadata.as_ref().unwrap();
+        assert_eq!(metadata.display_generator(), "不明");
+        assert_eq!(metadata.display_generator_version(), "不明");
+        assert_eq!(metadata.display_exported_at(), "不明");
     }
 
     #[test]
@@ -1612,8 +1761,100 @@ mod tests {
         let value = serde_json::to_value(&report).unwrap();
         assert_eq!(value["schema_version"], 1);
         assert_eq!(value["export_schema_version"], 1);
+        assert_eq!(value["generator"], serde_json::Value::Null);
+        assert_eq!(value["generator_version"], serde_json::Value::Null);
+        assert_eq!(value["exported_at"], serde_json::Value::Null);
         assert!(value["checks"].is_array());
         assert_eq!(value["errors"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn test_analyze_trip_export_json_report_includes_generator_metadata() {
+        let json = r#"{
+            "schema_version": 1,
+            "generator": "caglla-cli",
+            "generator_version": "1.0.8",
+            "exported_at": "2026-06-07T12:34:56Z",
+            "trip": {
+                "id": 1,
+                "name": "Metadata Trip",
+                "start_date": null,
+                "end_date": null,
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "itinerary_items": [],
+            "checklist_items": []
+        }"#;
+
+        let report = analyze_trip_export_json("metadata.json", json);
+        assert_eq!(report.generator.as_deref(), Some("caglla-cli"));
+        assert_eq!(report.generator_version.as_deref(), Some("1.0.8"));
+        assert_eq!(report.exported_at.as_deref(), Some("2026-06-07T12:34:56Z"));
+
+        let metadata = report.export_metadata.as_ref().unwrap();
+        assert_eq!(metadata.display_generator(), "caglla-cli");
+        assert_eq!(metadata.display_generator_version(), "1.0.8");
+        assert_eq!(metadata.display_exported_at(), "2026-06-07T12:34:56Z");
+
+        let value = serde_json::to_value(&report).unwrap();
+        assert_eq!(value["generator"], "caglla-cli");
+        assert_eq!(value["generator_version"], "1.0.8");
+        assert_eq!(value["exported_at"], "2026-06-07T12:34:56Z");
+    }
+
+    #[test]
+    fn test_analyze_trip_export_unknown_generator_has_no_metadata_warning() {
+        let json = r#"{
+            "schema_version": 1,
+            "generator": "unknown",
+            "generator_version": "0.9.0",
+            "trip": {
+                "id": 1,
+                "name": "Unknown Generator Trip",
+                "start_date": null,
+                "end_date": null,
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "itinerary_items": [],
+            "checklist_items": []
+        }"#;
+
+        let report = analyze_trip_export_json("unknown-generator.json", json);
+        assert!(report.valid);
+        assert_eq!(report.generator.as_deref(), Some("unknown"));
+        assert_eq!(report.generator_version.as_deref(), Some("0.9.0"));
+        assert!(report
+            .warnings
+            .iter()
+            .all(|warning| !warning.contains("generator")));
+    }
+
+    #[test]
+    fn test_analyze_trip_export_invalid_exported_at_is_warning_only() {
+        let json = r#"{
+            "schema_version": 1,
+            "exported_at": "not-rfc3339",
+            "trip": {
+                "id": 1,
+                "name": "Bad Timestamp Trip",
+                "start_date": null,
+                "end_date": null,
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "itinerary_items": [],
+            "checklist_items": []
+        }"#;
+
+        let report = analyze_trip_export_json("bad-exported-at.json", json);
+        assert!(report.valid);
+        assert_eq!(report.exported_at.as_deref(), Some("not-rfc3339"));
+        assert!(report
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("exported_at") && warning.contains("RFC3339")));
     }
 
     #[test]
@@ -1621,6 +1862,8 @@ mod tests {
         let conn = test_db();
         let json = r#"{
             "schema_version": 1,
+            "generator": "caglla-cli",
+            "generator_version": "1.0.8",
             "exported_at": "2026-06-07T00:00:00Z",
             "trip": {
                 "id": 1,
@@ -1667,6 +1910,44 @@ mod tests {
         assert!(summary.schema_version_present);
         assert_eq!(summary.export_schema_version, Some(1));
         assert_eq!(import_schema_display_line(&summary), "  version 1");
+        assert_eq!(summary.export_metadata.display_generator(), "caglla-cli");
+        assert_eq!(summary.export_metadata.display_generator_version(), "1.0.8");
+    }
+
+    #[test]
+    fn test_import_summary_legacy_export_metadata_is_unknown() {
+        let conn = test_db();
+        let json = r#"{
+            "trip": {
+                "id": 1,
+                "name": "Legacy Trip",
+                "start_date": null,
+                "end_date": null,
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "itinerary_items": []
+        }"#;
+
+        let summary = import_trip_from_json_with_summary(&conn, json).unwrap();
+        assert_eq!(summary.export_metadata.display_generator(), "不明");
+        assert_eq!(summary.export_metadata.display_generator_version(), "不明");
+    }
+
+    #[test]
+    fn test_import_summary_from_export_includes_generator_metadata() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "Export Metadata Trip", None, None).unwrap();
+        add_checklist_item(&conn, trip_id, "Passport").unwrap();
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+
+        let summary = import_trip_from_json_with_summary(&conn, &json).unwrap();
+        assert_eq!(
+            summary.export_metadata.display_generator(),
+            TRIP_EXPORT_GENERATOR
+        );
+        assert!(summary.export_metadata.generator_version_present);
+        assert!(summary.export_metadata.generator_version.is_some());
     }
 
     #[test]
