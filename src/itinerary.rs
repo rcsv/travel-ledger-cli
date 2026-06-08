@@ -209,10 +209,12 @@ pub(crate) fn update_itinerary_item(
 /// 日程を削除する
 pub(crate) fn delete_itinerary_item(conn: &Connection, id: i64) -> Result<()> {
     get_itinerary_item(conn, id)?;
-    crate::note::delete_notes_for_itinerary(conn, id)?;
-    conn.execute("DELETE FROM itinerary_items WHERE id = ?1", params![id])
-        .context("日程の削除に失敗しました")?;
-    Ok(())
+    crate::db::with_transaction(conn, "itinerary delete", |tx| {
+        crate::note::delete_notes_for_itinerary(tx, id)?;
+        tx.execute("DELETE FROM itinerary_items WHERE id = ?1", params![id])
+            .context("日程の削除に失敗しました")?;
+        Ok(())
+    })
 }
 
 /// rusqlite の行データを ItineraryItem 構造体に変換する

@@ -16,6 +16,21 @@ where
     }
 }
 
+/// 変更を 1 トランザクションにまとめて commit する。`f` が Err のときは rollback。
+pub(crate) fn with_transaction(
+    conn: &Connection,
+    label: &str,
+    f: impl FnOnce(&Connection) -> Result<()>,
+) -> Result<()> {
+    let tx = conn
+        .unchecked_transaction()
+        .with_context(|| format!("{label}: トランザクション開始に失敗しました"))?;
+    f(&tx).with_context(|| format!("{label}: 処理に失敗しました"))?;
+    tx.commit()
+        .with_context(|| format!("{label}: トランザクション確定に失敗しました"))?;
+    Ok(())
+}
+
 /// 指定パスの DB に接続し、テーブルがなければ作成する
 pub(crate) fn open_db_at(path: &str) -> Result<Connection> {
     let conn = Connection::open(path)
@@ -259,7 +274,6 @@ mod tests {
     use crate::itinerary::add_itinerary_item;
     use crate::trip::{add_test_trip, list_trips};
     use rusqlite::{params, Connection};
-
     fn test_db() -> Connection {
         open_db_at(":memory:").expect("インメモリ DB の作成に失敗")
     }
@@ -524,5 +538,26 @@ mod tests {
         )
         .unwrap();
         assert_eq!(new_item_id, 1);
+    }
+
+    #[test]
+    fn test_with_transaction_rolls_back_on_error() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Rollback Trip").unwrap();
+        let before = crate::trip::get_trip(&conn, trip_id).unwrap();
+
+        let err = with_transaction(&conn, "test rollback", |tx| {
+            tx.execute(
+                "UPDATE trips SET name = ?1 WHERE id = ?2",
+                params!["Changed Name", trip_id],
+            )?;
+            anyhow::bail!("simulated failure");
+        })
+        .expect_err("expected transaction to fail");
+
+        assert!(err.to_string().contains("処理に失敗しました"));
+        assert!(format!("{err:#}").contains("simulated failure"));
+        let after = crate::trip::get_trip(&conn, trip_id).unwrap();
+        assert_eq!(after.name, before.name);
     }
 }

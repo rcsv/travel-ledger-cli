@@ -98,14 +98,17 @@ pub(crate) fn update_trip(
     let day_count = crate::day::validate_trip_date_range(start_date, end_date)?;
 
     let now = now_string();
-    conn.execute(
-        "UPDATE trips
-         SET name = ?1, start_date = ?2, end_date = ?3, updated_at = ?4
-         WHERE id = ?5",
-        params![trip.name, trip.start_date, trip.end_date, &now, id],
-    )
-    .context("旅行の更新に失敗しました")?;
-    crate::day::sync_days_to_trip_duration(conn, id, day_count)?;
+    crate::db::with_transaction(conn, "trip update", |tx| {
+        tx.execute(
+            "UPDATE trips
+             SET name = ?1, start_date = ?2, end_date = ?3, updated_at = ?4
+             WHERE id = ?5",
+            params![trip.name, trip.start_date, trip.end_date, &now, id],
+        )
+        .context("旅行の更新に失敗しました")?;
+        crate::day::sync_days_to_trip_duration(tx, id, day_count)?;
+        Ok(())
+    })?;
     Ok(())
 }
 
@@ -600,13 +603,13 @@ pub(crate) fn load_trip_export_from_file(path: &str) -> Result<TripExport> {
 
 /// 旅行を削除する
 pub(crate) fn delete_trip(conn: &Connection, id: i64) -> Result<()> {
-    // 存在確認（見つからなければエラー）
     get_trip(conn, id)?;
-    // 案A: 親削除前に Note を削除（days / itinerary_items が残っている間に subquery 可能）
-    crate::note::delete_notes_for_trip(conn, id)?;
-    conn.execute("DELETE FROM trips WHERE id = ?1", params![id])
-        .context("旅行の削除に失敗しました")?;
-    Ok(())
+    crate::db::with_transaction(conn, "trip delete", |tx| {
+        crate::note::delete_notes_for_trip(tx, id)?;
+        tx.execute("DELETE FROM trips WHERE id = ?1", params![id])
+            .context("旅行の削除に失敗しました")?;
+        Ok(())
+    })
 }
 
 /// rusqlite の行データを Trip 構造体に変換する

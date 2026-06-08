@@ -220,3 +220,74 @@ fn cli_note_add_rejects_conflicting_owner_flags() {
     );
     assert!(!output.status.success());
 }
+
+#[test]
+fn cli_trip_delete_removes_all_notes() {
+    let dir = temp_workdir();
+    setup_trip(&dir);
+    assert!(
+        run_cli(&dir, &["itinerary", "add", "1", "--day", "2", "Plan"],)
+            .status
+            .success()
+    );
+    assert!(
+        run_cli(&dir, &["note", "add", "--trip", "1", "--body", "trip note"],)
+            .status
+            .success()
+    );
+    assert!(run_cli(
+        &dir,
+        &["note", "add", "--trip", "1", "--day", "2", "--body", "day note"],
+    )
+    .status
+    .success());
+    assert!(run_cli(
+        &dir,
+        &[
+            "note",
+            "add",
+            "--itinerary",
+            "1",
+            "--body",
+            "itinerary note"
+        ],
+    )
+    .status
+    .success());
+
+    let output = run_cli(&dir, &["trip", "delete", "1"]);
+    assert!(output.status.success());
+
+    let list = run_cli(&dir, &["note", "list", "--trip", "1"]);
+    assert!(!list.status.success());
+}
+
+#[test]
+fn cli_trip_update_shrink_failure_preserves_trip_and_day_notes() {
+    let dir = temp_workdir();
+    setup_trip(&dir);
+    assert!(
+        run_cli(&dir, &["itinerary", "add", "1", "--day", "3", "Busy"],)
+            .status
+            .success()
+    );
+    assert!(run_cli(
+        &dir,
+        &["note", "add", "--trip", "1", "--day", "4", "--body", "day4"],
+    )
+    .status
+    .success());
+
+    let output = run_cli(&dir, &["trip", "update", "1", "--end", "2026-04-27"]);
+    assert!(!output.status.success());
+
+    let show = run_cli(&dir, &["trip", "show", "1"]);
+    assert!(String::from_utf8_lossy(&show.stdout).contains("2026-04-29"));
+    let list = run_cli(
+        &dir,
+        &["note", "list", "--trip", "1", "--day", "4", "--json"],
+    );
+    assert!(list.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
+    assert_eq!(parsed["notes"].as_array().unwrap().len(), 1);
+}

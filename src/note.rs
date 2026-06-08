@@ -513,6 +513,41 @@ mod tests {
     }
 
     #[test]
+    fn test_update_trip_shrink_rolls_back_when_middle_day_blocks_deletion() {
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "Trip", "2026-04-26", "2026-04-29").unwrap();
+        let day4 = crate::day::find_day_by_trip_and_day_number(&conn, trip_id, 4).unwrap();
+        add_note(&conn, ResolvedNoteOwner::Day(day4.id), None, "day4 note").unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            3,
+            "Busy Day 3",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let trip_before = crate::trip::get_trip(&conn, trip_id).unwrap();
+
+        assert!(update_trip(&conn, trip_id, None, None, Some("2026-04-27")).is_err());
+
+        let trip_after = crate::trip::get_trip(&conn, trip_id).unwrap();
+        assert_eq!(trip_before.end_date, trip_after.end_date);
+        assert_eq!(
+            list_notes_for_owner(&conn, NoteOwnerType::Day, day4.id)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(crate::day::list_days(&conn, trip_id).unwrap().len(), 4);
+    }
+
+    #[test]
     fn test_itinerary_delete_leaves_trip_and_day_notes() {
         let conn = test_db();
         let trip_id = add_trip(&conn, "Trip", "2026-04-26", "2026-04-29").unwrap();
