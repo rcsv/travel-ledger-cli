@@ -4,7 +4,7 @@
 # 使い方（リポジトリルートから）:
 #   bash samples/okinawa_sesoko_2026/seed.sh
 #
-# 元データ: EstimateTrip_20260426.pdf（実旅行イベント台帳）
+# 元データ: EstimateTrip_20260426.pdf（実旅行の行動台帳）
 
 set -euo pipefail
 

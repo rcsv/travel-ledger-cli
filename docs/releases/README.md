@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v1.8.1 | Travel activity terminology consistency | [v1.8.1-notes.md](v1.8.1-notes.md) |
 | v1.8.0 | Itinerary model (not a venue) | [v1.8.0-notes.md](v1.8.0-notes.md) |
 | v1.7.0 | Canonical sample dataset and expense verification | [v1.7.0-notes.md](v1.7.0-notes.md) |
 | v1.6.0 | Export Schema v3 with Expense backup | [v1.6.0-notes.md](v1.6.0-notes.md) |
