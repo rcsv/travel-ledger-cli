@@ -216,9 +216,9 @@ Total Time:  29h05m
 
 旅行 1 件と、紐づく日程・チェックリストを JSON で出力します。将来の Web 版や Firebase / Firestore への移行を想定した形式です。
 
-**export / import の対象:** **Trip**、**Itinerary（`itinerary_items`）**、**Checklist（`checklist_items`）** です。`trip export` → `db reset` → `trip import` で、これら 3 種類のデータをバックアップ／リストアできます。
+**export / import の対象:** **Trip**、**Itinerary（`itinerary_items`）**、**Checklist（`checklist_items`）**、**Note（`notes`、v1.4.0+ / schema v2）** です。`trip export` → `db reset` → `trip import` で、これらのデータをバックアップ／リストアできます。
 
-Export JSON には **`schema_version`**（現在は `1`）、**`generator`**（`caglla-cli`）、**`generator_version`**（export 実行時の CLI バージョン）、**`exported_at`**（export 実行時刻、RFC3339）が含まれます。Import は **`schema_version` / `generator` / `generator_version` / `exported_at` が無い旧形式** とも後方互換です。
+Export JSON には **`schema_version`**（現在は `2`）、**`generator`**（`caglla-cli`）、**`generator_version`**（export 実行時の CLI バージョン）、**`exported_at`**（export 実行時刻、RFC3339）が含まれます。Import は **`schema_version` 未指定 / `1`（v1 形式）** および **`schema_version: 2`（v2 形式）** の両方に対応します。`generator` / `generator_version` / `exported_at` が無い旧形式とも後方互換です。詳細は [export-schema.md](docs/specifications/export-schema.md) を参照してください。
 
 ```bash
 # 標準出力に表示
@@ -232,9 +232,9 @@ cargo run -- trip export 1 --output backup.json
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generator": "caglla-cli",
-  "generator_version": "1.0.8",
+  "generator_version": "1.4.0",
   "exported_at": "2026-06-07T00:00:00Z",
   "trip": {
     "id": 1,
@@ -264,6 +264,30 @@ cargo run -- trip export 1 --output backup.json
       "is_done": false,
       "sort_order": 0
     }
+  ],
+  "notes": [
+    {
+      "owner_type": "trip",
+      "title": "全体メモ",
+      "body": "..."
+    },
+    {
+      "owner_type": "day",
+      "day_number": 2,
+      "title": "2日目メモ",
+      "body": "..."
+    },
+    {
+      "owner_type": "itinerary",
+      "itinerary_key": {
+        "day_number": 2,
+        "sort_order": 3,
+        "start_time": "09:00",
+        "title": "美ら海水族館"
+      },
+      "title": "水族館メモ",
+      "body": "..."
+    }
   ]
 }
 ```
@@ -275,6 +299,8 @@ cargo run -- trip export 1 --output backup.json
 | 旧形式 | 扱い |
 |---|---|
 | `trip.start_date` / `trip.end_date` なし | **import 不可** |
+| `schema_version` 未指定 / `1` | v1 形式として import（`notes` なし） |
+| `schema_version: 2` | v2 形式として import（`notes` あり） |
 | `schema_version` / `generator` / `generator_version` / `exported_at` なし | メタデータなしとして import（問題なし） |
 | `generator: "unknown"` や旧 `generator_version` | import 可能（warning なし） |
 | `checklist_items` なし（v1.0.2 以前） | チェックリストは空として import |
@@ -294,6 +320,7 @@ cargo run -- trip import backup.json
 | 日時 | `created_at` / `updated_at` はインポート時に新しく設定される |
 | 旅行期間 | `trip.start_date` / `trip.end_date` は必須。import 時に Day 1..N を自動生成 |
 | Checklist | `checklist_items` があれば復元する。省略時は空配列として扱う |
+| Note | `notes` があれば復元する（schema v2）。省略時は空配列として扱う。Itinerary Note は `itinerary_key` で紐づけ（DB の内部 id は export しない） |
 | メタデータ | `schema_version` / `exported_at` は import 時に無視される。`generator` / `generator_version` は import サマリー表示用（DB には保存しない） |
 | 旧フォーマット | `checklist_items` や export メタデータが無い JSON も import 可能（日付なし export は不可） |
 
@@ -310,9 +337,10 @@ Trip:
 Created:
   日程           : 3 件
   チェックリスト : 2 件
+  Note           : 1 件
 
 Schema:
-  version 1
+  version 2
 
 Export:
   generator : caglla-cli
@@ -362,7 +390,7 @@ cargo run -- trip validate-export backup.json --json
 | `warnings` | 推奨形式との差異や注意点（import 可能でも表示される） |
 | `checks` | export 形式としての確認結果（✓/✗） |
 
-**legacy について:** 旧形式の export は import 可能であれば `valid` になります。ただし `schema_version` や `checklist_items` キーがない場合などは `warnings` が表示され、対応する `checks` が ✗ になることがあります。
+**legacy について:** v1 形式（`schema_version` 未指定 / `1`）の export は import 可能であれば `valid` になります。`checklist_items` キーがない場合などは `warnings` が表示され、対応する `checks` が ✗ になることがあります。`schema_version` 未指定の旧形式では `schema_version` チェックは ✓（effective v1）です。
 
 テキスト出力例（現行 export）:
 
@@ -375,11 +403,13 @@ Checks:
   ✓ trip
   ✓ itinerary_items
   ✓ checklist_items
+  ✓ notes
 
 Summary:
   Trip         : 沖縄家族旅行
   Itineraries  : 3 件
   Checklists   : 2 件
+  Notes        : 1 件
 
 Metadata:
   Generator : caglla-cli

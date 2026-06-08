@@ -146,10 +146,10 @@ fn cli_validate_export_legacy_text_output_is_valid_with_warnings() {
     );
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("✗ schema_version"));
+    assert!(stdout.contains("✓ schema_version"));
     assert!(stdout.contains("✗ checklist_items"));
     assert!(stdout.contains("有効な export ファイル"));
-    assert!(stdout.contains("schema_version がありません（旧形式）"));
+    assert!(stdout.contains("schema_version がありません（旧形式 v1）"));
     assert!(stdout.contains("Metadata:"));
     assert!(stdout.contains("Generator : 不明"));
     assert!(stdout.contains("Version   : 不明"));

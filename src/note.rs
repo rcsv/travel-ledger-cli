@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 use serde::Serialize;
+use std::collections::HashMap;
 
-use crate::models::{parse_note_owner_type, Note, NoteOwnerType};
+use crate::models::{
+    parse_note_owner_type, ExportNote, ItineraryItem, ItineraryNoteKey, Note, NoteOwnerType,
+};
 
 const NOTE_SELECT_SQL: &str = "
     SELECT id, owner_type, owner_id, title, body, sort_order, created_at, updated_at
@@ -223,6 +226,250 @@ pub(crate) fn delete_notes_for_itinerary(conn: &Connection, itinerary_id: i64) -
     )
     .context("Itinerary Note の削除に失敗しました")?;
     Ok(())
+}
+
+/// Trip 配下のすべての Note を取得する（export 用）
+pub(crate) fn list_all_notes_for_trip(conn: &Connection, trip_id: i64) -> Result<Vec<Note>> {
+    let mut stmt = conn
+        .prepare(&format!(
+            "{NOTE_SELECT_SQL}
+             WHERE (owner_type = 'trip' AND owner_id = ?1)
+                OR (owner_type = 'day' AND owner_id IN (
+                      SELECT id FROM days WHERE trip_id = ?1
+                    ))
+                OR (owner_type = 'itinerary' AND owner_id IN (
+                      SELECT id FROM itinerary_items WHERE trip_id = ?1
+                    ))
+             ORDER BY owner_type, owner_id, sort_order ASC, id ASC"
+        ))
+        .context("Trip 配下 Note 一覧取得の準備に失敗しました")?;
+
+    let notes = stmt
+        .query_map(params![trip_id], row_to_note)
+        .context("Trip 配下 Note 一覧取得に失敗しました")?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("Trip 配下 Note 一覧の読み込みに失敗しました")?;
+
+    Ok(notes)
+}
+
+/// Trip 配下の Note を export 形式に変換する
+pub(crate) fn build_export_notes(conn: &Connection, trip_id: i64) -> Result<Vec<ExportNote>> {
+    let notes = list_all_notes_for_trip(conn, trip_id)?;
+    let days = crate::day::list_days(conn, trip_id)?;
+    let day_number_by_id: HashMap<i64, i64> =
+        days.iter().map(|day| (day.id, day.day_number)).collect();
+    let itineraries = crate::itinerary::list_itinerary_items(conn, trip_id)?;
+    let itinerary_by_id: HashMap<i64, &ItineraryItem> =
+        itineraries.iter().map(|item| (item.id, item)).collect();
+
+    notes
+        .into_iter()
+        .map(|note| match note.owner_type {
+            NoteOwnerType::Trip => Ok(ExportNote::Trip {
+                title: note.title,
+                body: note.body,
+            }),
+            NoteOwnerType::Day => {
+                let day_number =
+                    day_number_by_id
+                        .get(&note.owner_id)
+                        .copied()
+                        .with_context(|| {
+                            format!("Day Note の owner_id {} が見つかりません", note.owner_id)
+                        })?;
+                Ok(ExportNote::Day {
+                    day_number,
+                    title: note.title,
+                    body: note.body,
+                })
+            }
+            NoteOwnerType::Itinerary => {
+                let item = itinerary_by_id.get(&note.owner_id).with_context(|| {
+                    format!(
+                        "Itinerary Note の owner_id {} が見つかりません",
+                        note.owner_id
+                    )
+                })?;
+                Ok(ExportNote::Itinerary {
+                    itinerary_key: ItineraryNoteKey {
+                        day_number: item.day,
+                        sort_order: item.sort_order,
+                        start_time: item.start_time.clone(),
+                        title: item.title.clone(),
+                    },
+                    title: note.title,
+                    body: note.body,
+                })
+            }
+        })
+        .collect()
+}
+
+/// export 内 itinerary_items から itinerary_key を解決する
+pub(crate) fn resolve_itinerary_id_from_export_items(
+    items: &[ItineraryItem],
+    key: &ItineraryNoteKey,
+) -> Result<i64> {
+    if let Some(id) = try_resolve_itinerary_by(items, |item| {
+        item.day == key.day_number && item.sort_order == key.sort_order
+    })? {
+        return Ok(id);
+    }
+    if let Some(id) = try_resolve_itinerary_by(items, |item| {
+        item.day == key.day_number && item.start_time == key.start_time && item.title == key.title
+    })? {
+        return Ok(id);
+    }
+    if let Some(id) = try_resolve_itinerary_by(items, |item| {
+        item.day == key.day_number && item.title == key.title
+    })? {
+        return Ok(id);
+    }
+
+    anyhow::bail!(
+        "itinerary_key (day={}, sort_order={}, title={}) を itinerary_items から解決できません",
+        key.day_number,
+        key.sort_order,
+        key.title
+    )
+}
+
+fn try_resolve_itinerary_by<F>(items: &[ItineraryItem], predicate: F) -> Result<Option<i64>>
+where
+    F: Fn(&ItineraryItem) -> bool,
+{
+    let matches: Vec<_> = items.iter().filter(|item| predicate(item)).collect();
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(Some(matches[0].id)),
+        _ => anyhow::bail!(
+            "itinerary_key が複数の itinerary_items に一致します（day={}, title={}）",
+            matches[0].day,
+            matches[0].title
+        ),
+    }
+}
+
+fn resolve_export_note_owner(
+    conn: &Connection,
+    trip_id: i64,
+    export_note: &ExportNote,
+    day_count: i64,
+    itinerary_items: &[ItineraryItem],
+) -> Result<ResolvedNoteOwner> {
+    match export_note {
+        ExportNote::Trip { body, .. } => {
+            validate_body(body)?;
+            Ok(ResolvedNoteOwner::Trip(trip_id))
+        }
+        ExportNote::Day {
+            day_number, body, ..
+        } => {
+            validate_body(body)?;
+            if *day_number < 1 || *day_number > day_count {
+                anyhow::bail!(
+                    "day_number ({day_number}) は旅行期間 (1..={day_count}) の範囲外です"
+                );
+            }
+            let day_id =
+                crate::day::find_day_id_by_trip_and_day_number(conn, trip_id, *day_number)?;
+            Ok(ResolvedNoteOwner::Day(day_id))
+        }
+        ExportNote::Itinerary {
+            itinerary_key,
+            body,
+            ..
+        } => {
+            validate_body(body)?;
+            let itinerary_id =
+                resolve_itinerary_id_from_export_items(itinerary_items, itinerary_key)?;
+            Ok(ResolvedNoteOwner::Itinerary(itinerary_id))
+        }
+    }
+}
+
+/// export JSON の Note を import する
+pub(crate) fn import_export_notes(
+    conn: &Connection,
+    trip_id: i64,
+    notes: &[ExportNote],
+    day_count: i64,
+) -> Result<usize> {
+    let itinerary_items = crate::itinerary::list_itinerary_items(conn, trip_id)?;
+    let mut count = 0;
+    for (index, export_note) in notes.iter().enumerate() {
+        let owner =
+            resolve_export_note_owner(conn, trip_id, export_note, day_count, &itinerary_items)
+                .with_context(|| format!("notes[{index}]"))?;
+        let (title, body) = match export_note {
+            ExportNote::Trip { title, body } => (title.as_deref(), body.as_str()),
+            ExportNote::Day { title, body, .. } => (title.as_deref(), body.as_str()),
+            ExportNote::Itinerary { title, body, .. } => (title.as_deref(), body.as_str()),
+        };
+        add_note(conn, owner, title, body)?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+/// export JSON の Note を検証する（エラー文言の一覧）
+pub(crate) fn collect_export_note_validation_errors(
+    export: &crate::models::TripExport,
+) -> Vec<String> {
+    let day_count = match (
+        export.trip.start_date.as_deref(),
+        export.trip.end_date.as_deref(),
+    ) {
+        (Some(start), Some(end)) => match crate::day::validate_trip_date_range(start, end) {
+            Ok(count) => count,
+            Err(_) => return Vec::new(),
+        },
+        _ => return Vec::new(),
+    };
+
+    let mut errors = Vec::new();
+
+    for (index, note) in export.notes().iter().enumerate() {
+        let prefix = format!("notes[{index}]");
+        match note {
+            ExportNote::Trip { body, .. } => {
+                if body.is_empty() {
+                    errors.push(format!("{prefix}: body は必須です"));
+                }
+            }
+            ExportNote::Day {
+                day_number, body, ..
+            } => {
+                if body.is_empty() {
+                    errors.push(format!("{prefix}: body は必須です"));
+                }
+                if *day_number < 1 || *day_number > day_count {
+                    errors.push(format!(
+                        "{prefix}: day_number ({day_number}) は旅行期間 (1..={day_count}) の範囲外です"
+                    ));
+                }
+            }
+            ExportNote::Itinerary {
+                itinerary_key,
+                body,
+                ..
+            } => {
+                if body.is_empty() {
+                    errors.push(format!("{prefix}: body は必須です"));
+                }
+                if itinerary_key.title.trim().is_empty() {
+                    errors.push(format!("{prefix}: itinerary_key.title は必須です"));
+                }
+                if let Err(error) =
+                    resolve_itinerary_id_from_export_items(&export.itinerary_items, itinerary_key)
+                {
+                    errors.push(format!("{prefix}: {error}"));
+                }
+            }
+        }
+    }
+    errors
 }
 
 #[cfg(test)]

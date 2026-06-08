@@ -499,8 +499,57 @@ pub struct ChecklistItem {
     pub updated_at: String,
 }
 
-/// trip export 用 JSON の schema バージョン
-pub const TRIP_EXPORT_SCHEMA_VERSION: i32 = 1;
+/// trip export 用 JSON の schema バージョン（現行 export）
+pub const TRIP_EXPORT_SCHEMA_VERSION: i32 = 2;
+
+/// trip export schema v1（import 互換）
+pub const TRIP_EXPORT_SCHEMA_VERSION_V1: i32 = 1;
+
+/// export JSON 内の Itinerary Note 参照キー（DB id は含めない）
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ItineraryNoteKey {
+    pub day_number: i64,
+    pub sort_order: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<String>,
+    pub title: String,
+}
+
+/// trip export schema v2 の Note エントリ
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "owner_type", rename_all = "lowercase")]
+pub enum ExportNote {
+    Trip {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        body: String,
+    },
+    Day {
+        day_number: i64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        body: String,
+    },
+    Itinerary {
+        itinerary_key: ItineraryNoteKey,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        body: String,
+    },
+}
+
+/// export JSON の effective schema（未指定は v1）
+pub fn effective_export_schema_version(schema_version: Option<i32>) -> i32 {
+    schema_version.unwrap_or(TRIP_EXPORT_SCHEMA_VERSION_V1)
+}
+
+/// import 可能な schema か
+pub fn is_supported_export_schema_version(schema_version: Option<i32>) -> bool {
+    matches!(
+        effective_export_schema_version(schema_version),
+        TRIP_EXPORT_SCHEMA_VERSION_V1 | TRIP_EXPORT_SCHEMA_VERSION
+    )
+}
 
 /// trip export の generator 名
 pub const TRIP_EXPORT_GENERATOR: &str = "caglla-cli";
@@ -524,11 +573,18 @@ pub struct TripExport {
     pub itinerary_items: Vec<ItineraryItem>,
     /// 旧フォーマットでは省略可能。省略時は空配列として扱う。
     pub checklist_items: Option<Vec<ChecklistItem>>,
+    /// schema v2+: Note 一覧。v1 import では省略可。
+    #[serde(default)]
+    pub notes: Option<Vec<ExportNote>>,
 }
 
 impl TripExport {
     pub fn checklist_items(&self) -> &[ChecklistItem] {
         self.checklist_items.as_deref().unwrap_or(&[])
+    }
+
+    pub fn notes(&self) -> &[ExportNote] {
+        self.notes.as_deref().unwrap_or(&[])
     }
 }
 
@@ -616,6 +672,7 @@ pub enum ExportValidationCheckId {
     Trip,
     ItineraryItems,
     ChecklistItems,
+    Notes,
 }
 
 /// export 検証の1項目チェック結果
@@ -640,6 +697,7 @@ pub struct ExportValidationReport {
     pub export_schema_version: Option<i32>,
     pub itinerary_count: usize,
     pub checklist_count: usize,
+    pub note_count: usize,
     /// ファイル内 `generator`（キーなしは `null`）
     pub generator: Option<String>,
     /// ファイル内 `generator_version`（キーなしは `null`）
@@ -664,6 +722,7 @@ impl ExportValidationReport {
             export_schema_version: None,
             itinerary_count: 0,
             checklist_count: 0,
+            note_count: 0,
             generator: None,
             generator_version: None,
             exported_at: None,
@@ -682,6 +741,7 @@ pub struct TripImportSummary {
     pub trip_name: String,
     pub itinerary_count: usize,
     pub checklist_count: usize,
+    pub note_count: usize,
     /// export JSON に `schema_version` キーが存在するか
     pub schema_version_present: bool,
     pub export_schema_version: Option<i32>,

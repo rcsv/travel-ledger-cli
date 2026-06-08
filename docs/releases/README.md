@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v1.4.0 | Export Schema v2 (Notes) | [v1.4.0-notes.md](v1.4.0-notes.md) |
 | v1.3.1 | Transaction-safe cascade deletion | [v1.3.1-notes.md](v1.3.1-notes.md) |
 | v1.3.0 | Note commands | [v1.3.0-notes.md](v1.3.0-notes.md) |
 | v1.2.0 | Day commands | [v1.2.0-notes.md](v1.2.0-notes.md) |

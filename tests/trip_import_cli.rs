@@ -78,8 +78,9 @@ fn cli_trip_import_prints_enhanced_summary() {
     assert!(stdout.contains("Created:"));
     assert!(stdout.contains("日程           : 1 件"));
     assert!(stdout.contains("チェックリスト : 1 件"));
+    assert!(stdout.contains("Note           : 0 件"));
     assert!(stdout.contains("Schema:"));
-    assert!(stdout.contains("version 1"));
+    assert!(stdout.contains("version 2"));
     assert!(stdout.contains("Export:"));
     assert!(stdout.contains("generator : caglla-cli"));
     assert!(stdout.contains("version   :"));
