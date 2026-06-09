@@ -140,6 +140,53 @@
           ]
         },
         {
+          "title": "観光:首里城",
+          "sort_order": 10,
+          "location": "首里城",
+          "category": "activity",
+          "expenses": [
+            {
+              "amount": 1760,
+              "currency": "JPY",
+              "expense_date": "2026-04-26",
+              "note": "費用区分: 旅費 / 領収書: R-012 / 備考: 大人:¥400, 子供: ¥160",
+              "sort_order": 0
+            },
+            {
+              "title": "御城印、ロルバーンメモ帳",
+              "amount": 3405,
+              "currency": "JPY",
+              "paid_by_name": "知弘",
+              "expense_date": "2026-04-26",
+              "note": "費用区分: 個別：知弘 / 領収書: R-002",
+              "sort_order": 0
+            },
+            {
+              "title": "アイスクリーム",
+              "amount": 600,
+              "currency": "JPY",
+              "paid_by_name": "知弘",
+              "expense_date": "2026-04-26",
+              "note": "費用区分: 個別：知弘 / 領収書: R-026",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "title": "移動 高速道路",
+          "sort_order": 11,
+          "category": "transport",
+          "expenses": [
+            {
+              "amount": 1000,
+              "currency": "JPY",
+              "expense_date": "2026-04-26",
+              "note": "費用区分: 旅費 / 備考: 高速道路の大体の費用",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
           "title": "夕食の買い出し",
           "start_time": "16:00",
           "sort_order": 12,
@@ -201,53 +248,6 @@
               "currency": "JPY",
               "expense_date": "2026-04-26",
               "note": "費用区分: 食費 / 領収書: R-004 / 備考: 塩、しょうゆなど",
-              "sort_order": 0
-            }
-          ]
-        },
-        {
-          "title": "観光:首里城",
-          "sort_order": 10,
-          "location": "首里城",
-          "category": "activity",
-          "expenses": [
-            {
-              "amount": 1760,
-              "currency": "JPY",
-              "expense_date": "2026-04-26",
-              "note": "費用区分: 旅費 / 領収書: R-012 / 備考: 大人:¥400, 子供: ¥160",
-              "sort_order": 0
-            },
-            {
-              "title": "御城印、ロルバーンメモ帳",
-              "amount": 3405,
-              "currency": "JPY",
-              "paid_by_name": "知弘",
-              "expense_date": "2026-04-26",
-              "note": "費用区分: 個別：知弘 / 領収書: R-002",
-              "sort_order": 0
-            },
-            {
-              "title": "アイスクリーム",
-              "amount": 600,
-              "currency": "JPY",
-              "paid_by_name": "知弘",
-              "expense_date": "2026-04-26",
-              "note": "費用区分: 個別：知弘 / 領収書: R-026",
-              "sort_order": 0
-            }
-          ]
-        },
-        {
-          "title": "移動 高速道路",
-          "sort_order": 11,
-          "category": "transport",
-          "expenses": [
-            {
-              "amount": 1000,
-              "currency": "JPY",
-              "expense_date": "2026-04-26",
-              "note": "費用区分: 旅費 / 備考: 高速道路の大体の費用",
               "sort_order": 0
             }
           ]
@@ -323,6 +323,30 @@
           ]
         },
         {
+          "title": "ドリームセンター入館",
+          "sort_order": 6,
+          "location": "ドリームセンター",
+          "category": "activity",
+          "expenses": [
+            {
+              "amount": 3040,
+              "currency": "JPY",
+              "expense_date": "2026-04-27",
+              "note": "費用区分: 旅費 / 領収書: R-015 / 備考: 大人:¥760, 子供: 無料",
+              "sort_order": 0
+            },
+            {
+              "title": "ツノガエルくじ",
+              "amount": 1000,
+              "currency": "JPY",
+              "paid_by_name": "知弘",
+              "expense_date": "2026-04-27",
+              "note": "費用区分: 個別：知弘 / 領収書: R-014",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
           "title": "昼食",
           "start_time": "11:00",
           "sort_order": 7,
@@ -342,6 +366,21 @@
               "currency": "JPY",
               "expense_date": "2026-04-27",
               "note": "費用区分: 食費 / 領収書: R-011 / 備考: もちもちドーナツを追加",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "title": "周遊バス乗車",
+          "sort_order": 8,
+          "location": "ドリームセンター入口",
+          "category": "transport",
+          "expenses": [
+            {
+              "amount": 1500,
+              "currency": "JPY",
+              "expense_date": "2026-04-27",
+              "note": "費用区分: 旅費 / 領収書: R-027 / 備考: 遊覧車１回券 ¥300x5 子供も一律",
               "sort_order": 0
             }
           ]
@@ -402,45 +441,6 @@
               "currency": "JPY",
               "expense_date": "2026-04-27",
               "note": "費用区分: 食費 / 領収書: R-019",
-              "sort_order": 0
-            }
-          ]
-        },
-        {
-          "title": "ドリームセンター入館",
-          "sort_order": 6,
-          "location": "ドリームセンター",
-          "category": "activity",
-          "expenses": [
-            {
-              "amount": 3040,
-              "currency": "JPY",
-              "expense_date": "2026-04-27",
-              "note": "費用区分: 旅費 / 領収書: R-015 / 備考: 大人:¥760, 子供: 無料",
-              "sort_order": 0
-            },
-            {
-              "title": "ツノガエルくじ",
-              "amount": 1000,
-              "currency": "JPY",
-              "paid_by_name": "知弘",
-              "expense_date": "2026-04-27",
-              "note": "費用区分: 個別：知弘 / 領収書: R-014",
-              "sort_order": 0
-            }
-          ]
-        },
-        {
-          "title": "周遊バス乗車",
-          "sort_order": 8,
-          "location": "ドリームセンター入口",
-          "category": "transport",
-          "expenses": [
-            {
-              "amount": 1500,
-              "currency": "JPY",
-              "expense_date": "2026-04-27",
-              "note": "費用区分: 旅費 / 領収書: R-027 / 備考: 遊覧車１回券 ¥300x5 子供も一律",
               "sort_order": 0
             }
           ]
@@ -515,6 +515,21 @@
           ]
         },
         {
+          "title": "入園料 ハイビスカス園",
+          "sort_order": 7,
+          "location": "ハイビスカス園",
+          "category": "activity",
+          "expenses": [
+            {
+              "amount": 1300,
+              "currency": "JPY",
+              "expense_date": "2026-04-28",
+              "note": "費用区分: 旅費 / 領収書: R-034 / 備考: 子供:100円、大人:300円",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
           "title": "昼食以降の食材調達",
           "start_time": "14:20",
           "sort_order": 8,
@@ -552,21 +567,6 @@
               "paid_by_name": "知弘",
               "expense_date": "2026-04-28",
               "note": "費用区分: 個別:知弘 / 備考: ビーチセット",
-              "sort_order": 0
-            }
-          ]
-        },
-        {
-          "title": "入園料 ハイビスカス園",
-          "sort_order": 7,
-          "location": "ハイビスカス園",
-          "category": "activity",
-          "expenses": [
-            {
-              "amount": 1300,
-              "currency": "JPY",
-              "expense_date": "2026-04-28",
-              "note": "費用区分: 旅費 / 領収書: R-034 / 備考: 子供:100円、大人:300円",
               "sort_order": 0
             }
           ]
@@ -644,6 +644,23 @@
           "location": "ヒルトン瀬底",
           "category": "hotel",
           "expenses": []
+        },
+        {
+          "title": "お土産 御菓子御殿",
+          "sort_order": 4,
+          "location": "御菓子御殿 恩納店",
+          "category": "shopping",
+          "expenses": [
+            {
+              "title": "お土産",
+              "amount": 6707,
+              "currency": "JPY",
+              "paid_by_name": "知弘",
+              "expense_date": "2026-04-29",
+              "note": "費用区分: 個別:知弘 / 領収書: R-032 / 備考: 安納芋の紅芋タルト",
+              "sort_order": 0
+            }
+          ]
         },
         {
           "title": "万座毛見学",
@@ -886,23 +903,6 @@
           "location": "自宅",
           "category": "transport",
           "expenses": []
-        },
-        {
-          "title": "お土産 御菓子御殿",
-          "sort_order": 4,
-          "location": "御菓子御殿 恩納店",
-          "category": "shopping",
-          "expenses": [
-            {
-              "title": "お土産",
-              "amount": 6707,
-              "currency": "JPY",
-              "paid_by_name": "知弘",
-              "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-032 / 備考: 安納芋の紅芋タルト",
-              "sort_order": 0
-            }
-          ]
         }
       ]
     }

@@ -1,33 +1,17 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 
 use crate::models::{ChecklistItem, Expense, ItineraryItem, Trip};
 use crate::stats::{format_minutes_duration, TripStats};
 
-/// Markdown 出力用に日程一覧を取得する（day → sort_order → id 順）
+/// Markdown 出力用に日程一覧を取得する（`list_itinerary_items` と同一順序）
 pub(crate) fn list_itinerary_items_for_markdown(
     conn: &Connection,
     trip_id: i64,
 ) -> Result<Vec<ItineraryItem>> {
-    crate::trip::get_trip(conn, trip_id)?;
-    let mut stmt = conn
-        .prepare(&format!(
-            "{}
-             WHERE i.trip_id = ?1
-             ORDER BY d.day_number, i.sort_order, i.id",
-            crate::itinerary::ITINERARY_ITEM_SELECT_SQL
-        ))
-        .context("日程一覧取得の準備に失敗しました")?;
-
-    let items = stmt
-        .query_map(params![trip_id], crate::itinerary::row_to_itinerary_item)
-        .context("日程一覧取得に失敗しました")?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .context("日程一覧の読み込みに失敗しました")?;
-
-    Ok(items)
+    crate::itinerary::list_itinerary_items(conn, trip_id)
 }
 
 /// 旅行の日付範囲を Markdown 用の1行テキストに整形する

@@ -6,7 +6,7 @@
 
 Itinerary は **not a venue** — 場所（POI）ではなく、旅行中に順序を持つ **行動** を表す最小単位です。計画時は予定、旅行後は実績として扱えます。出発・高速道路・給油・部屋食・レンタカー返却・帰宅なども Itinerary として登録します。理由は、**費用（Expense）・備考・チェックリスト・将来の Note / Photo** を、時系列上の行動に結びつけるためです。
 
-設計原則の詳細: [`docs/specifications/itinerary-model.md`](../../docs/specifications/itinerary-model.md)
+設計原則の詳細: [`docs/specifications/itinerary-model.md`](../../docs/specifications/itinerary-model.md) / [`ordering-model.md`](../../docs/specifications/ordering-model.md)
 
 | 項目 | 値 |
 |---|---|
@@ -60,7 +60,7 @@ cargo run -- trip import /tmp/okinawa-export.json
 ### Itinerary
 
 - PDF の **スケジュール行** を原則 Itinerary として登録（観光地に限らない）
-- 時刻あり → `--time`、なし → `sort_order` のみ
+- 時刻あり → `--time`、なし → `sort_order` のみ（**両方指定可**。v1.9.0 以降、一覧・export は **Sequence-first** — [ordering-model.md](../../docs/specifications/ordering-model.md)）
 - `--location` は任意（区間名・施設名・自宅など）
 - 買い物の追加購入・レシート分割行などは **同一 Itinerary に Expense を追加**（例: 昼食追加、土産屋さんの複数レシート）
 

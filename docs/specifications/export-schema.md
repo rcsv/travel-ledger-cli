@@ -10,6 +10,7 @@ Caglla CLI の trip export / import JSON 形式。
 | Expense の親子関係 | [Expense モデル](expense-model.md) |
 | Note の owner 解決 | [Note モデル](note-model.md) |
 | Day と `day_number` | [Day モデル](day-model.md) |
+| 並び順（`sort_order` / `start_time`） | [Ordering モデル](ordering-model.md) |
 
 ---
 
@@ -95,7 +96,7 @@ v3 の Itinerary オブジェクトは **行動のスナップショット** で
 | import 順序 | Trip → Day（自動）→ Itinerary → Checklist → Note → **Expense** |
 | `amount` / `currency` | Expense で必須。`currency` は 3 文字英字（`validate_currency_code`） |
 | `expense_date` | 省略可（NULL）。指定時は `YYYY-MM-DD` |
-| Itinerary フィールド | `title`, `sort_order` 必須。`location` / `category` / `start_time` 等は任意 — 詳細は [Itinerary モデル](itinerary-model.md) |
+| Itinerary フィールド | `title`, `sort_order` 必須。`location` / `category` / `start_time` 等は任意 — 詳細は [Itinerary モデル](itinerary-model.md)。並び順は [Ordering モデル](ordering-model.md) |
 
 ## Top-level structure (v2)
 

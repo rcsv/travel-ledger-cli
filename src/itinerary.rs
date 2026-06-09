@@ -9,6 +9,9 @@ pub(crate) const ITINERARY_ITEM_SELECT_SQL: &str = "
     FROM itinerary_items i
     INNER JOIN days d ON i.day_id = d.id";
 
+/// Itinerary 一覧の Sequence-first 並び（Day → sort_order → id）
+pub(crate) const ITINERARY_LIST_ORDER_BY: &str = "ORDER BY d.day_number, i.sort_order, i.id";
+
 /// 新しい日程を追加する
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn add_itinerary_item(
@@ -64,7 +67,7 @@ pub(crate) fn list_itinerary_items(conn: &Connection, trip_id: i64) -> Result<Ve
         .prepare(&format!(
             "{ITINERARY_ITEM_SELECT_SQL}
              WHERE i.trip_id = ?1
-             ORDER BY d.day_number, i.start_time IS NULL, i.start_time, i.sort_order, i.id"
+             {ITINERARY_LIST_ORDER_BY}"
         ))
         .context("日程一覧取得の準備に失敗しました")?;
 
@@ -89,7 +92,7 @@ pub(crate) fn list_itinerary_items_for_day(
         .prepare(&format!(
             "{ITINERARY_ITEM_SELECT_SQL}
              WHERE i.trip_id = ?1 AND d.day_number = ?2
-             ORDER BY d.day_number, i.start_time IS NULL, i.start_time, i.sort_order, i.id"
+             {ITINERARY_LIST_ORDER_BY}"
         ))
         .context("日程一覧取得の準備に失敗しました")?;
 
@@ -758,11 +761,11 @@ mod tests {
     }
 
     #[test]
-    fn test_list_itinerary_items_sorted_by_day_and_time() {
+    fn test_list_itinerary_items_sorted_by_day_and_sort_order() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
-        // 登録順をバラバラにしても、一覧は day → 時刻順になること
+        // 登録順・sort_order 混在でも、一覧は day → sort_order → id 順になること
         add_itinerary_item(
             &conn,
             trip_id,
@@ -822,14 +825,69 @@ mod tests {
 
         let items = list_itinerary_items(&conn, trip_id).unwrap();
         assert_eq!(items.len(), 4);
-        assert_eq!(items[0].title, "首里城");
-        assert_eq!(items[1].title, "昼食");
+        assert_eq!(items[0].title, "昼食");
+        assert_eq!(items[1].title, "首里城");
         assert_eq!(items[2].title, "ホテル");
         assert_eq!(items[3].title, "2日目");
     }
 
     #[test]
-    fn test_timeline_items_sorted_by_day_and_time() {
+    fn test_list_itinerary_sort_order_without_start_time_in_middle() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Ordering Trip").unwrap();
+
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "First",
+            None,
+            Some("08:00"),
+            Some(1),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Middle no time",
+            None,
+            None,
+            Some(10),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Last",
+            None,
+            Some("18:00"),
+            Some(20),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let items = list_itinerary_items(&conn, trip_id).unwrap();
+        assert_eq!(
+            items.iter().map(|i| i.title.as_str()).collect::<Vec<_>>(),
+            vec!["First", "Middle no time", "Last"]
+        );
+    }
+
+    #[test]
+    fn test_timeline_items_sorted_by_day_and_sort_order() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
@@ -840,7 +898,7 @@ mod tests {
             "国際通り",
             None,
             Some("10:50"),
-            None,
+            Some(2),
             Some(60),
             None,
             None,
@@ -854,7 +912,7 @@ mod tests {
             "首里城",
             None,
             Some("09:00"),
-            None,
+            Some(1),
             Some(90),
             Some(20),
             None,

@@ -3,7 +3,7 @@
 Caglla CLI における **Itinerary（予定）** の責務とフィールド定義です。  
 v1.8.0 で **CLI 側のモデルを正として明文化** します。実装は v1.0.x〜v1.7.0 で既に本仕様に沿って動作しています。
 
-関連: [Day モデル](day-model.md) / [Expense モデル](expense-model.md) / [Note モデル](note-model.md) / [Export Schema](export-schema.md)
+関連: [Day モデル](day-model.md) / [Expense モデル](expense-model.md) / [Note モデル](note-model.md) / [Export Schema](export-schema.md) / [Ordering モデル](ordering-model.md)
 
 検証データ: [沖縄・瀬底 canonical sample](../../samples/okinawa_sesoko_2026/README.md)
 
@@ -193,31 +193,39 @@ caglla itinerary add 1 --day 1 --time 06:00 --order 1 --location "粟根家" \
 
 ## 7. 時刻と並び順
 
+Itinerary の ordering 責務（Sequence-first、各 CLI 出力の統一）は **[Ordering モデル](ordering-model.md)** を正とします。以下は概要のみ。
+
+### 設計原則（v1.9.0 実装済み）
+
+| フィールド | 位置づけ |
+|---|---|
+| **`sort_order`** | Day 内の **行動順序の主情報**（sequence） |
+| **`start_time`** | 行動に付随する **任意の時刻ラベル** |
+
+Caglla.Travel は Calendar Event ではなく Travel Activity Unit を扱うため、**Sequence-first** を採用しています（v1.9.0 で list / timeline / day show / export v3 / export-md を統一。詳細は [ordering-model.md §5](ordering-model.md#5-現行実装v190)）。
+
 ### `start_time`
 
 - 形式: `HH:MM`（任意）
-- ある場合は一覧表示・Markdown 出力で時刻として表示される
+- ある場合は Markdown 見出し・timeline 表示・時間集計に使える
 - **なくても Itinerary は成立する**（canonical sample でも時刻なしの行がある）
+- **順序の主決定因子にしない**
 
 ### `sort_order`
 
-- 同一 Day 内での明示的な順序
+- 同一 Day 内での **明示的な行動順序**
 - `--order`（CLI）で指定。未指定時は `0`
-- 時刻がない Itinerary は `sort_order` で順序を決める
+- **一覧順の主キー**（`sort_order` → `id`）
 
-### 一覧のソート順（現行実装）
+### 現行実装（v1.9.0）
 
-`src/itinerary.rs` の既定順:
+| 出力 | 並び |
+|---|---|
+| `itinerary list` / `timeline` / `day show` | **Sequence-first**（`sort_order` → `id`） |
+| `trip export` v3 | **Sequence-first**（Day 内） |
+| `trip export-md` | **Sequence-first**（list と同一） |
 
-```text
-day_number 昇順
-→ start_time ありを先（NULL は後）
-→ start_time 昇順
-→ sort_order 昇順
-→ id 昇順
-```
-
-時刻ありの予定を時系列で見せつつ、時刻なしの予定は `sort_order` で整列します。同時刻の複数 Itinerary は `sort_order` → `id` でタイブレークします。
+詳細は [ordering-model.md §5](ordering-model.md#5-現行実装v190) を参照。
 
 ### `duration_minutes` / `travel_minutes`
 

@@ -170,16 +170,7 @@ pub(crate) fn build_trip_export_v3(conn: &Connection, trip_id: i64) -> Result<Tr
     }
 
     let mut days = Vec::new();
-    for (day_number, mut itineraries) in day_map {
-        // v2 の list と同様の順序（day → 時刻あり優先 → 時刻 → sort_order → id）を踏襲する
-        itineraries.sort_by(|a, b| {
-            a.start_time
-                .is_none()
-                .cmp(&b.start_time.is_none())
-                .then_with(|| a.start_time.cmp(&b.start_time))
-                .then_with(|| a.sort_order.cmp(&b.sort_order))
-                .then_with(|| a.title.cmp(&b.title))
-        });
+    for (day_number, itineraries) in day_map {
         days.push(ExportDayV3 {
             day_number,
             itineraries,
@@ -1398,7 +1389,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trip_export_items_sorted_by_day_and_time() {
+    fn test_trip_export_items_sorted_by_day_and_sort_order() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "沖縄旅行").unwrap();
 
@@ -1432,8 +1423,148 @@ mod tests {
         .unwrap();
 
         let export = build_trip_export(&conn, trip_id).unwrap();
-        assert_eq!(export.itinerary_items[0].title, "首里城");
-        assert_eq!(export.itinerary_items[1].title, "国際通り");
+        assert_eq!(export.itinerary_items[0].title, "国際通り");
+        assert_eq!(export.itinerary_items[1].title, "首里城");
+    }
+
+    #[test]
+    fn test_itinerary_ordering_consistent_across_list_export_md_and_v3() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Ordering Trip").unwrap();
+
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Early time late order",
+            None,
+            Some("08:00"),
+            Some(30),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Middle no time",
+            None,
+            None,
+            Some(10),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Late time early order",
+            None,
+            Some("18:00"),
+            Some(5),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let expected = vec![
+            "Late time early order".to_string(),
+            "Middle no time".to_string(),
+            "Early time late order".to_string(),
+        ];
+
+        let list_titles: Vec<_> = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .into_iter()
+            .map(|i| i.title)
+            .collect();
+        assert_eq!(list_titles, expected);
+
+        let v3_titles: Vec<_> = build_trip_export_v3(&conn, trip_id)
+            .unwrap()
+            .days
+            .into_iter()
+            .flat_map(|d| d.itineraries.into_iter().map(|i| i.title))
+            .collect();
+        assert_eq!(v3_titles, expected);
+
+        let md = crate::markdown::generate_trip_markdown(&conn, trip_id).unwrap();
+        let pos_late = md.find("### 18:00 Late time early order").unwrap();
+        let pos_middle = md.find("### Middle no time").unwrap();
+        let pos_early = md.find("### 08:00 Early time late order").unwrap();
+        assert!(pos_late < pos_middle);
+        assert!(pos_middle < pos_early);
+    }
+
+    #[test]
+    fn test_import_preserves_sort_order_sequence() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Import Order Trip").unwrap();
+
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Third",
+            None,
+            Some("12:00"),
+            Some(30),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "First",
+            None,
+            None,
+            Some(10),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Second",
+            None,
+            Some("09:00"),
+            Some(20),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+        let new_id = import_trip_from_json(&conn, &json).unwrap();
+
+        let imported_titles: Vec<_> = crate::itinerary::list_itinerary_items(&conn, new_id)
+            .unwrap()
+            .into_iter()
+            .map(|i| i.title)
+            .collect();
+        assert_eq!(
+            imported_titles,
+            vec!["First", "Second", "Third"],
+            "import 後も sort_order 順が維持されること"
+        );
     }
 
     #[test]
