@@ -264,7 +264,7 @@ Itinerary に紐づけにくい支出は、ユーザーが明示的に作った 
 | **Note エンティティ** | **メモ** | **長文・複数件** の自由記述 |
 | Trip / Day Summary | **概要** | 共有・印刷向け要約（**将来**） |
 
-責務の全体整理: [travel-ledger-responsibilities.md](travel-ledger-responsibilities.md)。**Reservation**（将来）: [reservation-model.md](reservation-model.md)。Note CRUD の詳細: [note-model.md](note-model.md)。
+責務の全体整理: [travel-ledger-responsibilities.md](travel-ledger-responsibilities.md)。**Reservation**（将来）: [reservation-model.md](reservation-model.md)（責務）、[reservation-entity-design.md](reservation-entity-design.md)（フィールド設計）。Note CRUD の詳細: [note-model.md](note-model.md)。
 
 v1.x では Remark と Note entity を **併存** させる。canonical sample では備考の多くを Itinerary `note` / Expense `note` に集約し、Note エンティティの大量投入は省略している（旅行前しおり向けの Summary / Reservation は将来拡張の動機として仕様に記載）。
 
