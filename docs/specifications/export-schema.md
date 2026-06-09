@@ -9,6 +9,7 @@ Caglla CLI の trip export / import JSON 形式。
 | Itinerary が何を表すか | [Itinerary モデル](itinerary-model.md) |
 | Expense の親子関係 | [Expense モデル](expense-model.md) |
 | Note の owner 解決 | [Note モデル](note-model.md) |
+| Reservation（将来） | [Reservation Implementation Plan](reservation-implementation-plan.md) §7 |
 | Day と `day_number` | [Day モデル](day-model.md) |
 | 並び順（`sort_order` / `start_time`） | [Ordering モデル](ordering-model.md) |
 

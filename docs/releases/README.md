@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v1.13.0 | Reservation implementation plan | [v1.13.0-notes.md](v1.13.0-notes.md) |
 | v1.12.0 | Reservation entity design | [v1.12.0-notes.md](v1.12.0-notes.md) |
 | v1.11.0 | Reservation model specification | [v1.11.0-notes.md](v1.11.0-notes.md) |
 | v1.10.0 | Travel Ledger responsibilities | [v1.10.0-notes.md](v1.10.0-notes.md) |
