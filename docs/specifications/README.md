@@ -14,4 +14,6 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [reservation-implementation-plan.md](reservation-implementation-plan.md) | Reservation Implementation Plan（v1.13.0 実装計画 — 未実装） |
 | [note-model.md](note-model.md) | Note モデル（v1.3.0 CRUD、v1.4.0 export v2） |
 | [expense-model.md](expense-model.md) | Expense モデル（v1.5.0 CRUD） |
+| [checklist-design-memo.md](checklist-design-memo.md) | Checklist 設計メモ（自動生成・Provenance — 将来設計参考、v1.x 対象外） |
+| [travel-support-design-memo.md](travel-support-design-memo.md) | Travel Support 設計メモ（旅行支援情報・Destination・注意喚起 — 将来設計参考、v1.x 対象外） |
 | [export-schema.md](export-schema.md) | trip export / import JSON（schema v1 / v2 / v3）。構造定義 — 意味論は itinerary-model 等を参照 |

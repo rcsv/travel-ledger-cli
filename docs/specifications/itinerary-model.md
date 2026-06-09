@@ -297,6 +297,8 @@ caglla itinerary update 2 --category transport
 
 カテゴリは **あとから付与・変更可能**。作成時に未指定でもよい。
 
+自動生成の設計判断: [checklist-design-memo.md](checklist-design-memo.md)。旅行支援・注意喚起の方向性: [travel-support-design-memo.md](travel-support-design-memo.md)（いずれも Web 版知見、v1.x 対象外）。
+
 ---
 
 ## 11. CLI コマンド（現行）

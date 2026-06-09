@@ -35,7 +35,7 @@ Note / Summary / Reservation / Checklist / Photo / Attachment の責務を整理
 | **Note entity** | メモ / 詳細メモ | 自由記述、検討、記録、振り返り（長文・複数件可） | **既存 CRUD**、責務は本書で再整理 |
 | **Reservation** | 予約情報 | 予約・確認・手続きに必要な構造化情報 | 仕様のみ / 将来 entity |
 | **Expense** | （支出） | 金額・通貨・領収書（Itinerary 配下） | 実装済み — [expense-model.md](expense-model.md) |
-| **Checklist** | チェックリスト | 準備・忘れ物防止（Trip 配下） | 実装済み |
+| **Checklist** | チェックリスト | 準備・忘れ物防止（Trip 配下） | 実装済み — 将来設計: [checklist-design-memo.md](checklist-design-memo.md)、[travel-support-design-memo.md](travel-support-design-memo.md) |
 
 英語上の責務:
 
