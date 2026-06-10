@@ -15,6 +15,7 @@ Caglla.Travel のコマンドライン版です。旅行の計画を、ターミ
 - **Markdown エクスポート**（`trip export-md`）による旅行しおり出力
 - **trip stats** による旅行統計
 - **trip doctor / advisor** による旅行計画の点検と改善提案
+- **Trip / Day Summary**（`--summary` — 旅行・日ごとの短い概要）
 
 ## Data Model
 
@@ -59,7 +60,7 @@ cargo run -- itinerary timeline 1
 | カテゴリ | 主なコマンド |
 |---|---|
 | Trip | `trip add`, `trip list`, `trip show`, `trip update`, `trip delete`, `trip duplicate`, `trip stats` |
-| Day | `day list`, `day show`, `day swap` |
+| Day | `day list`, `day show`, `day update`, `day swap` |
 | Itinerary | `itinerary add`, `itinerary list`, `itinerary show`, `itinerary update`, `itinerary delete`, `itinerary timeline` |
 | Note / Expense | `note add/list/...`, `expense add/list/...` |
 | Checklist | `checklist add/list/check/...`, `trip checklist-generate` |
@@ -95,7 +96,7 @@ cargo run -- itinerary timeline 1
 
 ## Releases
 
-GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。最新: [v1.16.0](docs/releases/v1.16.0-notes.md)
+GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。最新: [v1.17.0](docs/releases/v1.17.0-notes.md)
 
 ## Security
 

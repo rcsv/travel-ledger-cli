@@ -265,6 +265,20 @@ Responsibilities Review  →  Entity Design  →  Implementation Plan
 
 実装着手順序は本ロードマップの **v1 優先（Summary → Reservation）** と整合させる。
 
+**Summary 実装:** v1.17.0 で Trip / Day Summary を実装済み（[v1.17.0-notes.md](releases/v1.17.0-notes.md)）。
+
+---
+
+## CLI 方向性（参考）
+
+CLI は当面、**確認・検証・連携** を重視する。
+
+```text
+show / list / validate / export / import / diff / export-md / doctor / stats
+```
+
+細かな手入力・編集系コマンドは、将来 GUI が成熟した段階で **deprecated / obsolete 候補** になり得る。現行バージョンでは Summary 編集を含む CRUD は引き続きサポートする。
+
 ---
 
 ## 改訂
