@@ -2,6 +2,8 @@
 
 Caglla.Travel CLI の **Travel Ledger Model** における、説明・メモ・予約情報の責務分離です。
 
+**v1 Planning Foundation:** Hardening 系列（v1.19–v1.22）の後、完了総括を [planning-foundation-completion-review.md](planning-foundation-completion-review.md) に文書化（tag v1.23.0 は作らない）。
+
 関連: [Itinerary モデル](itinerary-model.md) / [Note モデル](note-model.md) / [Expense モデル](expense-model.md) / [Export Schema](export-schema.md) / [Ordering モデル](ordering-model.md) / [Summary Post-Implementation Review](summary-post-implementation-review.md) / [Note Post-Implementation Review](note-post-implementation-review.md) / [Expense Post-Implementation Review](expense-post-implementation-review.md) / [Reservation Responsibilities Review](reservation-responsibilities-review.md)
 
 **背景（v1.9.0 時点）:**
