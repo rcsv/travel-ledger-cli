@@ -49,17 +49,21 @@ Summary        ← v1.17.0 実装済み
 Reservation    ← v1.18.0 実装済み
 ```
 
-Summary と Reservation は **設計 → 実装（v1.17.0 / v1.18.0）まで完了**。v1 系の残りは **Hardening（責務レビュー・改善候補の文書化）** と、旅行計画表現の磨き込み。
+Summary と Reservation は **設計 → 実装（v1.17.0 / v1.18.0）まで完了**。v1 系 Hardening（v1.19–v1.22）の後、**Planning Foundation 完了総括** を [planning-foundation-completion-review.md](specifications/planning-foundation-completion-review.md) に文書化（**tag v1.23.0 は作らない** — v2.0.0 リリース後に landing）。
 
-### v1 系に持ち込まない想定（現時点）
+**v1 Planning Foundation** は v1.22 + Hardening 系列で実質完了。**製品 v2 Participant Foundation** は [v2.0.0](releases/v2.0.0-notes.md) でリリース済み。
+
+### v1 系に持ち込まない想定（v1 クローズ時点 — 意図的 defer）
 
 ```text
 Photo
 Attachment
-Participant
+Participant          ← v2.0.0 で実装済み（本節は v1 当時の defer 記録）
+Travel Journal（実装）
+Budget / Settlement
 ```
 
-まず **Summary** と **Reservation** を完成させ、旅行計画を **完結して表現できる状態** を優先する。
+v1 完了後、製品の次テーマは **v2 Participant Foundation**（§v2、**v2.0.0 リリース済み**）であった。
 
 ---
 
@@ -285,7 +289,7 @@ Responsibilities Review  →  Entity Design  →  Implementation Plan
 | **Hardening** | **v1.20.0** | **Summary 実装後責務再定義（Abstract / Journal 分離）** |
 | **Hardening** | **v1.21.0** | **Note 実装後責務再定義（Annotation / Narrative 境界）** |
 | **Hardening** | **v1.22.0** | **Expense 実装後責務定義（Transaction Record / Budget 分離）** |
-| Hardening（予定） | 将来 | Generator、canonical、diff 等 |
+| **Hardening** | **（文書のみ）** | **Planning Foundation 完了総括** — [planning-foundation-completion-review.md](specifications/planning-foundation-completion-review.md)（**tag なし**、v2.0.0 後 landing） |
 
 ---
 
