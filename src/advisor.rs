@@ -24,6 +24,16 @@ pub(crate) fn generate_advice(issue: &DoctorIssue) -> Vec<String> {
             "Consider moving some activities to another day.".to_string(),
             "Leave buffer time for delays and rest.".to_string(),
         ],
+        DoctorIssueCode::ParticipantsNotRecorded => vec![
+            "Record who is traveling on this trip.".to_string(),
+            "Add yourself with participant add --self.".to_string(),
+        ],
+        DoctorIssueCode::SelfParticipantUnknown => {
+            vec!["Mark which participant is you with participant update --self.".to_string()]
+        }
+        DoctorIssueCode::MultipleSelfParticipants => {
+            vec!["Only one participant should be marked as self per trip.".to_string()]
+        }
     }
 }
 
@@ -58,6 +68,16 @@ pub(crate) fn generate_command_hints(issue: &DoctorIssue, trip_id: i64) -> Vec<S
             } else {
                 vec![format!("cargo run -- itinerary list {trip_id}")]
             }
+        }
+        DoctorIssueCode::ParticipantsNotRecorded => vec![format!(
+            r#"cargo run -- participant add --trip {trip_id} --name "Your name" --self"#
+        )],
+        DoctorIssueCode::SelfParticipantUnknown => vec![
+            "cargo run -- participant list --trip <trip_id>".to_string(),
+            "cargo run -- participant update <participant_id> --self".to_string(),
+        ],
+        DoctorIssueCode::MultipleSelfParticipants => {
+            vec!["cargo run -- participant list --trip <trip_id>".to_string()]
         }
     }
 }
@@ -183,7 +203,7 @@ mod advisor_tests {
     use crate::db::open_db_at;
     use crate::itinerary::add_itinerary_item;
     use crate::models::{DoctorIssueTarget, ItineraryCategory};
-    use crate::trip::add_test_trip;
+    use crate::trip::{add_test_self_participant, add_test_trip};
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -408,6 +428,7 @@ mod advisor_tests {
     fn test_clean_trip_has_no_issues_and_no_try_sections() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -431,6 +452,7 @@ mod advisor_tests {
     fn test_advisor_clean_trip_has_no_issues_message() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -456,7 +478,7 @@ mod advisor_tests {
         let trip_id = add_test_trip(&conn, "空の旅行").unwrap();
 
         let issues = crate::doctor::analyze_trip_issues(&conn, trip_id).unwrap();
-        assert_eq!(issues.len(), 1);
+        assert_eq!(issues.len(), 2);
         assert_eq!(issues[0].code, DoctorIssueCode::EmptyItinerary);
         assert_eq!(generate_advice(&issues[0]).len(), 1);
         run_trip_advisor(&conn, trip_id, false, false).unwrap();
@@ -479,6 +501,7 @@ mod advisor_tests {
     fn test_advisor_no_restaurant_issue_has_advice() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -506,6 +529,7 @@ mod advisor_tests {
     fn test_doctor_report_unchanged_for_existing_behavior() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -536,6 +560,7 @@ mod advisor_tests {
     fn test_trip_advisor_json_clean_trip() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -565,6 +590,7 @@ mod advisor_tests {
     fn test_trip_advisor_json_includes_advice_and_optional_commands() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "食事なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,

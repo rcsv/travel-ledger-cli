@@ -150,6 +150,33 @@ cargo run -- expense delete 1
 
 詳細仕様: [specifications/expense-model.md](specifications/expense-model.md)
 
+## Participant
+
+Trip 配下の **参加行**（自分を含む旅行者全員）です。
+
+```bash
+cargo run -- participant add --trip 1 --name "ともさん" --self
+cargo run -- participant add --trip 1 --name "妻" --sort-order 1
+
+cargo run -- participant list --trip 1
+cargo run -- participant list --trip 1 --json
+
+cargo run -- participant show 1
+cargo run -- participant update 2 --name "パートナー"
+cargo run -- participant update 2 --self
+cargo run -- participant update 1 --not-self
+cargo run -- participant delete 2
+```
+
+| ルール | 内容 |
+|---|---|
+| 親 | **Trip のみ**（`add` / `list` は `--trip` 必須） |
+| `--name` | `add` で必須 |
+| `--self` / `--not-self` | Trip 内で `is_self=true` は最大 1 件。`add --self` は既存 self があるとエラー。`update --self` は付け替え |
+| 人数統計 | `participant_count` = 自分含む。`companion_count` は self が 1 件のときのみ算出、それ以外は unknown |
+
+詳細仕様: [specifications/participant-model.md](specifications/participant-model.md)
+
 ## Itinerary
 
 **Itinerary は Day 内の行動単位** です。`title` と `--day` が必須で、`--location` は任意です。

@@ -164,6 +164,7 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
     migrate_itinerary_day_id(conn)?;
     migrate_summaries(conn)?;
     migrate_indexes(conn)?;
+    crate::participant::migrate_participants(conn)?;
     Ok(())
 }
 
@@ -321,6 +322,8 @@ pub(crate) fn reset_db(conn: &Connection) -> Result<()> {
         .context("reservations の全削除に失敗しました")?;
     conn.execute("DELETE FROM expenses", [])
         .context("expenses の全削除に失敗しました")?;
+    conn.execute("DELETE FROM participants", [])
+        .context("participants の全削除に失敗しました")?;
     conn.execute("DELETE FROM checklist_items", [])
         .context("checklist_items の全削除に失敗しました")?;
     conn.execute("DELETE FROM itinerary_items", [])
@@ -330,7 +333,7 @@ pub(crate) fn reset_db(conn: &Connection) -> Result<()> {
     conn.execute("DELETE FROM trips", [])
         .context("trips の全削除に失敗しました")?;
     conn.execute(
-        "DELETE FROM sqlite_sequence WHERE name IN ('reservations', 'expenses', 'notes', 'checklist_items', 'itinerary_items', 'days', 'trips')",
+        "DELETE FROM sqlite_sequence WHERE name IN ('reservations', 'expenses', 'notes', 'participants', 'checklist_items', 'itinerary_items', 'days', 'trips')",
         [],
     )
     .context("AUTOINCREMENT のリセットに失敗しました")?;

@@ -113,6 +113,9 @@ pub enum DoctorIssueCode {
     NoRestaurant,
     HighTravelTime,
     MissingDuration,
+    ParticipantsNotRecorded,
+    SelfParticipantUnknown,
+    MultipleSelfParticipants,
 }
 
 /// trip doctor / advisor が検出した問題の対象（内部モデル）
@@ -302,12 +305,24 @@ impl DoctorIssue {
                 }
                 _ => "1 itinerary has no duration estimate".to_string(),
             },
+            DoctorIssueCode::ParticipantsNotRecorded => {
+                "No participants recorded for this trip.".to_string()
+            }
+            DoctorIssueCode::SelfParticipantUnknown => {
+                "Participants are recorded but self is not marked.".to_string()
+            }
+            DoctorIssueCode::MultipleSelfParticipants => {
+                "Multiple self participants are recorded (data error).".to_string()
+            }
         }
     }
 
     fn issue_severity(&self) -> DoctorIssueSeverity {
         match self.code {
-            DoctorIssueCode::EmptyItinerary => DoctorIssueSeverity::Info,
+            DoctorIssueCode::EmptyItinerary
+            | DoctorIssueCode::ParticipantsNotRecorded
+            | DoctorIssueCode::SelfParticipantUnknown => DoctorIssueSeverity::Info,
+            DoctorIssueCode::MultipleSelfParticipants => DoctorIssueSeverity::Warning,
             _ => DoctorIssueSeverity::Warning,
         }
     }
@@ -334,6 +349,9 @@ impl DoctorIssue {
                 itinerary_id: self.target_itinerary_id(),
                 ..IssueDetails::default()
             },
+            DoctorIssueCode::ParticipantsNotRecorded
+            | DoctorIssueCode::SelfParticipantUnknown
+            | DoctorIssueCode::MultipleSelfParticipants => IssueDetails::default(),
         }
     }
 
@@ -538,8 +556,43 @@ pub struct ChecklistItem {
     pub updated_at: String,
 }
 
+/// participants テーブルの1行分のデータ
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Participant {
+    pub id: i64,
+    pub trip_id: i64,
+    pub name: String,
+    pub sort_order: i64,
+    pub is_self: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// trip export schema v4 の Participant エントリ（DB id は含めない）
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportParticipantV4 {
+    pub name: String,
+    pub sort_order: i64,
+    pub is_self: bool,
+}
+
+/// Participant 人数の集計結果（stats / list JSON 用）
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ParticipantCounts {
+    pub registered_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub participant_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub companion_count: Option<usize>,
+    pub self_known: bool,
+    pub participants_recorded: bool,
+}
+
 /// trip export 用 JSON の schema バージョン（現行 export）
-pub const TRIP_EXPORT_SCHEMA_VERSION: i32 = 3;
+pub const TRIP_EXPORT_SCHEMA_VERSION: i32 = 4;
+
+/// trip export schema v3（import 互換）
+pub const TRIP_EXPORT_SCHEMA_VERSION_V3: i32 = 3;
 
 /// trip export schema v1（import 互換）
 pub const TRIP_EXPORT_SCHEMA_VERSION_V1: i32 = 1;
@@ -586,7 +639,10 @@ pub fn effective_export_schema_version(schema_version: Option<i32>) -> i32 {
 pub fn is_supported_export_schema_version(schema_version: Option<i32>) -> bool {
     matches!(
         effective_export_schema_version(schema_version),
-        TRIP_EXPORT_SCHEMA_VERSION_V1 | 2 | TRIP_EXPORT_SCHEMA_VERSION
+        TRIP_EXPORT_SCHEMA_VERSION_V1
+            | 2
+            | TRIP_EXPORT_SCHEMA_VERSION_V3
+            | TRIP_EXPORT_SCHEMA_VERSION
     )
 }
 
@@ -691,6 +747,9 @@ pub struct TripExportV3 {
     pub checklist_items: Option<Vec<ChecklistItem>>,
     #[serde(default)]
     pub notes: Option<Vec<ExportNote>>,
+    /// schema v4+: Participant 一覧。v3 import では省略可。
+    #[serde(default)]
+    pub participants: Option<Vec<ExportParticipantV4>>,
 }
 
 impl TripExportV3 {
@@ -700,6 +759,10 @@ impl TripExportV3 {
 
     pub fn notes(&self) -> &[ExportNote] {
         self.notes.as_deref().unwrap_or(&[])
+    }
+
+    pub fn participants(&self) -> &[ExportParticipantV4] {
+        self.participants.as_deref().unwrap_or(&[])
     }
 }
 
@@ -734,6 +797,9 @@ pub struct TripExport {
     /// schema v3+: Reservation 一覧（diff 用。v1/v2/v3 旧 export では省略可）
     #[serde(default)]
     pub reservations: Vec<ExportReservation>,
+    /// schema v4+: Participant 一覧（diff 用。v3 以前 export では省略可）
+    #[serde(default)]
+    pub participants: Vec<ExportParticipantV4>,
 }
 
 impl TripExport {
@@ -743,6 +809,10 @@ impl TripExport {
 
     pub fn notes(&self) -> &[ExportNote] {
         self.notes.as_deref().unwrap_or(&[])
+    }
+
+    pub fn participants(&self) -> &[ExportParticipantV4] {
+        &self.participants
     }
 }
 
@@ -833,6 +903,7 @@ pub enum ExportValidationCheckId {
     Notes,
     Expenses,
     Reservations,
+    Participants,
 }
 
 /// export 検証の1項目チェック結果
@@ -858,6 +929,7 @@ pub struct ExportValidationReport {
     pub itinerary_count: usize,
     pub checklist_count: usize,
     pub note_count: usize,
+    pub participant_count: usize,
     /// ファイル内 `generator`（キーなしは `null`）
     pub generator: Option<String>,
     /// ファイル内 `generator_version`（キーなしは `null`）
@@ -883,6 +955,7 @@ impl ExportValidationReport {
             itinerary_count: 0,
             checklist_count: 0,
             note_count: 0,
+            participant_count: 0,
             generator: None,
             generator_version: None,
             exported_at: None,
@@ -902,6 +975,7 @@ pub struct TripImportSummary {
     pub itinerary_count: usize,
     pub checklist_count: usize,
     pub note_count: usize,
+    pub participant_count: usize,
     /// export JSON に `schema_version` キーが存在するか
     pub schema_version_present: bool,
     pub export_schema_version: Option<i32>,

@@ -3,7 +3,10 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 
-use crate::models::{ExportNote, ExportReservation, ItineraryCategory, ItineraryItem, TripExport};
+use crate::models::{
+    ExportNote, ExportParticipantV4, ExportReservation, ItineraryCategory, ItineraryItem,
+    TripExport,
+};
 
 /// export Note の比較キー
 #[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -60,6 +63,22 @@ struct ReservationFieldChange {
     new_value: String,
 }
 
+/// Participant の比較キー（export 上の identity）
+#[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+struct ParticipantKey {
+    sort_order: i64,
+    name: String,
+}
+
+/// 1件の Participant におけるフィールド変更
+struct ParticipantFieldChange {
+    sort_order: i64,
+    name: String,
+    field: String,
+    old_value: String,
+    new_value: String,
+}
+
 /// trip diff の結果
 pub(crate) struct TripDiff {
     trip_changes: Vec<(String, String, String)>,
@@ -73,6 +92,9 @@ pub(crate) struct TripDiff {
     reservation_added: Vec<ExportReservation>,
     reservation_removed: Vec<ExportReservation>,
     reservation_modified: Vec<ReservationFieldChange>,
+    participant_added: Vec<ExportParticipantV4>,
+    participant_removed: Vec<ExportParticipantV4>,
+    participant_changed: Vec<ParticipantFieldChange>,
 }
 
 fn itinerary_key(item: &ItineraryItem) -> ItineraryKey {
@@ -341,6 +363,109 @@ fn compute_notes_diff(
     (note_added, note_removed, note_changed)
 }
 
+fn participant_key(participant: &ExportParticipantV4) -> ParticipantKey {
+    ParticipantKey {
+        sort_order: participant.sort_order,
+        name: participant.name.clone(),
+    }
+}
+
+fn compare_export_participants(a: &ExportParticipantV4, b: &ExportParticipantV4) -> Ordering {
+    participant_key(a)
+        .cmp(&participant_key(b))
+        .then_with(|| a.is_self.cmp(&b.is_self))
+}
+
+fn format_participant_line(participant: &ExportParticipantV4) -> String {
+    let self_mark = if participant.is_self { "yes" } else { "no" };
+    format!(
+        "#{} {} (self: {self_mark})",
+        participant.sort_order, participant.name
+    )
+}
+
+fn group_participants_by_key<'a>(
+    participants: &'a [ExportParticipantV4],
+) -> HashMap<ParticipantKey, Vec<&'a ExportParticipantV4>> {
+    let mut grouped: HashMap<ParticipantKey, Vec<&'a ExportParticipantV4>> = HashMap::new();
+    for participant in participants {
+        grouped
+            .entry(participant_key(participant))
+            .or_default()
+            .push(participant);
+    }
+    grouped
+}
+
+fn compute_participants_diff(
+    old_participants: &[ExportParticipantV4],
+    new_participants: &[ExportParticipantV4],
+) -> (
+    Vec<ExportParticipantV4>,
+    Vec<ExportParticipantV4>,
+    Vec<ParticipantFieldChange>,
+) {
+    let old_by_key = group_participants_by_key(old_participants);
+    let new_by_key = group_participants_by_key(new_participants);
+
+    let mut keys: Vec<ParticipantKey> = old_by_key
+        .keys()
+        .chain(new_by_key.keys())
+        .cloned()
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+
+    let mut participant_added = Vec::new();
+    let mut participant_removed = Vec::new();
+    let mut participant_changed = Vec::new();
+
+    for key in keys {
+        let old_list = old_by_key.get(&key).map(Vec::as_slice).unwrap_or(&[]);
+        let new_list = new_by_key.get(&key).map(Vec::as_slice).unwrap_or(&[]);
+        let paired = old_list.len().min(new_list.len());
+
+        for index in 0..paired {
+            let old_participant = old_list[index];
+            let new_participant = new_list[index];
+            if old_participant.is_self != new_participant.is_self {
+                participant_changed.push(ParticipantFieldChange {
+                    sort_order: key.sort_order,
+                    name: key.name.clone(),
+                    field: "is_self".to_string(),
+                    old_value: old_participant.is_self.to_string(),
+                    new_value: new_participant.is_self.to_string(),
+                });
+            }
+        }
+
+        for participant in &old_list[paired..] {
+            participant_removed.push((*participant).clone());
+        }
+        for participant in &new_list[paired..] {
+            participant_added.push((*participant).clone());
+        }
+    }
+
+    participant_removed.sort_by(compare_export_participants);
+    participant_added.sort_by(compare_export_participants);
+    participant_changed.sort_by(|a, b| {
+        participant_key(&ExportParticipantV4 {
+            name: a.name.clone(),
+            sort_order: a.sort_order,
+            is_self: false,
+        })
+        .cmp(&participant_key(&ExportParticipantV4 {
+            name: b.name.clone(),
+            sort_order: b.sort_order,
+            is_self: false,
+        }))
+        .then_with(|| a.field.cmp(&b.field))
+    });
+
+    (participant_added, participant_removed, participant_changed)
+}
+
 /// 2つの export JSON の差分を計算する（厳密比較）
 pub(crate) fn compute_trip_diff(old: &TripExport, new: &TripExport) -> TripDiff {
     let mut trip_changes = Vec::new();
@@ -514,6 +639,8 @@ pub(crate) fn compute_trip_diff(old: &TripExport, new: &TripExport) -> TripDiff 
     let (note_added, note_removed, note_changed) = compute_notes_diff(old.notes(), new.notes());
     let (reservation_added, reservation_removed, reservation_modified) =
         compute_reservations_diff(&old.reservations, &new.reservations);
+    let (participant_added, participant_removed, participant_changed) =
+        compute_participants_diff(old.participants(), new.participants());
 
     TripDiff {
         trip_changes,
@@ -527,6 +654,9 @@ pub(crate) fn compute_trip_diff(old: &TripExport, new: &TripExport) -> TripDiff 
         reservation_added,
         reservation_removed,
         reservation_modified,
+        participant_added,
+        participant_removed,
+        participant_changed,
     }
 }
 
@@ -644,6 +774,40 @@ pub(crate) fn print_trip_diff(diff: &TripDiff) {
             );
         }
     }
+
+    println!();
+    println!("Participants:");
+    if diff.participant_added.is_empty()
+        && diff.participant_removed.is_empty()
+        && diff.participant_changed.is_empty()
+    {
+        println!("  （変更なし）");
+    } else {
+        for participant in &diff.participant_removed {
+            println!(
+                "- Participant removed: {}",
+                format_participant_line(participant)
+            );
+        }
+        for participant in &diff.participant_added {
+            println!(
+                "+ Participant added: {}",
+                format_participant_line(participant)
+            );
+        }
+        let mut current_line: Option<String> = None;
+        for change in &diff.participant_changed {
+            let line = format!("#{} {}", change.sort_order, change.name);
+            if current_line.as_deref() != Some(line.as_str()) {
+                println!("~ Participant changed: {line}");
+                current_line = Some(line);
+            }
+            println!(
+                "  {}: {} -> {}",
+                change.field, change.old_value, change.new_value
+            );
+        }
+    }
 }
 
 /// 2つの JSON ファイルを比較して差分を表示する
@@ -706,6 +870,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -718,6 +883,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -751,6 +917,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -763,6 +930,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -802,6 +970,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -814,6 +983,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -835,6 +1005,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -847,6 +1018,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -885,6 +1057,7 @@ mod tests {
             notes: None,
             day_summaries: vec![],
             reservations: vec![],
+            participants: vec![],
         }
     }
 
@@ -1101,5 +1274,54 @@ mod tests {
         assert_eq!(diff.note_changed.len(), 1);
         assert!(diff.note_added.is_empty());
         assert!(diff.note_removed.is_empty());
+    }
+
+    #[test]
+    fn test_diff_participants_added_removed_and_is_self_changed() {
+        use crate::models::ExportParticipantV4;
+
+        let old = make_base_export(make_test_trip("Trip"));
+        let mut new = make_base_export(make_test_trip("Trip"));
+        new.participants = vec![
+            ExportParticipantV4 {
+                name: "ともさん".to_string(),
+                sort_order: 0,
+                is_self: true,
+            },
+            ExportParticipantV4 {
+                name: "妻".to_string(),
+                sort_order: 1,
+                is_self: false,
+            },
+        ];
+
+        let diff = compute_trip_diff(&old, &new);
+        assert_eq!(diff.participant_added.len(), 2);
+        assert!(diff.participant_removed.is_empty());
+        assert!(diff.participant_changed.is_empty());
+
+        let diff = compute_trip_diff(&new, &old);
+        assert_eq!(diff.participant_removed.len(), 2);
+        assert!(diff.participant_added.is_empty());
+
+        let mut changed = make_base_export(make_test_trip("Trip"));
+        changed.participants = vec![
+            ExportParticipantV4 {
+                name: "ともさん".to_string(),
+                sort_order: 0,
+                is_self: false,
+            },
+            ExportParticipantV4 {
+                name: "妻".to_string(),
+                sort_order: 1,
+                is_self: true,
+            },
+        ];
+        let diff = compute_trip_diff(&new, &changed);
+        assert_eq!(diff.participant_changed.len(), 2);
+        assert!(diff
+            .participant_changed
+            .iter()
+            .all(|c| c.field == "is_self"));
     }
 }

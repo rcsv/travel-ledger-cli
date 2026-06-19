@@ -1,10 +1,11 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "trip": {
     "name": "沖縄 瀬底 4日間",
     "start_date": "2026-04-26",
     "end_date": "2026-04-29"
   },
+  "participants": [],
   "days": [
     {
       "day_number": 1,

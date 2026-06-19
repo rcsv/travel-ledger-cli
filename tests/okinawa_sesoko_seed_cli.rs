@@ -48,6 +48,10 @@ fn normalize_export_v3(value: &serde_json::Value) -> serde_json::Value {
             })
             .collect::<Vec<_>>(),
         "notes": value.get("notes").cloned().unwrap_or(serde_json::json!([])),
+        "participants": value
+            .get("participants")
+            .cloned()
+            .unwrap_or(serde_json::json!([])),
     })
 }
 
@@ -56,7 +60,7 @@ fn okinawa_sesoko_expected_export_structure() {
     let expected_path = repo_root().join("samples/okinawa_sesoko_2026/expected-export-v3.json");
     let expected: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&expected_path).unwrap()).unwrap();
-    assert_eq!(expected["schema_version"], 3);
+    assert_eq!(expected["schema_version"], 4);
     assert_eq!(expected["trip"]["name"], "沖縄 瀬底 4日間");
     let itinerary_count: usize = expected["days"]
         .as_array()

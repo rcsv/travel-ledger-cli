@@ -20,6 +20,15 @@ pub(crate) struct TripStats {
     pub total_minutes: i64,
     pub expense_count: usize,
     pub expense_totals: BTreeMap<String, i64>,
+    pub registered_participant_count: usize,
+    pub participants_recorded: bool,
+    pub self_known: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub participant_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub traveler_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub companion_count: Option<usize>,
 }
 
 impl TripStats {
@@ -88,6 +97,9 @@ pub(crate) fn compute_trip_stats(conn: &Connection, trip_id: i64) -> Result<Trip
         *expense_totals.entry(expense.currency.clone()).or_insert(0) += expense.amount;
     }
 
+    let participant_counts =
+        crate::participant::compute_participant_counts_for_trip(conn, trip_id)?;
+
     Ok(TripStats {
         trip_name: trip.name,
         days,
@@ -100,6 +112,12 @@ pub(crate) fn compute_trip_stats(conn: &Connection, trip_id: i64) -> Result<Trip
         total_minutes: stay_minutes + travel_minutes,
         expense_count,
         expense_totals,
+        registered_participant_count: participant_counts.registered_count,
+        participants_recorded: participant_counts.participants_recorded,
+        self_known: participant_counts.self_known,
+        participant_count: participant_counts.participant_count,
+        traveler_count: participant_counts.participant_count,
+        companion_count: participant_counts.companion_count,
     })
 }
 
@@ -169,6 +187,22 @@ pub(crate) fn print_trip_stats(conn: &Connection, trip_id: i64) -> Result<()> {
         "Total Time:  {}",
         format_minutes_duration(stats.total_minutes())
     );
+    println!();
+    if !stats.participants_recorded {
+        println!("Participants: not recorded");
+    } else if stats.self_known {
+        let travelers = stats
+            .traveler_count
+            .or(stats.participant_count)
+            .unwrap_or(stats.registered_participant_count);
+        let companions = stats.companion_count.unwrap_or(0);
+        println!("Participants: {travelers} (companions: {companions})");
+    } else {
+        println!(
+            "Participants: {} recorded (traveler count unknown)",
+            stats.registered_participant_count
+        );
+    }
     println!();
     println!("Expenses: {}", stats.expense_count);
     if stats.expense_count > 0 {

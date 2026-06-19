@@ -204,7 +204,7 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
 
     let exported: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&export_path).unwrap()).unwrap();
-    assert_eq!(exported["schema_version"], 3);
+    assert_eq!(exported["schema_version"], 4);
     assert_eq!(exported["notes"].as_array().unwrap().len(), 3);
 
     assert!(run_cli(&dir, &["db", "reset"]).status.success());
@@ -328,7 +328,7 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
 
     let exported: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&export_path).unwrap()).unwrap();
-    assert_eq!(exported["schema_version"], 3);
+    assert_eq!(exported["schema_version"], 4);
     assert_eq!(
         exported["days"][1]["itineraries"][0]["expenses"]
             .as_array()
@@ -411,7 +411,7 @@ fn comparable_export_json(value: &serde_json::Value) -> serde_json::Value {
     let trip = &value["trip"];
     let schema_version = value.get("schema_version").and_then(|v| v.as_i64());
 
-    let itinerary = if schema_version == Some(3) {
+    let itinerary = if matches!(schema_version, Some(3) | Some(4)) {
         value["days"]
             .as_array()
             .cloned()
@@ -470,6 +470,21 @@ fn comparable_export_json(value: &serde_json::Value) -> serde_json::Value {
         .cloned()
         .unwrap_or_default();
 
+    let participants = value
+        .get("participants")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|item| {
+            serde_json::json!({
+                "name": item["name"],
+                "sort_order": item["sort_order"],
+                "is_self": item["is_self"],
+            })
+        })
+        .collect::<Vec<_>>();
+
     serde_json::json!({
         "trip_name": trip["name"],
         "trip_start_date": trip["start_date"],
@@ -477,5 +492,6 @@ fn comparable_export_json(value: &serde_json::Value) -> serde_json::Value {
         "itinerary_items": itinerary,
         "checklist_items": checklist,
         "notes": notes,
+        "participants": participants,
     })
 }

@@ -115,3 +115,15 @@ fn cli_note_show_not_found_json() {
     let output = run_cli(&["note", "show", "9999", "--json"]);
     assert_not_found(&output, "Note not found: 9999");
 }
+
+#[test]
+fn cli_participant_show_not_found() {
+    let output = run_cli(&["participant", "show", "9999"]);
+    assert_not_found(&output, "participant not found: 9999");
+}
+
+#[test]
+fn cli_participant_list_not_found() {
+    let output = run_cli(&["participant", "list", "--trip", "9999"]);
+    assert_not_found(&output, "Trip not found: 9999");
+}

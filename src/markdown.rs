@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
-use crate::models::{ChecklistItem, Day, Expense, ItineraryItem, Trip};
+use crate::models::{ChecklistItem, Day, Expense, ItineraryItem, Participant, Trip};
 use crate::reservation::ReservationWithContext;
 use crate::stats::{format_minutes_duration, TripStats};
 
@@ -129,6 +129,24 @@ pub(crate) fn format_reservations_markdown(
     Some(format!("\n\n{}\n", lines.join("\n").trim_end()))
 }
 
+fn append_participants_section(output: &mut String, participants: &[Participant]) {
+    if participants.is_empty() {
+        return;
+    }
+    output.push_str("\n## Participants\n\n");
+    output.push_str("| # | Name | Self |\n");
+    output.push_str("|---|------|------|\n");
+    for (index, participant) in participants.iter().enumerate() {
+        let self_mark = if participant.is_self { "yes" } else { "no" };
+        output.push_str(&format!(
+            "| {} | {} | {} |\n",
+            index + 1,
+            participant.name,
+            self_mark
+        ));
+    }
+}
+
 /// Overview セクション（旅行統計サマリー）を Markdown に追記する
 fn append_overview_section(output: &mut String, stats: &TripStats) {
     output.push_str("\n## Overview\n\n");
@@ -150,14 +168,33 @@ fn append_overview_section(output: &mut String, stats: &TripStats) {
         "- Total Time: {}\n",
         format_minutes_duration(stats.total_minutes())
     ));
+    if stats.participants_recorded {
+        if stats.self_known {
+            let travelers = stats
+                .traveler_count
+                .or(stats.participant_count)
+                .unwrap_or(stats.registered_participant_count);
+            let companions = stats.companion_count.unwrap_or(0);
+            output.push_str(&format!(
+                "- Travelers: {travelers} (companions: {companions})\n"
+            ));
+        } else {
+            output.push_str(&format!(
+                "- Participants: {} recorded (traveler count unknown)\n",
+                stats.registered_participant_count
+            ));
+        }
+    }
 }
 
 /// 旅行と日程一覧から Markdown 文字列を組み立てる
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn format_trip_markdown(
     trip: &Trip,
     days: &[Day],
     items: &[ItineraryItem],
     checklist: &[ChecklistItem],
+    participants: &[Participant],
     stats: &TripStats,
     expenses_by_itinerary: &HashMap<i64, Vec<Expense>>,
     reservations: &[ReservationWithContext],
@@ -180,6 +217,7 @@ pub(crate) fn format_trip_markdown(
     }
 
     append_overview_section(&mut output, stats);
+    append_participants_section(&mut output, participants);
 
     if let Some(reservations_md) = format_reservations_markdown(reservations) {
         output.push_str(&reservations_md);
@@ -231,11 +269,13 @@ pub(crate) fn generate_trip_markdown(conn: &Connection, trip_id: i64) -> Result<
             .push(expense);
     }
     let reservations = crate::reservation::list_reservations_for_trip(conn, trip_id)?;
+    let participants = crate::participant::list_participants_by_trip(conn, trip_id)?;
     Ok(format_trip_markdown(
         &trip,
         &days,
         &items,
         &checklist,
+        &participants,
         &stats,
         &expenses_by_itinerary,
         &reservations,

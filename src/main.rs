@@ -9,6 +9,7 @@ mod itinerary;
 mod markdown;
 mod models;
 mod note;
+mod participant;
 mod reservation;
 mod stats;
 mod summary;
@@ -76,6 +77,11 @@ enum Command {
     Reservation {
         #[command(subcommand)]
         action: ReservationAction,
+    },
+    /// 参加者 (Participant) の管理
+    Participant {
+        #[command(subcommand)]
+        action: ParticipantAction,
     },
 }
 
@@ -644,6 +650,64 @@ enum ExpenseAction {
     },
 }
 
+#[derive(Subcommand)]
+enum ParticipantAction {
+    /// Participant を追加
+    Add {
+        /// Trip ID（必須）
+        #[arg(long)]
+        trip: i64,
+        /// 表示名（必須）
+        #[arg(long)]
+        name: String,
+        /// 並び順
+        #[arg(long)]
+        sort_order: Option<i64>,
+        /// この Trip における自分としてマーク
+        #[arg(long = "self")]
+        self_marker: bool,
+    },
+    /// Trip 内 Participant 一覧を表示
+    List {
+        /// Trip ID（必須）
+        #[arg(long)]
+        trip: i64,
+        /// JSON 形式で出力する
+        #[arg(long)]
+        json: bool,
+    },
+    /// Participant 詳細を表示
+    Show {
+        /// Participant ID
+        id: i64,
+        /// JSON 形式で出力する
+        #[arg(long)]
+        json: bool,
+    },
+    /// Participant を更新
+    Update {
+        /// Participant ID
+        id: i64,
+        /// 表示名
+        #[arg(long)]
+        name: Option<String>,
+        /// 並び順
+        #[arg(long)]
+        sort_order: Option<i64>,
+        /// この Trip における自分としてマーク
+        #[arg(long = "self")]
+        self_marker: bool,
+        /// self マーカーを外す
+        #[arg(long = "not-self")]
+        not_self: bool,
+    },
+    /// Participant を削除
+    Delete {
+        /// Participant ID
+        id: i64,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let conn = crate::db::open_db()?;
@@ -1155,6 +1219,85 @@ fn main() -> Result<()> {
                 crate::reservation::delete_reservation(&conn, id)?;
                 println!("Reservation を削除しました (ID: {id})");
                 println!("  Provider: {}", reservation.provider_name);
+            }
+        },
+        Command::Participant { action } => match action {
+            ParticipantAction::Add {
+                trip,
+                name,
+                sort_order,
+                self_marker,
+            } => {
+                let id = crate::participant::create_participant(
+                    &conn,
+                    trip,
+                    &name,
+                    sort_order,
+                    self_marker,
+                )?;
+                let participant = crate::participant::get_participant(&conn, id)?;
+                let self_note = if participant.is_self { " (self)" } else { "" };
+                println!(
+                    "Participant を追加しました (ID: {id}){self_note}: {}",
+                    participant.name
+                );
+                println!("  Trip ID: {trip}");
+            }
+            ParticipantAction::List { trip, json } => {
+                let participants = crate::participant::list_participants_by_trip(&conn, trip)?;
+                let counts = crate::participant::compute_participant_counts_for_trip(&conn, trip)?;
+                if json {
+                    crate::trip::print_json(&crate::participant::ParticipantListJson {
+                        schema_version: 1,
+                        trip_id: trip,
+                        participants,
+                        counts,
+                    })?;
+                } else {
+                    crate::participant::print_participant_list_human(&participants, &counts);
+                }
+            }
+            ParticipantAction::Show { id, json } => {
+                let participant = crate::participant::get_participant(&conn, id)?;
+                if json {
+                    crate::trip::print_json(&participant)?;
+                } else {
+                    crate::participant::print_participant_detail(&participant);
+                }
+            }
+            ParticipantAction::Update {
+                id,
+                name,
+                sort_order,
+                self_marker,
+                not_self,
+            } => {
+                if self_marker && not_self {
+                    anyhow::bail!("--self と --not-self は同時に指定できません");
+                }
+                let set_self = if self_marker {
+                    Some(true)
+                } else if not_self {
+                    Some(false)
+                } else {
+                    None
+                };
+                crate::participant::update_participant(
+                    &conn,
+                    id,
+                    name.as_deref(),
+                    sort_order,
+                    set_self,
+                )?;
+                println!("Participant を更新しました (ID: {id})");
+                let participant = crate::participant::get_participant(&conn, id)?;
+                crate::participant::print_participant_detail(&participant);
+            }
+            ParticipantAction::Delete { id } => {
+                let participant = crate::participant::get_participant(&conn, id)?;
+                crate::participant::delete_participant(&conn, id)?;
+                println!("Participant を削除しました (ID: {id})");
+                println!("  Name: {}", participant.name);
             }
         },
         Command::Trip { action } => match action {

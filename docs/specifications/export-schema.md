@@ -23,17 +23,44 @@ Caglla CLI の trip export / import JSON 形式。
 | 未指定 | v1（effective） | 旧形式。`notes` なし |
 | `1` | v1 | 明示的 v1。`notes` なし |
 | `2` | v2 | Note を含む（`itinerary_items` フラット） |
-| `3` | v3（**現行 export**） | Note + **nested Expense**（`days[]`） |
-| `4` | v4（**v2.0.0 予定**） | v3 + top-level **`participants[]`**（`is_self` 含む）— 詳細は [participant-implementation-plan.md](participant-implementation-plan.md) |
+| `3` | v3 | Note + **nested Expense**（`days[]`） |
+| `4` | v4（**現行 export**） | v3 + top-level **`participants[]`**（`is_self` 含む）— 詳細は [participant-implementation-plan.md](participant-implementation-plan.md) |
 
 Import 時の解釈:
 
 - `schema_version` 未指定 → v1
 - `schema_version: 1` → v1
 - `schema_version: 2` → v2
-- `schema_version: 3` → v3
+- `schema_version: 3` → v3（`participants` 省略時は空配列扱い）
+- `schema_version: 4` → v4
 
-v1 / v2 export は引き続き import 可能です。現行 CLI の `trip export` は `schema_version: 3` を出力します。
+v1 / v2 / v3 export は引き続き import 可能です。現行 CLI の `trip export` は `schema_version: 4` を出力します。
+
+## Top-level structure (v4)
+
+```json
+{
+  "schema_version": 4,
+  "generator": "caglla-cli",
+  "generator_version": "1.22.0",
+  "exported_at": "2026-06-07T00:00:00Z",
+  "trip": {},
+  "days": [],
+  "checklist_items": [],
+  "notes": [],
+  "participants": []
+}
+```
+
+### Participants (v4)
+
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `name` | はい | 表示名 |
+| `sort_order` | はい | Trip 内の並び順 |
+| `is_self` | はい | この Trip における自分マーカー（同一 Trip で最大 1 件） |
+
+internal `id` は export しません。v3 import では `participants` 省略 = 空配列。
 
 ## Top-level structure (v3)
 

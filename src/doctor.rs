@@ -22,7 +22,44 @@ pub(crate) struct DoctorReport {
 pub(crate) fn analyze_trip_issues(conn: &Connection, trip_id: i64) -> Result<Vec<DoctorIssue>> {
     crate::trip::get_trip(conn, trip_id)?;
     let items = crate::itinerary::list_itinerary_items(conn, trip_id)?;
-    Ok(collect_trip_issues(&items))
+    let mut issues = collect_trip_issues(&items);
+    issues.extend(collect_participant_issues(conn, trip_id)?);
+    Ok(issues)
+}
+
+fn collect_participant_issues(conn: &Connection, trip_id: i64) -> Result<Vec<DoctorIssue>> {
+    let participants = crate::participant::list_participants_by_trip(conn, trip_id)?;
+    let mut issues = Vec::new();
+    if participants.is_empty() {
+        issues.push(DoctorIssue {
+            code: DoctorIssueCode::ParticipantsNotRecorded,
+            target: DoctorIssueTarget::Trip,
+            day: None,
+            itinerary_count: None,
+            travel_minutes: None,
+        });
+        return Ok(issues);
+    }
+
+    let self_count = participants.iter().filter(|p| p.is_self).count();
+    if self_count == 0 {
+        issues.push(DoctorIssue {
+            code: DoctorIssueCode::SelfParticipantUnknown,
+            target: DoctorIssueTarget::Trip,
+            day: None,
+            itinerary_count: None,
+            travel_minutes: None,
+        });
+    } else if self_count > 1 {
+        issues.push(DoctorIssue {
+            code: DoctorIssueCode::MultipleSelfParticipants,
+            target: DoctorIssueTarget::Trip,
+            day: None,
+            itinerary_count: None,
+            travel_minutes: None,
+        });
+    }
+    Ok(issues)
 }
 
 fn collect_trip_issues(items: &[ItineraryItem]) -> Vec<DoctorIssue> {
@@ -144,6 +181,12 @@ fn issues_to_doctor_report(issues: &[DoctorIssue]) -> DoctorReport {
                 warnings.push(issue.warning_message());
             }
             DoctorIssueCode::MissingDuration => {}
+            DoctorIssueCode::ParticipantsNotRecorded | DoctorIssueCode::SelfParticipantUnknown => {
+                info.push(issue.warning_message());
+            }
+            DoctorIssueCode::MultipleSelfParticipants => {
+                warnings.push(issue.warning_message());
+            }
         }
     }
 
@@ -233,7 +276,7 @@ mod tests {
     use crate::db::open_db_at;
     use crate::itinerary::add_itinerary_item;
     use crate::models::ItineraryCategory;
-    use crate::trip::{add_test_trip, add_trip};
+    use crate::trip::{add_test_self_participant, add_test_trip, add_trip};
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -246,8 +289,13 @@ mod tests {
         let trip_id = add_test_trip(&conn, "空の旅行").unwrap();
 
         let issues = analyze_trip_issues(&conn, trip_id).unwrap();
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0].code, DoctorIssueCode::EmptyItinerary);
+        assert_eq!(issues.len(), 2);
+        assert!(issues
+            .iter()
+            .any(|i| i.code == DoctorIssueCode::EmptyItinerary));
+        assert!(issues
+            .iter()
+            .any(|i| i.code == DoctorIssueCode::ParticipantsNotRecorded));
         assert_eq!(issues[0].target, DoctorIssueTarget::Trip);
     }
 
@@ -492,6 +540,7 @@ mod tests {
     fn test_doctor_clean_trip_has_no_issues() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,
@@ -522,10 +571,16 @@ mod tests {
         let report = analyze_trip(&conn, trip_id).unwrap();
         assert!(report.warnings.is_empty());
         assert!(report.suggestions.is_empty());
-        assert_eq!(report.info, vec!["No itinerary found.".to_string()]);
+        assert_eq!(
+            report.info,
+            vec![
+                "No itinerary found.".to_string(),
+                "No participants recorded for this trip.".to_string(),
+            ]
+        );
 
         let issues = analyze_trip_issues(&conn, trip_id).unwrap();
-        assert_eq!(issues.len(), 1);
+        assert_eq!(issues.len(), 2);
         assert_eq!(issues[0].code, DoctorIssueCode::EmptyItinerary);
         run_trip_doctor(&conn, trip_id, false).unwrap();
     }
@@ -534,6 +589,7 @@ mod tests {
     fn test_trip_doctor_json_clean() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "問題なし旅行").unwrap();
+        add_test_self_participant(&conn, trip_id).unwrap();
         add_itinerary_item(
             &conn,
             trip_id,

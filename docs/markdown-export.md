@@ -22,6 +22,13 @@ cargo run -- trip export-md 1
 - Travel Time: 6h50m
 - Total Time: 29h05m
 
+## Participants
+
+| # | Name | Self |
+|---|------|------|
+| 1 | ともさん | yes |
+| 2 | 妻 | no |
+
 ## Day 1
 
 ### 09:00 那覇空港
@@ -45,7 +52,7 @@ Expenses:
 
 Expense がある Itinerary のみ、Itinerary ブロックの下に `Expenses:` 一覧を出力します（データ確認用。表組みや PDF 向けの整形はしません）。`location` がある場合のみ `- 場所:` 行が付きます。
 
-Itinerary は **日目 → 並び順（sort_order）** の順で出力されます。日程が登録されていない日目は表示されません。冒頭の **Overview** セクションには `trip stats` と同様の集計サマリー（日数・件数・チェックリスト進捗・時間集計）が含まれます。Category Breakdown は含みません。各 Day 見出し・予定ブロック・Checklist セクションの前後には空行が入り、読みやすさを優先しています。
+Itinerary は **日目 → 並び順（sort_order）** の順で出力されます。日程が登録されていない日目は表示されません。冒頭の **Overview** セクションには `trip stats` と同様の集計サマリー（日数・件数・チェックリスト進捗・時間集計・参加者数）が含まれます。Participant が 1 件以上ある場合は **Participants** 表（`sort_order` 順）を Overview の直後に出力します。Day / Itinerary ブロック内には Participant は出しません。
 
 チェックリストが登録されている場合、末尾に以下の形式で出力されます。
 
