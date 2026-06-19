@@ -19,6 +19,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [expense-model.md](expense-model.md) | Expense モデル（v1.5.0 CRUD） |
 | [expense-post-implementation-review.md](expense-post-implementation-review.md) | Expense Post-Implementation Review（v1.22.0 実装後責務定義 — v1 Hardening） |
 | [participant-model.md](participant-model.md) | Participant Model Responsibilities Review（v2.0.0 設計フェーズ 1/6） |
+| [participant-entity-design.md](participant-entity-design.md) | Participant Entity Design（v2.0.0 設計フェーズ 2/6） |
 | [checklist-design-memo.md](checklist-design-memo.md) | Checklist 設計メモ（自動生成・Provenance — 将来設計参考、v1.x 対象外） |
 | [travel-support-design-memo.md](travel-support-design-memo.md) | Travel Support 設計メモ（旅行支援情報・Destination・注意喚起 — 将来設計参考、v1.x 対象外） |
 | [export-schema.md](export-schema.md) | trip export / import JSON（schema v1 / v2 / v3）。構造定義 — 意味論は itinerary-model 等を参照 |
