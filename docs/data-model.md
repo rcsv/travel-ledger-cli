@@ -46,6 +46,7 @@ Trip / Day / Itinerary に付けられる **自由記述メモ**（`note` コマ
 | Note モデル | [specifications/note-model.md](specifications/note-model.md) |
 | Expense モデル | [specifications/expense-model.md](specifications/expense-model.md) |
 | Participant モデル | [specifications/participant-model.md](specifications/participant-model.md)（v2 Responsibilities Review） |
+| Participant Entity Design | [specifications/participant-entity-design.md](specifications/participant-entity-design.md)（v2 Entity Design） |
 | Export JSON スキーマ | [specifications/export-schema.md](specifications/export-schema.md) |
 | 全仕様の索引 | [specifications/README.md](specifications/README.md) |
 
