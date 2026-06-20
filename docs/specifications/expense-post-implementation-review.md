@@ -111,7 +111,7 @@ Expense は **説明レイヤー（Note / Summary）でも予約レイヤー（R
 
 ```text
 v1.x の Expense = Actual Money（実績・支出として記録する金額）
-見積・予想金額 = Expense ではない（将来 Budget / Estimate エンティティ）
+見積・予想金額 = Expense ではない（**Estimate / Planned Budget** — [estimate-model.md](estimate-model.md)）
 ```
 
 | 観点 | 説明 |

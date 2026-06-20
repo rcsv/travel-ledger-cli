@@ -19,6 +19,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [note-post-implementation-review.md](note-post-implementation-review.md) | Note Post-Implementation Review（v1.21.0 実装後責務再定義 — v1 Hardening） |
 | [expense-model.md](expense-model.md) | Expense モデル（v1.5.0 CRUD） |
 | [expense-post-implementation-review.md](expense-post-implementation-review.md) | Expense Post-Implementation Review（v1.22.0 実装後責務定義 — v1 Hardening） |
+| [estimate-model.md](estimate-model.md) | Estimate / Planned Budget Responsibilities Review（設計フェーズ 1/N — **未実装**） |
 | [planning-foundation-completion-review.md](planning-foundation-completion-review.md) | Planning Foundation Completion Review（v1 総括 — Hardening 完結、**tag なし**） |
 | [participant-model.md](participant-model.md) | Participant Model Responsibilities Review（v2.0.0 設計フェーズ 1/6）。参加行 vs 将来 Person / Traveler Profile、**count 意味論・`is_self`** |
 | [participant-entity-design.md](participant-entity-design.md) | Participant Entity Design（v2.0.0 設計フェーズ 2/6）。`participants` = Trip-scoped participation record + `is_self` |

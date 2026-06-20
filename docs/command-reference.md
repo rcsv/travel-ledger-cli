@@ -160,6 +160,12 @@ cargo run -- expense delete 1
 
 詳細仕様: [specifications/expense-model.md](specifications/expense-model.md) / [shared-expense-entity-design.md](specifications/shared-expense-entity-design.md)
 
+## Estimate（Planned Budget）— 将来
+
+Itinerary 配下の **事前見積**（Planned Money）。Expense（実績支出）とは別概念です。**CLI 未実装。**
+
+責務整理: [specifications/estimate-model.md](specifications/estimate-model.md)
+
 ## Participant
 
 Trip 配下の **参加行**（自分を含む旅行者全員）です。

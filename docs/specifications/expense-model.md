@@ -3,9 +3,9 @@
 Caglla CLI / 将来 Web 版に向けた **Expense（支出）** エンティティの仕様メモです。  
 **v1.5.0: DB / CLI CRUD 実装済み。v1.6.0: Export schema v3（nested export/import/validate）実装済み。**
 
-> **実装後レビュー:** v1.22.0 での責務定義（Transaction Record Layer、Budget / Estimate 分離）は [expense-post-implementation-review.md](expense-post-implementation-review.md)。本書（v1.5.0）は設計履歴として残す。
+> **実装後レビュー:** v1.22.0 での責務定義（Transaction Record Layer、Budget / Estimate 分離）は [expense-post-implementation-review.md](expense-post-implementation-review.md)。**Estimate（Planned Money）** の責務整理は [estimate-model.md](estimate-model.md)。本書（v1.5.0）は設計履歴として残す。
 
-関連: [Itinerary モデル](itinerary-model.md) / [Day モデル](day-model.md) / [Note モデル](note-model.md) / [Export Schema](export-schema.md)
+関連: [Itinerary モデル](itinerary-model.md) / [Estimate モデル](estimate-model.md) / [Day モデル](day-model.md) / [Note モデル](note-model.md) / [Export Schema](export-schema.md)
 
 ---
 
