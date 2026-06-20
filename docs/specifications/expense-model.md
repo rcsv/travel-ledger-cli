@@ -253,6 +253,8 @@ expenses
 | 誰の分か | **未モデル化**（全員均等などは記録しない） | `expense_beneficiaries` 中間テーブル |
 | 割り勘 | 非対象 | Shared Expense + Settlement |
 
+v3 責務整理: [shared-expense-model.md](shared-expense-model.md)（Issue #30 Responsibilities Review）
+
 ---
 
 ## 5. 将来拡張モデル（整理のみ）

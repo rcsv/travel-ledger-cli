@@ -24,6 +24,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [participant-entity-design.md](participant-entity-design.md) | Participant Entity Design（v2.0.0 設計フェーズ 2/6）。`participants` = Trip-scoped participation record + `is_self` |
 | [participant-implementation-plan.md](participant-implementation-plan.md) | Participant Implementation Plan（v2.0.0 設計フェーズ 3/6） |
 | [participant-post-implementation-review.md](participant-post-implementation-review.md) | Participant Post-Implementation Review（v2.0.0 設計フェーズ 5/6） |
+| [shared-expense-model.md](shared-expense-model.md) | Shared Expense Model Responsibilities Review（v3.0.0 設計フェーズ 1/6）。payer / beneficiaries / settlement 境界 |
 | [foundation-hardening-review.md](foundation-hardening-review.md) | Foundation Hardening Review（v2.0.0 後・v3 前の基盤点検 — documentation-only） |
 | [checklist-design-memo.md](checklist-design-memo.md) | Checklist 設計メモ（自動生成・Provenance — 将来設計参考、v1.x 対象外） |
 | [travel-support-design-memo.md](travel-support-design-memo.md) | Travel Support 設計メモ（旅行支援情報・Destination・注意喚起 — 将来設計参考、v1.x 対象外） |

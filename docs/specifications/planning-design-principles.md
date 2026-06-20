@@ -74,7 +74,7 @@ Checklist は Trip 配下（Preparation Layer — [travel-ledger-responsibilitie
 | 構造化は価値がある場合だけ | Reservation / Expense / Checklist など、**明確に役割がある** ときだけ型を増やす |
 | Long-form テキスト | Trip / Day / Itinerary に紐づく **Annotation** — [note-model.md](note-model.md) |
 
-「この情報、どのフィールドに入れる？」と迷ったとき、無理に Itinerary や Checklist に押し込まず **Note で足りる** 設計を許容する。v3 Shared Expense でも、精算に必要な構造だけを増やし、雑多なメモまでフィールド化しない。
+「この情報、どのフィールドに入れる？」と迷ったとき、無理に Itinerary や Checklist に押し込まず **Note で足りる** 設計を許容する。v3 Shared Expense でも、精算に必要な構造だけを増やし、雑多なメモまでフィールド化しない — 詳細は [shared-expense-model.md](shared-expense-model.md) §Note vs structured fields。
 
 ---
 
