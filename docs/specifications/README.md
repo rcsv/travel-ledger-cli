@@ -27,7 +27,8 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [shared-expense-model.md](shared-expense-model.md) | Shared Expense Model Responsibilities Review（v3.0.0 設計フェーズ 1/6）。payer / beneficiaries / settlement 境界 |
 | [shared-expense-entity-design.md](shared-expense-entity-design.md) | Shared Expense Entity Design（v3.0.0 設計フェーズ 2/6）。`expenses` 拡張・`expense_beneficiaries`・export v5 |
 | [shared-expense-implementation-plan.md](shared-expense-implementation-plan.md) | Shared Expense Implementation Plan（v3.0.0 設計フェーズ 3/6）。migration / CLI / export v5 / tests |
+| [shared-expense-post-implementation-review.md](shared-expense-post-implementation-review.md) | Shared Expense Post-Implementation Review（v3.0.0 設計フェーズ 5/6） |
 | [foundation-hardening-review.md](foundation-hardening-review.md) | Foundation Hardening Review（v2.0.0 後・v3 前の基盤点検 — documentation-only） |
 | [checklist-design-memo.md](checklist-design-memo.md) | Checklist 設計メモ（自動生成・Provenance — 将来設計参考、v1.x 対象外） |
 | [travel-support-design-memo.md](travel-support-design-memo.md) | Travel Support 設計メモ（旅行支援情報・Destination・注意喚起 — 将来設計参考、v1.x 対象外） |
-| [export-schema.md](export-schema.md) | trip export / import JSON（schema v1–**v4**）。構造定義 — 意味論は itinerary-model 等を参照 |
+| [export-schema.md](export-schema.md) | trip export / import JSON（schema v1–**v5**）。構造定義 — 意味論は itinerary-model 等を参照 |
