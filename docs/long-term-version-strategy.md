@@ -63,7 +63,7 @@ Travel Journal（実装）
 Budget / Settlement
 ```
 
-v1 完了後、製品の次テーマは **v2 Participant Foundation**（§v2、**v2.0.0 リリース済み**）であった。
+v1 完了後、製品の次テーマは **v2 Participant Foundation**（§v2、**v2.0.0 リリース済み**）であった。v2 完了後の次テーマは **v3 Shared Expense**（§v3、**v3.0.0 リリース済み**）。
 
 ---
 
@@ -101,7 +101,7 @@ v2 の `participants` は **ある Trip への参加行**（TripParticipant-like
 
 ---
 
-## v3 — Shared Expense
+## v3 — Shared Expense（**v3.0.0 リリース済み**）
 
 ### テーマ
 
@@ -110,15 +110,28 @@ v2 の `participants` は **ある Trip への参加行**（TripParticipant-like
 誰の費用か
 ```
 
-### 追加予定
+### 実装内容（v3.0.0）
 
 ```text
-Paid By
-Beneficiary
-Settlement
+Paid By（structured payer）
+Beneficiaries（equal split recording）
+Export schema v5
 ```
 
-ここで初めて **Expense が Participant と結び付く**。家族旅行・グループ旅行の精算が可能になる。
+リリースノート: [v3.0.0-notes.md](releases/v3.0.0-notes.md)
+
+ここで **Expense が Participant と結び付く**。beneficiary 0 件 = personal、1 件以上 = shared（Settlement 計算 CLI は v3.x defer）。
+
+設計系列（GitHub Epic #13）: [shared-expense-model.md](specifications/shared-expense-model.md)（#30）→ [shared-expense-entity-design.md](specifications/shared-expense-entity-design.md)（#31）→ [shared-expense-implementation-plan.md](specifications/shared-expense-implementation-plan.md)（#32）→ Implementation（#33 / PR #39）→ [shared-expense-post-implementation-review.md](specifications/shared-expense-post-implementation-review.md)（#34 / PR #40）→ Release v3.0.0（#35）。
+
+### v3.x defer
+
+```text
+Settlement / transfer calculation
+trip expense-summary
+share_ratio / weighted split
+--paid-by alias
+```
 
 ---
 

@@ -8,7 +8,7 @@ JSON エクスポート・インポート・検証・比較の手順です。ス
 
 **export / import の対象:** **Trip**、**Itinerary（`itinerary_items` / `days[]`）**、**Checklist**、**Note（schema v2+）**、**Expense（schema v3+）**、**Reservation（schema v3+）**、**Participant（schema v4+）** です。`trip export` → `db reset` → `trip import` でバックアップ／リストアできます。
 
-現行 export は **`schema_version: 4`** です。Import は **v1 / v2 / v3 / v4** に対応します（v3 以前の JSON に `participants` がなくても import 可能）。スキーマ詳細は [specifications/export-schema.md](specifications/export-schema.md) を正としてください。
+現行 export は **`schema_version: 5`** です。Import は **v1 / v2 / v3 / v4 / v5** に対応します（v3 以前の JSON に `participants` がなくても import 可能）。スキーマ詳細は [specifications/export-schema.md](specifications/export-schema.md) を正としてください。
 
 Export JSON には **`schema_version`**、**`generator`**（`caglla-cli`）、**`generator_version`**、**`exported_at`**（RFC3339）が含まれます。旧形式（メタデータ省略）とも後方互換です。
 
@@ -20,13 +20,13 @@ cargo run -- trip export 1
 cargo run -- trip export 1 --output backup.json
 ```
 
-出力例（構造 — **現行 v4**）:
+出力例（構造 — **現行 v5**）:
 
 ```json
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "generator": "caglla-cli",
-  "generator_version": "2.0.0",
+  "generator_version": "3.0.0",
   "exported_at": "2026-06-07T00:00:00Z",
   "trip": {
     "name": "沖縄旅行",
@@ -85,7 +85,9 @@ cargo run -- trip export 1 --output backup.json
 
 Itinerary は **日目 → 並び順（`sort_order`）** でソートされた状態で出力されます（Sequence-first — [ordering-model.md](specifications/ordering-model.md)）。`checklist_items` は一覧表示と同じく、未完了 → 完了済み、同状態内では `sort_order` → `id` の順で出力されます。
 
-**Participant（v4）:** top-level `participants[]` に Trip スコープの参加行を出力します。`is_self` は同一 Trip で最大 1 件。v3 export を import する場合、`participants` キーがなくても **空配列として復元** されます。
+**Participant（v4+）:** top-level `participants[]` に Trip スコープの参加行を出力します。`is_self` は同一 Trip で最大 1 件。v3 export を import する場合、`participants` キーがなくても **空配列として復元** されます。
+
+**Shared Expense（v5）:** Expense オブジェクトに optional な `paid_by_participant_ref` と `beneficiaries[]`（`participant_ref` = `participants[].name`）を出力します。省略時は **personal expense**（v4 import 互換）。同名 Participant がある Trip では ref が曖昧になるため import / validate-export は **拒否** します。
 
 ### 旧フォーマットとの互換
 
@@ -98,6 +100,7 @@ Import は次の旧形式も読み込めます（**ただし `trip.start_date` /
 | `schema_version: 2` | v2 形式として import（`notes` あり、flat `itinerary_items`） |
 | `schema_version: 3` | v3 形式（nested `days[]`、Expense / Reservation）。**`participants` 省略可** → 空配列 |
 | `schema_version: 4` | v4 形式（v3 + `participants[]`）。multiple `is_self: true` は **import / validate 拒否** |
+| `schema_version: 5` | v5 形式（v4 + Expense `paid_by_participant_ref` / `beneficiaries[]`）。省略フィールドは personal。**同名 Participant + ref** は **import / validate 拒否** |
 | `schema_version` / `generator` / `generator_version` / `exported_at` なし | メタデータなしとして import（問題なし） |
 | `generator: "unknown"` や旧 `generator_version` | import 可能（warning なし） |
 | `checklist_items` なし（v1.0.2 以前） | チェックリストは空として import |
@@ -119,7 +122,8 @@ cargo run -- trip import backup.json
 | Checklist | `checklist_items` があれば復元する。省略時は空配列として扱う |
 | Note | `notes` があれば復元する（schema v2+）。省略時は空配列として扱う |
 | Expense / Reservation | schema v3+ の nested `days[].itineraries[]` 配下から復元 |
-| **Participant** | schema v4 の `participants[]` から復元。**v3 JSON でキー省略時は空配列** |
+| **Participant** | schema v4+ の `participants[]` から復元。**v3 JSON でキー省略時は空配列** |
+| **Shared Expense** | schema v5 の Expense ref から payer / beneficiaries を復元。**v4 以前は省略 = personal** |
 | メタデータ | `schema_version` / `exported_at` は import 時に無視される |
 
 **import 後の Trip ID について:** export JSON 内の `trip.id` は、import 後の DB 上の ID を保証しません。import 完了サマリーに表示される ID を使ってください。
@@ -149,11 +153,13 @@ cargo run -- trip validate-export backup.json --json
 
 終了コード: `valid: true` → exit 0 / `valid: false` またはファイル読込エラー → exit 1。
 
-**v4 Participant 検証:** 同一 Trip に `is_self: true` が 2 件以上ある export は **`valid: false`** になります（import も拒否）。詳細は [export-schema.md](specifications/export-schema.md) §validate-export。
+**v4 Participant 検証:** 同一 Trip に `is_self: true` が 2 件以上ある export は **`valid: false`** になります（import も拒否）。
+
+**v5 Shared Expense 検証:** `paid_by_participant_ref` / `beneficiaries[].participant_ref` が Trip 内 Participant に一意に解決できない export は **`valid: false`** になります。v4 ファイルは v5 専用 ref 検査を **スキップ** します。詳細は [export-schema.md](specifications/export-schema.md) §validate-export。
 
 ## 旅行 JSON の比較（trip diff）
 
-2 つの `trip export` JSON を比較し、Trip・Itinerary・Note・Summary・Reservation・**Participant（v4）** の差分を表示します。
+2 つの `trip export` JSON を比較し、Trip・Itinerary・Note・Summary・Reservation・**Participant（v4+）**・**Expense payer/beneficiaries（v5+）** の差分を表示します。
 
 ```bash
 cargo run -- trip diff trip-old.json trip-new.json
@@ -169,8 +175,9 @@ cargo run -- trip diff trip-old.json trip-new.json
 | Summary | Trip / Day summary の追加・削除・変更 |
 | Reservation | added / removed / modified |
 | Participant | `Participants:` 見出し下に added / removed / `is_self` changed |
+| Expense (v5+) | added / removed / `payer` or `beneficiaries` modified（両 export が schema v5+ の場合） |
 
-**非対象:** nested Expense の diff（将来 Maintenance）。v1 export（`notes` なし）と v2 export（`notes: []`）を比較しても異常終了しません。v3 export に `participants` が無い場合は空配列として比較します。
+v1 export（`notes` なし）と v2 export（`notes: []`）を比較しても異常終了しません。v3 export に `participants` が無い場合は空配列として比較します。v4 同士の比較では Expense の payer/beneficiaries は比較しません。
 
 ## JSON 出力について
 

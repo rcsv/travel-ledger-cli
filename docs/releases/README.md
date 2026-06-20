@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v3.0.0 | Shared Expense | [v3.0.0-notes.md](v3.0.0-notes.md) |
 | v2.0.1 | Participant Foundation hardening patch | [v2.0.1-notes.md](v2.0.1-notes.md) |
 | v2.0.0 | Participant Foundation | [v2.0.0-notes.md](v2.0.0-notes.md) |
 | v1.22.0 | Expense post-implementation review | [v1.22.0-notes.md](v1.22.0-notes.md) |
