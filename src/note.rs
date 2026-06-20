@@ -343,11 +343,54 @@ pub(crate) fn resolve_itinerary_id_from_export_items(
     items: &[ItineraryItem],
     key: &ItineraryNoteKey,
 ) -> Result<i64> {
-    if let Some(id) = try_resolve_itinerary_by(items, |item| {
-        item.day == key.day_number && item.sort_order == key.sort_order
-    })? {
-        return Ok(id);
+    let by_day_sort: Vec<&ItineraryItem> = items
+        .iter()
+        .filter(|item| item.day == key.day_number && item.sort_order == key.sort_order)
+        .collect();
+
+    match by_day_sort.len() {
+        1 => Ok(by_day_sort[0].id),
+        0 => resolve_itinerary_id_fallback(items, key),
+        _ => resolve_itinerary_id_among_candidates(&by_day_sort, key),
     }
+}
+
+fn resolve_itinerary_id_among_candidates(
+    candidates: &[&ItineraryItem],
+    key: &ItineraryNoteKey,
+) -> Result<i64> {
+    let by_title_time: Vec<&ItineraryItem> = candidates
+        .iter()
+        .copied()
+        .filter(|item| item.title == key.title && item.start_time == key.start_time)
+        .collect();
+    if by_title_time.len() == 1 {
+        return Ok(by_title_time[0].id);
+    }
+
+    let by_title: Vec<&ItineraryItem> = candidates
+        .iter()
+        .copied()
+        .filter(|item| item.title == key.title)
+        .collect();
+    match by_title.len() {
+        1 => Ok(by_title[0].id),
+        0 => anyhow::bail!(
+            "itinerary_key (day={}, sort_order={}, title={}) を itinerary_items から解決できません",
+            key.day_number,
+            key.sort_order,
+            key.title
+        ),
+        _ => anyhow::bail!(
+            "itinerary_key が複数の itinerary_items に一致します（day={}, sort_order={}, title={}）",
+            key.day_number,
+            key.sort_order,
+            key.title
+        ),
+    }
+}
+
+fn resolve_itinerary_id_fallback(items: &[ItineraryItem], key: &ItineraryNoteKey) -> Result<i64> {
     if let Some(id) = try_resolve_itinerary_by(items, |item| {
         item.day == key.day_number && item.start_time == key.start_time && item.title == key.title
     })? {
@@ -376,8 +419,9 @@ where
         0 => Ok(None),
         1 => Ok(Some(matches[0].id)),
         _ => anyhow::bail!(
-            "itinerary_key が複数の itinerary_items に一致します（day={}, title={}）",
+            "itinerary_key が複数の itinerary_items に一致します（day={}, sort_order={}, title={}）",
             matches[0].day,
+            matches[0].sort_order,
             matches[0].title
         ),
     }
@@ -964,5 +1008,158 @@ mod tests {
     fn test_resolve_note_owner_for_add_day_requires_trip() {
         let conn = test_db();
         assert!(resolve_note_owner_for_add(&conn, None, Some(2), None).is_err());
+    }
+
+    fn test_itinerary_item(
+        id: i64,
+        day: i64,
+        title: &str,
+        start_time: Option<&str>,
+        sort_order: i64,
+    ) -> ItineraryItem {
+        ItineraryItem {
+            id,
+            trip_id: 1,
+            day,
+            title: title.to_string(),
+            note: None,
+            start_time: start_time.map(str::to_string),
+            sort_order,
+            duration_minutes: None,
+            travel_minutes: None,
+            location: None,
+            category: None,
+            created_at: String::new(),
+            updated_at: String::new(),
+        }
+    }
+
+    fn itinerary_note_key(
+        day: i64,
+        sort_order: i64,
+        title: &str,
+        start_time: Option<&str>,
+    ) -> ItineraryNoteKey {
+        ItineraryNoteKey {
+            day_number: day,
+            sort_order,
+            start_time: start_time.map(str::to_string),
+            title: title.to_string(),
+        }
+    }
+
+    #[test]
+    fn test_resolve_itinerary_id_unique_by_day_and_sort_order() {
+        let items = vec![test_itinerary_item(10, 3, "Breakfast", Some("07:00"), 1000)];
+        let key = itinerary_note_key(3, 1000, "Breakfast", Some("07:00"));
+        assert_eq!(
+            resolve_itinerary_id_from_export_items(&items, &key).unwrap(),
+            10
+        );
+    }
+
+    #[test]
+    fn test_resolve_itinerary_id_narrows_by_title_and_start_time_when_sort_order_collides() {
+        let items = vec![
+            test_itinerary_item(10, 3, "Existing breakfast", Some("08:00"), 1000),
+            test_itinerary_item(11, 3, "Hotel breakfast", Some("07:00"), 1000),
+        ];
+        let key = itinerary_note_key(3, 1000, "Hotel breakfast", Some("07:00"));
+        assert_eq!(
+            resolve_itinerary_id_from_export_items(&items, &key).unwrap(),
+            11
+        );
+    }
+
+    #[test]
+    fn test_resolve_itinerary_id_ambiguous_when_day_sort_title_start_time_all_match() {
+        let items = vec![
+            test_itinerary_item(10, 3, "Hotel breakfast", Some("07:00"), 1000),
+            test_itinerary_item(11, 3, "Hotel breakfast", Some("07:00"), 1000),
+        ];
+        let key = itinerary_note_key(3, 1000, "Hotel breakfast", Some("07:00"));
+        let err = resolve_itinerary_id_from_export_items(&items, &key).unwrap_err();
+        assert!(err.to_string().contains("複数"));
+    }
+
+    #[test]
+    fn test_replicate_duplicate_sort_order_note_import_resolves_correct_itinerary() {
+        use crate::itinerary::{get_itinerary_item, replicate_itinerary_items};
+        use crate::trip::{export_trip_to_json, import_trip_from_json};
+
+        let conn = test_db();
+        let trip_id = add_trip(&conn, "Trip", "2026-01-01", "2026-01-05", None).unwrap();
+
+        let existing_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            3,
+            "Existing breakfast",
+            None,
+            Some("08:00"),
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let source_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            2,
+            "Hotel breakfast",
+            None,
+            Some("07:00"),
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        add_note(
+            &conn,
+            ResolvedNoteOwner::Itinerary(source_id),
+            Some("allergy"),
+            "replicated note body",
+        )
+        .unwrap();
+
+        let result = replicate_itinerary_items(&conn, &[source_id], &[3], true, false).unwrap();
+        let copied_id = result.by_day[0].created_ids[0];
+
+        assert_eq!(
+            get_itinerary_item(&conn, existing_id).unwrap().sort_order,
+            1000
+        );
+        assert_eq!(
+            get_itinerary_item(&conn, copied_id).unwrap().sort_order,
+            1000
+        );
+
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+        let imported_trip_id = import_trip_from_json(&conn, &json).unwrap();
+        let imported_items =
+            crate::itinerary::list_itinerary_items(&conn, imported_trip_id).unwrap();
+
+        let replicated = imported_items
+            .iter()
+            .find(|item| item.day == 3 && item.title == "Hotel breakfast")
+            .expect("replicated itinerary");
+        let existing = imported_items
+            .iter()
+            .find(|item| item.day == 3 && item.title == "Existing breakfast")
+            .expect("existing itinerary");
+
+        let replicated_notes =
+            list_notes_for_owner(&conn, NoteOwnerType::Itinerary, replicated.id).unwrap();
+        let existing_notes =
+            list_notes_for_owner(&conn, NoteOwnerType::Itinerary, existing.id).unwrap();
+
+        assert_eq!(replicated_notes.len(), 1);
+        assert_eq!(replicated_notes[0].body, "replicated note body");
+        assert_eq!(replicated_notes[0].title.as_deref(), Some("allergy"));
+        assert!(existing_notes.is_empty());
     }
 }
