@@ -1371,6 +1371,7 @@ pub(crate) fn delete_trip(conn: &Connection, id: i64) -> Result<()> {
         crate::participant::delete_participants_for_trip(tx, id)?;
         crate::note::delete_notes_for_trip(tx, id)?;
         crate::reservation::delete_reservations_for_trip(tx, id)?;
+        crate::estimate::delete_estimates_for_trip(tx, id)?;
         crate::expense::delete_expenses_for_trip(tx, id)?;
         tx.execute("DELETE FROM trips WHERE id = ?1", params![id])
             .context("旅行の削除に失敗しました")?;

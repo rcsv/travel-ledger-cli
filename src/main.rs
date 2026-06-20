@@ -4,10 +4,12 @@ mod day;
 mod db;
 mod diff;
 mod doctor;
+mod estimate;
 mod expense;
 mod itinerary;
 mod markdown;
 mod models;
+mod money;
 mod note;
 mod participant;
 mod reservation;
@@ -72,6 +74,11 @@ enum Command {
     Expense {
         #[command(subcommand)]
         action: ExpenseAction,
+    },
+    /// 事前見積 (Estimate) の管理
+    Estimate {
+        #[command(subcommand)]
+        action: EstimateAction,
     },
     /// 予約 (Reservation) の管理
     Reservation {
@@ -715,6 +722,82 @@ enum ExpenseAction {
 }
 
 #[derive(Subcommand)]
+enum EstimateAction {
+    /// Estimate を追加
+    Add {
+        /// Itinerary ID（必須）
+        #[arg(long)]
+        itinerary: i64,
+        /// 金額（必須。JPY は整数、USD は小数可）
+        #[arg(long)]
+        amount: String,
+        /// 通貨コード（必須。例: JPY, USD）
+        #[arg(long)]
+        currency: String,
+        /// タイトル（任意）
+        #[arg(long)]
+        title: Option<String>,
+        /// メモ（任意）
+        #[arg(long)]
+        note: Option<String>,
+        /// 並び順
+        #[arg(long)]
+        sort_order: Option<i64>,
+    },
+    /// Estimate 一覧を表示
+    List {
+        /// Trip ID（Trip 配下を集約表示）
+        #[arg(long)]
+        trip: Option<i64>,
+        /// Itinerary ID
+        #[arg(long)]
+        itinerary: Option<i64>,
+        /// JSON 形式で出力する
+        #[arg(long)]
+        json: bool,
+    },
+    /// Estimate 詳細を表示
+    Show {
+        /// Estimate ID
+        id: i64,
+        /// JSON 形式で出力する
+        #[arg(long)]
+        json: bool,
+    },
+    /// Estimate を更新
+    Update {
+        /// Estimate ID
+        id: i64,
+        /// タイトル
+        #[arg(long)]
+        title: Option<String>,
+        /// メモ
+        #[arg(long)]
+        note: Option<String>,
+        /// 金額
+        #[arg(long)]
+        amount: Option<String>,
+        /// 通貨コード
+        #[arg(long)]
+        currency: Option<String>,
+        /// 並び順
+        #[arg(long)]
+        sort_order: Option<i64>,
+        /// title をクリア
+        #[arg(long)]
+        clear_title: bool,
+        /// note をクリア
+        #[arg(long)]
+        clear_note: bool,
+    },
+    /// Estimate を削除
+    Delete {
+        /// Estimate ID
+        id: i64,
+    },
+}
+
+#[derive(Subcommand)]
 enum ParticipantAction {
     /// Participant を追加
     Add {
@@ -1206,6 +1289,105 @@ fn main() -> Result<()> {
                 println!(
                     "  Amount: {}",
                     crate::expense::format_amount_display(expense.amount, &expense.currency)
+                );
+            }
+        },
+        Command::Estimate { action } => match action {
+            EstimateAction::Add {
+                itinerary,
+                amount,
+                currency,
+                title,
+                note,
+                sort_order,
+            } => {
+                let id = crate::estimate::add_estimate(
+                    &conn,
+                    itinerary,
+                    &amount,
+                    &currency,
+                    title.as_deref(),
+                    note.as_deref(),
+                    sort_order,
+                )?;
+                println!("Estimate を追加しました (ID: {id})");
+                let estimate = crate::estimate::get_estimate(&conn, id)?;
+                crate::estimate::print_estimate_detail(&estimate)?;
+            }
+            EstimateAction::List {
+                trip,
+                itinerary,
+                json,
+            } => {
+                let target = crate::estimate::resolve_estimate_list_target(trip, itinerary)?;
+                let estimates = match target {
+                    crate::estimate::EstimateListTarget::Trip(trip_id) => {
+                        crate::estimate::list_estimates_for_trip(&conn, trip_id)?
+                    }
+                    crate::estimate::EstimateListTarget::Itinerary(itinerary_id) => {
+                        crate::estimate::list_estimates_for_itinerary(&conn, itinerary_id)?
+                    }
+                };
+                if json {
+                    let (trip_id, itinerary_id) = match target {
+                        crate::estimate::EstimateListTarget::Trip(id) => (Some(id), None),
+                        crate::estimate::EstimateListTarget::Itinerary(id) => (None, Some(id)),
+                    };
+                    let json_estimates: Vec<crate::estimate::EstimateJson> = estimates
+                        .iter()
+                        .map(crate::estimate::estimate_to_json)
+                        .collect();
+                    crate::trip::print_json(&crate::estimate::EstimateListJson {
+                        trip_id,
+                        itinerary_id,
+                        estimates: json_estimates,
+                    })?;
+                } else {
+                    crate::estimate::print_estimate_list(target, &estimates)?;
+                }
+            }
+            EstimateAction::Show { id, json } => {
+                let estimate = crate::estimate::get_estimate(&conn, id)?;
+                if json {
+                    crate::trip::print_json(&crate::estimate::estimate_to_json(&estimate))?;
+                } else {
+                    crate::estimate::print_estimate_detail(&estimate)?;
+                }
+            }
+            EstimateAction::Update {
+                id,
+                title,
+                note,
+                amount,
+                currency,
+                sort_order,
+                clear_title,
+                clear_note,
+            } => {
+                crate::estimate::update_estimate(
+                    &conn,
+                    id,
+                    &crate::estimate::UpdateEstimateParams {
+                        title: title.as_deref(),
+                        note: note.as_deref(),
+                        amount_input: amount.as_deref(),
+                        currency_input: currency.as_deref(),
+                        sort_order,
+                        clear_title,
+                        clear_note,
+                    },
+                )?;
+                println!("Estimate を更新しました (ID: {id})");
+                let estimate = crate::estimate::get_estimate(&conn, id)?;
+                crate::estimate::print_estimate_detail(&estimate)?;
+            }
+            EstimateAction::Delete { id } => {
+                let estimate = crate::estimate::get_estimate(&conn, id)?;
+                crate::estimate::delete_estimate(&conn, id)?;
+                println!("Estimate を削除しました (ID: {id})");
+                println!(
+                    "  Amount: {}",
+                    crate::money::format_amount_display(estimate.amount, &estimate.currency)
                 );
             }
         },

@@ -159,6 +159,21 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
         [],
     )
     .context("reservations テーブルの作成に失敗しました")?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS estimates (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            itinerary_id    INTEGER NOT NULL,
+            title           TEXT,
+            amount          INTEGER NOT NULL,
+            currency        TEXT NOT NULL,
+            note            TEXT,
+            sort_order      INTEGER NOT NULL DEFAULT 0,
+            created_at      TEXT NOT NULL,
+            updated_at      TEXT NOT NULL
+        )",
+        [],
+    )
+    .context("estimates テーブルの作成に失敗しました")?;
     migrate_itinerary_items(conn)?;
     migrate_days(conn)?;
     migrate_itinerary_day_id(conn)?;
@@ -166,6 +181,7 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
     migrate_indexes(conn)?;
     crate::participant::migrate_participants(conn)?;
     crate::expense::migrate_expenses_shared_expense(conn)?;
+    crate::estimate::migrate_estimates(conn)?;
     Ok(())
 }
 
