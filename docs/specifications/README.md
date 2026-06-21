@@ -39,4 +39,5 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [export-schema.md](export-schema.md) | trip export / import JSON（schema v1–**v6**）。構造定義 — 意味論は itinerary-model 等を参照 |
 | [v3.2.0-db-status-implementation-plan.md](v3.2.0-db-status-implementation-plan.md) | v3.2.0 Database Status Implementation Plan（Phase 1 完了 — PR #58） |
 | [v3.2.0-db-status-post-implementation-review.md](v3.2.0-db-status-post-implementation-review.md) | v3.2.0 Database Status Post-Implementation Review |
-| [v3.2.1-module-layout-implementation-plan.md](v3.2.1-module-layout-implementation-plan.md) | v3.2.1 Module Layout Implementation Plan（Phase 1 完了 — behavior-preserving refactor） |
+| [v3.2.1-module-layout-implementation-plan.md](v3.2.1-module-layout-implementation-plan.md) | v3.2.1 Module Layout Implementation Plan（Phase 1 完了 — PR #59） |
+| [v3.2.1-module-layout-post-implementation-review.md](v3.2.1-module-layout-post-implementation-review.md) | v3.2.1 Module Layout Post-Implementation Review |

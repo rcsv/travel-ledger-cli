@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v3.2.1 | Module layout refactor | [v3.2.1-notes.md](v3.2.1-notes.md) |
 | v3.2.0 | Database status foundation | [v3.2.0-notes.md](v3.2.0-notes.md) |
 | v3.1.0 | Estimate planned budget | [v3.1.0-notes.md](v3.1.0-notes.md) |
 | v3.0.0 | Shared Expense | [v3.0.0-notes.md](v3.0.0-notes.md) |

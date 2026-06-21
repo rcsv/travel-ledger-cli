@@ -210,7 +210,34 @@ Post-Implementation Review（v3.2.0-db-status-post-implementation-review.md）
 --db <path> / CAGLLA_DB / db use（DB パス切替・永続設定）
 Planned vs Actual difference
 doctor / advisor Estimate 活用
+Trip / Itinerary command handler の commands/ 一括移動
 ```
+
+---
+
+## v3.2.1 — Module Layout（**v3.2.1 リリース済み**）
+
+### テーマ
+
+```text
+src/ 内部構成の責務別整理
+behavior-preserving refactor
+```
+
+### 実装内容（v3.2.1）
+
+```text
+cli/ commands/ domain/ storage/ analysis/ io/ output/
+main.rs から Clap 定義を cli/args.rs へ
+print_json を output::json へ集約
+Post-Implementation Review（v3.2.1-module-layout-post-implementation-review.md）
+```
+
+リリースノート: [v3.2.1-notes.md](releases/v3.2.1-notes.md)
+
+**挙動非変更** — CLI・JSON schema・DB schema・export/import 形式に変更なし。
+
+設計系列: [v3.2.1-module-layout-implementation-plan.md](specifications/v3.2.1-module-layout-implementation-plan.md) → PR #59 → Post-Implementation Review → Release v3.2.1。
 
 ---
 
@@ -345,6 +372,7 @@ CLI を中心とした **旅行プラットフォーム** へ発展させる。
 | **v3** | Shared Expense | 誰が払い・誰の費用かを整理・精算 |
 | **v3.1** | Estimate / Planned Budget | Itinerary 配下の予定費用・Planned total |
 | **v3.2** | Database Status | 参照中 `caglla.db` の明示・状態確認 |
+| **v3.2.1** | Module Layout | `src/` 責務別 module 整理（refactor） |
 | **v4** | Reservation | 予約情報の正式管理 |
 | **v5** | Travel Book | 共有用しおり（MD/PDF） |
 | **v6** | Travel Journal | 写真・添付付き旅行記 |

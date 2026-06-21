@@ -98,7 +98,7 @@ cargo run -- itinerary timeline 1
 
 ## Releases
 
-GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。最新: [v3.2.0](docs/releases/v3.2.0-notes.md)
+GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。最新: [v3.2.1](docs/releases/v3.2.1-notes.md)
 
 ## Security
 
