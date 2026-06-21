@@ -8,6 +8,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: fmt / clippy / test / build
