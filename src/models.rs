@@ -104,6 +104,20 @@ pub struct ExpenseBeneficiary {
     pub updated_at: String,
 }
 
+/// estimates テーブルの1行分のデータ
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Estimate {
+    pub id: i64,
+    pub itinerary_id: i64,
+    pub title: Option<String>,
+    pub amount: i64,
+    pub currency: String,
+    pub note: Option<String>,
+    pub sort_order: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 /// trips テーブルの1行分のデータ
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Trip {

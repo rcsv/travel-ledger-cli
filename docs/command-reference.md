@@ -160,9 +160,39 @@ cargo run -- expense delete 1
 
 詳細仕様: [specifications/expense-model.md](specifications/expense-model.md) / [shared-expense-entity-design.md](specifications/shared-expense-entity-design.md)
 
-## Estimate（Planned Budget）— 将来
+## Estimate（Planned Budget）
 
-Itinerary 配下の **事前見積**（Planned Money）。Expense（実績支出）とは別概念です。**CLI 未実装。**
+Itinerary 配下の **事前見積**（Planned Money）。Expense（実績支出）とは別概念です。
+
+```bash
+cargo run -- estimate add --itinerary 12 --amount 14000 --currency JPY
+cargo run -- estimate add --itinerary 12 --amount 14000 --currency JPY --title "ホテル朝食"
+
+cargo run -- estimate list --itinerary 12
+cargo run -- estimate list --trip 1
+cargo run -- estimate list --trip 1 --json
+
+cargo run -- estimate show 3
+cargo run -- estimate show 3 --json
+
+cargo run -- estimate update 3 --amount 15000
+cargo run -- estimate update 3 --title "ホテル朝食 revised" --note "5人分"
+cargo run -- estimate update 3 --clear-title
+cargo run -- estimate update 3 --clear-note
+
+cargo run -- estimate delete 3
+```
+
+| ルール | 内容 |
+|---|---|
+| 親 | **Itinerary のみ**（`add` は `--itinerary` 必須） |
+| `--amount` / `--currency` | `add` で必須。`update` で `--currency` 変更時は `--amount` も必須 |
+| `--title` / `--note` / `--sort-order` | 任意 |
+| `update` の `--clear-title` / `--clear-note` | nullable フィールドのクリア |
+| `estimate list` | `--itinerary` または `--trip` のいずれか（排他） |
+| 金額の保存 | DB は最小通貨単位の **整数**（JPY=円、USD `12.50` → 1250 セント） |
+
+**未実装（Phase 2 以降）:** export schema v6、trip stats Planned total、export-md、itinerary replicate の Estimate コピー
 
 責務整理: [specifications/estimate-model.md](specifications/estimate-model.md)  
 Entity Design: [specifications/estimate-entity-design.md](specifications/estimate-entity-design.md)  

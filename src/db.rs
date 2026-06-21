@@ -159,6 +159,21 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
         [],
     )
     .context("reservations テーブルの作成に失敗しました")?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS estimates (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            itinerary_id    INTEGER NOT NULL,
+            title           TEXT,
+            amount          INTEGER NOT NULL,
+            currency        TEXT NOT NULL,
+            note            TEXT,
+            sort_order      INTEGER NOT NULL DEFAULT 0,
+            created_at      TEXT NOT NULL,
+            updated_at      TEXT NOT NULL
+        )",
+        [],
+    )
+    .context("estimates テーブルの作成に失敗しました")?;
     migrate_itinerary_items(conn)?;
     migrate_days(conn)?;
     migrate_itinerary_day_id(conn)?;
@@ -166,6 +181,7 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
     migrate_indexes(conn)?;
     crate::participant::migrate_participants(conn)?;
     crate::expense::migrate_expenses_shared_expense(conn)?;
+    crate::estimate::migrate_estimates(conn)?;
     Ok(())
 }
 
@@ -334,6 +350,8 @@ pub(crate) fn reset_db(conn: &Connection) -> Result<()> {
         .context("expense_beneficiaries の全削除に失敗しました")?;
     conn.execute("DELETE FROM expenses", [])
         .context("expenses の全削除に失敗しました")?;
+    conn.execute("DELETE FROM estimates", [])
+        .context("estimates の全削除に失敗しました")?;
     conn.execute("DELETE FROM participants", [])
         .context("participants の全削除に失敗しました")?;
     conn.execute("DELETE FROM checklist_items", [])
@@ -345,7 +363,7 @@ pub(crate) fn reset_db(conn: &Connection) -> Result<()> {
     conn.execute("DELETE FROM trips", [])
         .context("trips の全削除に失敗しました")?;
     conn.execute(
-        "DELETE FROM sqlite_sequence WHERE name IN ('expense_beneficiaries', 'reservations', 'expenses', 'notes', 'participants', 'checklist_items', 'itinerary_items', 'days', 'trips')",
+        "DELETE FROM sqlite_sequence WHERE name IN ('expense_beneficiaries', 'reservations', 'expenses', 'estimates', 'notes', 'participants', 'checklist_items', 'itinerary_items', 'days', 'trips')",
         [],
     )
     .context("AUTOINCREMENT のリセットに失敗しました")?;
@@ -660,6 +678,35 @@ mod tests {
         )
         .unwrap();
         assert_eq!(new_item_id, 1);
+    }
+
+    #[test]
+    fn test_reset_db_clears_estimates() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Estimate Reset Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Breakfast",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::estimate::add_estimate(&conn, itinerary_id, "1000", "JPY", None, None, None)
+            .unwrap();
+
+        reset_db(&conn).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM estimates", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
     }
 
     #[test]
