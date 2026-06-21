@@ -1,3 +1,4 @@
+mod about;
 mod advisor;
 mod checklist;
 mod day;
@@ -17,8 +18,8 @@ mod stats;
 mod summary;
 mod trip;
 
-use anyhow::Result;
-use clap::{Parser, Subcommand};
+use anyhow::{bail, Result};
+use clap::{CommandFactory, Parser, Subcommand};
 
 // ---------------------------------------------------------------------------
 // CLI 定義（clap derive）
@@ -34,8 +35,12 @@ use clap::{Parser, Subcommand};
     next_line_help = true
 )]
 struct Cli {
+    /// Print a short English overview and exit
+    #[arg(long)]
+    about: bool,
+
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Subcommand)]
@@ -857,9 +862,22 @@ enum ParticipantAction {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    if cli.about {
+        crate::about::print();
+        return Ok(());
+    }
+
+    let Some(command) = cli.command else {
+        let mut cmd = Cli::command();
+        cmd.print_help()?;
+        println!();
+        bail!("a subcommand is required");
+    };
+
     let conn = crate::db::open_db()?;
 
-    match cli.command {
+    match command {
         Command::Db { action } => match action {
             DbAction::Reset => {
                 crate::db::reset_db(&conn)?;
