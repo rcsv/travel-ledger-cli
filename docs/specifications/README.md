@@ -41,4 +41,5 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v3.2.0-db-status-post-implementation-review.md](v3.2.0-db-status-post-implementation-review.md) | v3.2.0 Database Status Post-Implementation Review |
 | [v3.2.1-module-layout-implementation-plan.md](v3.2.1-module-layout-implementation-plan.md) | v3.2.1 Module Layout Implementation Plan（Phase 1 完了 — PR #59） |
 | [v3.2.1-module-layout-post-implementation-review.md](v3.2.1-module-layout-post-implementation-review.md) | v3.2.1 Module Layout Post-Implementation Review |
-| [v3.3.0-planned-vs-actual-implementation-plan.md](v3.3.0-planned-vs-actual-implementation-plan.md) | v3.3.0 Planned vs Actual Difference Implementation Plan（未着手） |
+| [v3.3.0-planned-vs-actual-implementation-plan.md](v3.3.0-planned-vs-actual-implementation-plan.md) | v3.3.0 Planned vs Actual Difference Implementation Plan（Phase 1–2 完了 — PR #60） |
+| [v3.3.0-planned-vs-actual-post-implementation-review.md](v3.3.0-planned-vs-actual-post-implementation-review.md) | v3.3.0 Planned vs Actual Difference Post-Implementation Review |

@@ -1,6 +1,6 @@
 [package]
 name = "caglla-cli"
-version = "3.2.1"
+version = "3.3.0"
 edition = "2021"
 description = "A local SQLite-based travel planning CLI."
 authors = ["Tomohiro Awane"]
