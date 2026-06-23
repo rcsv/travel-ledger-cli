@@ -93,12 +93,12 @@ cargo run -- itinerary timeline 1
 |---|---|
 | データ保存 | ローカル SQLite（`caglla.db`）のみ。Web 版・クラウド同期は未対応 |
 | JSON 出力（`--json`） | ツール連携向け。**内部仕様扱い**（構造は将来変更の可能性あり） |
-| 費用管理・通貨換算 | Expense（実績）・Estimate（予定）CRUD は対応。Planned vs Actual 差分表示・精算（Settlement）は未対応 |
+| 費用管理・通貨換算 | Expense（実績）・Estimate（予定）CRUD は対応。Trip / Itinerary 単位の Planned vs Actual 差分表示は対応。精算（Settlement）は未対応 |
 | 類似旅行検索（Similarity） | 将来候補（現 CLI には未実装） |
 
 ## Releases
 
-GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。最新: [v3.3.0](docs/releases/v3.3.0-notes.md)
+GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。最新: [v3.4.0](docs/releases/v3.4.0-notes.md)
 
 ## Security
 

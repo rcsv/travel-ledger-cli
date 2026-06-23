@@ -43,4 +43,5 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v3.2.1-module-layout-post-implementation-review.md](v3.2.1-module-layout-post-implementation-review.md) | v3.2.1 Module Layout Post-Implementation Review |
 | [v3.3.0-planned-vs-actual-implementation-plan.md](v3.3.0-planned-vs-actual-implementation-plan.md) | v3.3.0 Planned vs Actual Difference Implementation Plan（Phase 1–2 完了 — PR #60） |
 | [v3.3.0-planned-vs-actual-post-implementation-review.md](v3.3.0-planned-vs-actual-post-implementation-review.md) | v3.3.0 Planned vs Actual Difference Post-Implementation Review |
-| [v3.4.0-itinerary-planned-vs-actual-implementation-plan.md](v3.4.0-itinerary-planned-vs-actual-implementation-plan.md) | v3.4.0 Itinerary-level Planned vs Actual Difference Implementation Plan（Phase 1 完了） |
+| [v3.4.0-itinerary-planned-vs-actual-implementation-plan.md](v3.4.0-itinerary-planned-vs-actual-implementation-plan.md) | v3.4.0 Itinerary-level Planned vs Actual Difference Implementation Plan（Phase 1 完了 — PR #61 / #62） |
+| [v3.4.0-itinerary-planned-vs-actual-post-implementation-review.md](v3.4.0-itinerary-planned-vs-actual-post-implementation-review.md) | v3.4.0 Itinerary-level Planned vs Actual Difference Post-Implementation Review |
