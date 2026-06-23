@@ -322,6 +322,45 @@ commands/ への段階移行
 
 ---
 
+## v3.5 — Receipt Inbox（**v3.5.0 候補 — concept design**）
+
+### テーマ
+
+```text
+Itinerary に紐づける前の支払い証拠（未整理レシート）を一時保存し、
+旅行後の振り返り・確認・Expense への昇格を支援する
+```
+
+### 概念（本書時点 — 未実装）
+
+```text
+Estimate = 予定 / Receipt = 未整理の証拠 / Expense = 確定した実績
+Receipt Inbox は post-trip review 支援（旅行中の予算統制ではない）
+Planned vs Actual の Actual には Receipt を直接含めない（補助表示のみ）
+画像は image_path（SQLite バイナリ格納・OCR・汎用 Attachment は non-goal）
+```
+
+Concept Design: [v3.5.0-receipt-inbox-concept-design.md](specifications/v3.5.0-receipt-inbox-concept-design.md)
+
+**Receipt vs Settlement:** Receipt は支払い証拠の整理。誰が払い・誰が負担するかは Balance / Settlement 別レイヤー（defer 継続）。
+
+### v3.5.x defer（concept design 以外）
+
+```text
+Receipt Inbox 実装（Entity Design / Implementation Plan 未着手）
+Day 単位 Planned vs Actual difference
+doctor / advisor Estimate / Receipt 活用
+Budget 独立エンティティ
+FX conversion
+Balance / Settlement / advance payment / transfer
+generic Attachment / Photo model
+export / import schema 変更
+--db <path> / CAGLLA_DB / db use
+commands/ への段階移行
+```
+
+---
+
 ## v4 — Reservation
 
 ### テーマ
@@ -456,6 +495,7 @@ CLI を中心とした **旅行プラットフォーム** へ発展させる。
 | **v3.2.1** | Module Layout | `src/` 責務別 module 整理（refactor） |
 | **v3.3** | Planned vs Actual Difference | Trip 単位の通貨別差分（stats / export-md） — **v3.3.0 リリース済み** |
 | **v3.4** | Itinerary Planned vs Actual | Itinerary 単位差分（export-md） — **v3.4.0 リリース済み** |
+| **v3.5** | Receipt Inbox | 未整理レシートの一時保存・post-trip review — **concept design** |
 | **v4** | Reservation | 予約情報の正式管理 |
 | **v5** | Travel Book | 共有用しおり（MD/PDF） |
 | **v6** | Travel Journal | 写真・添付付き旅行記 |

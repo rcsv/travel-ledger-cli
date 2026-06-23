@@ -45,3 +45,4 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v3.3.0-planned-vs-actual-post-implementation-review.md](v3.3.0-planned-vs-actual-post-implementation-review.md) | v3.3.0 Planned vs Actual Difference Post-Implementation Review |
 | [v3.4.0-itinerary-planned-vs-actual-implementation-plan.md](v3.4.0-itinerary-planned-vs-actual-implementation-plan.md) | v3.4.0 Itinerary-level Planned vs Actual Difference Implementation Plan（Phase 1 完了 — PR #61 / #62） |
 | [v3.4.0-itinerary-planned-vs-actual-post-implementation-review.md](v3.4.0-itinerary-planned-vs-actual-post-implementation-review.md) | v3.4.0 Itinerary-level Planned vs Actual Difference Post-Implementation Review |
+| [v3.5.0-receipt-inbox-concept-design.md](v3.5.0-receipt-inbox-concept-design.md) | v3.5.0 Receipt Inbox Concept Design（concept design — 未実装） |
