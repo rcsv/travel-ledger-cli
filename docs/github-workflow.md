@@ -54,7 +54,7 @@ v1.19.0  Post-Implementation Review → reservation-responsibilities-review.md
 
 ### 新規 Issue
 
-1. [Issues → New issue](https://github.com/rcsv/caglla-cli/issues/new/choose) からテンプレートを選択
+1. [Issues → New issue](https://github.com/rcsv/travel-ledger-cli/issues/new/choose) からテンプレートを選択
 2. **Phase label** と **Domain label**（下記）を付与
 3. 対象 **Milestone** を設定
 4. 成果物ドキュメントのパスを Issue 本文に記載
@@ -254,14 +254,14 @@ Milestone: v2 Participant Foundation
 
 ```bash
 # Issue 作成（テンプレートは Web UI 推奨）
-gh issue create --repo rcsv/caglla-cli --title "[Epic] Participant Foundation (v2)" \
+gh issue create --repo rcsv/travel-ledger-cli --title "[Epic] Participant Foundation (v2)" \
   --label "domain:participant,type:spec" --milestone "v2 Participant Foundation"
 
 # Milestone 一覧
-gh api repos/rcsv/caglla-cli/milestones --jq '.[].title'
+gh api repos/rcsv/travel-ledger-cli/milestones --jq '.[].title'
 
 # Project に Issue を追加
-gh project item-add <PROJECT_NUMBER> --owner rcsv --url https://github.com/rcsv/caglla-cli/issues/<N>
+gh project item-add <PROJECT_NUMBER> --owner rcsv --url https://github.com/rcsv/travel-ledger-cli/issues/<N>
 ```
 
 ---

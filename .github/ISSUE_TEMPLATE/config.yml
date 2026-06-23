@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: GitHub 開発運用ガイド
-    url: https://github.com/rcsv/caglla-cli/blob/master/docs/github-workflow.md
+    url: https://github.com/rcsv/travel-ledger-cli/blob/master/docs/github-workflow.md
     about: Issue / Milestone / Project の使い方
   - name: 長期バージョン戦略
-    url: https://github.com/rcsv/caglla-cli/blob/master/docs/long-term-version-strategy.md
+    url: https://github.com/rcsv/travel-ledger-cli/blob/master/docs/long-term-version-strategy.md
     about: v1–v9 の製品メジャーロードマップ

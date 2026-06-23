@@ -59,7 +59,7 @@ In addition to `caglla.db`, treat the following as private data:
 
 Preferred channels:
 
-1. **GitHub private vulnerability reporting** — if enabled for this repository, use [Security → Report a vulnerability](https://github.com/rcsv/caglla-cli/security/advisories/new) on GitHub.
+1. **GitHub private vulnerability reporting** — if enabled for this repository, use [Security → Report a vulnerability](https://github.com/rcsv/travel-ledger-cli/security/advisories/new) on GitHub.
 2. **Direct contact** — otherwise, contact the repository owner privately.
 
 Do not include detailed exploit steps or real private travel data in public issues.

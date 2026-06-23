@@ -10,7 +10,7 @@ Caglla CLI のインストールと初回利用の手順です。
 
 ### GitHub Release からダウンロード
 
-[GitHub Releases](https://github.com/rcsv/caglla-cli/releases) から、OS 向けのアーカイブ（Linux / macOS: `.tar.gz`、Windows: `.zip`）をダウンロードできます。中身の `caglla-cli`（Windows は `caglla-cli.exe`）を PATH の通った場所に置いて実行してください。
+[GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases) から、OS 向けのアーカイブ（Linux / macOS: `.tar.gz`、Windows: `.zip`）をダウンロードできます。中身の `caglla-cli`（Windows は `caglla-cli.exe`）を PATH の通った場所に置いて実行してください。
 
 | OS | Asset 名（例: v1.0.5） |
 |---|---|

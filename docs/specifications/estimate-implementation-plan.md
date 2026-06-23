@@ -60,10 +60,10 @@ Phase 1–5 は **すべて完了**。以下は実装履歴の整理。
 
 | Phase | 内容 | PR |
 |---|---|---|
-| **Phase 1** | DB migration + `src/money.rs` + estimate CRUD + CLI + cascade + tests + command-reference | [#50](https://github.com/rcsv/caglla-cli/pull/50) |
-| **Phase 2** | export / import **schema v6**、`validate-export`、`trip diff`、Estimate 配列保持設計メモ | [#51](https://github.com/rcsv/caglla-cli/pull/51) |
-| **Phase 3** | `trip stats` Planned total、`export-md` 予定費用表示 | [#52](https://github.com/rcsv/caglla-cli/pull/52) |
-| **Phase 4** | `itinerary replicate` の Estimate コピー | [#53](https://github.com/rcsv/caglla-cli/pull/53) |
+| **Phase 1** | DB migration + `src/money.rs` + estimate CRUD + CLI + cascade + tests + command-reference | [#50](https://github.com/rcsv/travel-ledger-cli/pull/50) |
+| **Phase 2** | export / import **schema v6**、`validate-export`、`trip diff`、Estimate 配列保持設計メモ | [#51](https://github.com/rcsv/travel-ledger-cli/pull/51) |
+| **Phase 3** | `trip stats` Planned total、`export-md` 予定費用表示 | [#52](https://github.com/rcsv/travel-ledger-cli/pull/52) |
+| **Phase 4** | `itinerary replicate` の Estimate コピー | [#53](https://github.com/rcsv/travel-ledger-cli/pull/53) |
 | **Phase 5** | Post-Implementation Review（[estimate-post-implementation-review.md](estimate-post-implementation-review.md)） | 本 PR |
 
 ### Phase 1 に含める（推奨 — 最初の実装 PR）

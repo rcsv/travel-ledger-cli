@@ -36,7 +36,7 @@ Trip（旅行全体）
 
 ### GitHub Release
 
-[GitHub Releases](https://github.com/rcsv/caglla-cli/releases) から OS 向けアーカイブをダウンロードし、`caglla-cli` を PATH に置いてください。
+[GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases) から OS 向けアーカイブをダウンロードし、`caglla-cli` を PATH に置いてください。
 
 ### Build from source
 

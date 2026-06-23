@@ -44,7 +44,7 @@ Caglla CLI **v3.0.0 Shared Expense** の正式リリース後点検です。Epic
 |---|---|---|
 | `Cargo.toml` / `Cargo.lock` | `3.0.0` | ✅ |
 | Git tag | `v3.0.0` | ✅ |
-| GitHub Release | https://github.com/rcsv/caglla-cli/releases/tag/v3.0.0 | ✅ |
+| GitHub Release | https://github.com/rcsv/travel-ledger-cli/releases/tag/v3.0.0 | ✅ |
 | Release workflow | linux / macos / windows バイナリ 3 件 | ✅ |
 | `make check` | PASS（本レビュー時点） | ✅ |
 | Working tree | clean | ✅ |

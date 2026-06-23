@@ -7,8 +7,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Release** — タグ `v*` push で [Release workflow](https://github.com/rcsv/caglla-cli/blob/master/.github/workflows/release.yml) が実行されます。
-        手順: [docs/releases/README.md](https://github.com/rcsv/caglla-cli/blob/master/docs/releases/README.md)
+        **Release** — タグ `v*` push で [Release workflow](https://github.com/rcsv/travel-ledger-cli/blob/master/.github/workflows/release.yml) が実行されます。
+        手順: [docs/releases/README.md](https://github.com/rcsv/travel-ledger-cli/blob/master/docs/releases/README.md)
 
   - type: input
     id: version

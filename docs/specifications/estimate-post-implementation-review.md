@@ -58,10 +58,10 @@ Difference     = 未実装（表示レイヤーで将来導出）
 
 | Phase | 内容 | PR | 代表 commit |
 |---|---|---|---|
-| **Phase 1** | `estimates` テーブル migration、`src/money.rs` 共通化、Estimate CRUD CLI、cascade（itinerary / trip delete、db reset） | [#50](https://github.com/rcsv/caglla-cli/pull/50) | `ff434a1` feat: add estimate CRUD CLI (Phase 1) |
-| **Phase 2** | export/import **schema v6**（`days[].itineraries[].estimates[]`）、validate-export、trip diff（v6+ 同士） | [#51](https://github.com/rcsv/caglla-cli/pull/51) | `a071f8d` feat: add Estimate export schema v6 support |
-| **Phase 3** | `trip stats` Planned total、`trip stats --json` additive fields、`trip export-md` 予定費用表 | [#52](https://github.com/rcsv/caglla-cli/pull/52) | `3ef8e4e` feat: add Estimate planned totals and markdown export |
-| **Phase 4** | `itinerary replicate` で Estimate コピー（`copy_estimates_for_itinerary`） | [#53](https://github.com/rcsv/caglla-cli/pull/53) | `bbb8d80` feat: copy estimates during itinerary replicate |
+| **Phase 1** | `estimates` テーブル migration、`src/money.rs` 共通化、Estimate CRUD CLI、cascade（itinerary / trip delete、db reset） | [#50](https://github.com/rcsv/travel-ledger-cli/pull/50) | `ff434a1` feat: add estimate CRUD CLI (Phase 1) |
+| **Phase 2** | export/import **schema v6**（`days[].itineraries[].estimates[]`）、validate-export、trip diff（v6+ 同士） | [#51](https://github.com/rcsv/travel-ledger-cli/pull/51) | `a071f8d` feat: add Estimate export schema v6 support |
+| **Phase 3** | `trip stats` Planned total、`trip stats --json` additive fields、`trip export-md` 予定費用表 | [#52](https://github.com/rcsv/travel-ledger-cli/pull/52) | `3ef8e4e` feat: add Estimate planned totals and markdown export |
+| **Phase 4** | `itinerary replicate` で Estimate コピー（`copy_estimates_for_itinerary`） | [#53](https://github.com/rcsv/travel-ledger-cli/pull/53) | `bbb8d80` feat: copy estimates during itinerary replicate |
 
 Phase 1 merge commit: `213206e`（PR #50）。補助: `c5947ab` fix: clear estimates table on db reset。
 

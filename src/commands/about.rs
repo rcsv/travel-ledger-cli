@@ -45,7 +45,7 @@ Main commands
   Export      trip export/import/validate-export/diff/export-md
   Diagnostics trip doctor / trip advisor
 
-Documentation: https://github.com/rcsv/caglla-cli
+Documentation: https://github.com/rcsv/travel-ledger-cli
 License: MIT
 "#;
 
