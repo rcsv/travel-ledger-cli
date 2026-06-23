@@ -267,9 +267,8 @@ Post-Implementation Review（v3.3.0-planned-vs-actual-post-implementation-review
 ### v3.3.x defer
 
 ```text
-Itinerary / Day 単位 difference
 Budget 独立エンティティ
-doctor / advisor での Estimate 活用
+doctor / advisor での Estimate 活用（v3.5.0 候補）
 FX conversion
 --db <path> / CAGLLA_DB / db use
 trip export JSON への difference 永続化
@@ -278,6 +277,43 @@ GUI / Web 版 Planned vs Actual カード表示
 ```
 
 v3.0.0 の Shared Expense defer（Settlement 等）および v3.1.x の Budget / participant 連動 defer は **引き続き v3.x defer**。
+
+---
+
+## v3.4 — Itinerary-level Planned vs Actual Difference（**計画中**）
+
+### テーマ
+
+```text
+Itinerary 単位で予定（Estimate）と実績（Expense）の通貨別差分を export-md に表示する
+```
+
+### 実装予定（v3.4.0）
+
+```text
+Difference = Actual - Planned（Itinerary 内、通貨別、derived 集計）
+gate = itinerary 内 estimate_count > 0 && expense_count > 0
+trip export-md Itinerary セクションに Planned / Actual / Difference サマリー
+DB schema / export schema v6 変更なし
+trip stats / JSON への Itinerary 一覧は追加しない
+```
+
+設計系列: [v3.4.0-itinerary-planned-vs-actual-implementation-plan.md](specifications/v3.4.0-itinerary-planned-vs-actual-implementation-plan.md) → Implementation → Post-Implementation Review → Release v3.4.0。
+
+**Difference vs Settlement:** Difference は `Actual − Planned` のみ。事前入金・最終精算バランスは Balance / Settlement 別レイヤー（v3.4.0 非対象）。
+
+### v3.4.x defer
+
+```text
+Day 単位 difference
+trip stats human / --json への itinerary_differences
+doctor / advisor Estimate 活用（v3.5.0 候補）
+Budget 独立エンティティ
+FX conversion
+Balance / Settlement / advance payment / transfer
+--db <path> / CAGLLA_DB / db use
+commands/ への段階移行
+```
 
 ---
 
@@ -414,6 +450,7 @@ CLI を中心とした **旅行プラットフォーム** へ発展させる。
 | **v3.2** | Database Status | 参照中 `caglla.db` の明示・状態確認 |
 | **v3.2.1** | Module Layout | `src/` 責務別 module 整理（refactor） |
 | **v3.3** | Planned vs Actual Difference | Trip 単位の通貨別差分（stats / export-md） — **v3.3.0 リリース済み** |
+| **v3.4** | Itinerary Planned vs Actual | Itinerary 単位差分（export-md） |
 | **v4** | Reservation | 予約情報の正式管理 |
 | **v5** | Travel Book | 共有用しおり（MD/PDF） |
 | **v6** | Travel Journal | 写真・添付付き旅行記 |

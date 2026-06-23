@@ -274,7 +274,7 @@ caglla estimate delete 3
 
 ---
 
-## Aggregation（Phase 3 実装済み / Difference は未実装）
+## Aggregation（Phase 3 実装済み / Trip Difference v3.3.0 / Itinerary Difference v3.4.0）
 
 ### Trip 単位（`trip stats` / `export-md` Overview）
 
@@ -286,33 +286,37 @@ Actual total:
   JPY 172,500
 
 Difference:
-  -7,500          ← 未実装（将来表示レイヤーで導出）
+  -7,500          ← v3.3.0 実装済み（derived 集計）
 ```
 
 - **Planned total** = Trip 配下 Estimate の合計（通貨別） — **実装済み**
 - **Actual total** = `trip stats` / `export-md` の Expense 合計 — **実装済み**
-- **Difference** = 表示レイヤーで導出予定（専用 DB 列は不要） — **未実装**
+- **Difference** = `Actual − Planned`（通貨別、derived） — **v3.3.0 実装済み**
 
-### Itinerary カード（GUI 想定 — 一部は export-md で実装済み）
+### Itinerary カード（export-md — v3.4.0 実装済み）
 
-旅行前:
-
-```text
-ホテルで朝食
-予定: ¥14,000
-実績: -
-```
-
-旅行後:
+旅行前（Estimate のみ）:
 
 ```text
 ホテルで朝食
-予定: ¥14,000
-実績: ¥13,750
-差額: -¥250
+予定費用: （明細表）
 ```
 
-Itinerary に紐づく Estimate 行の合計 vs Expense 行の合計を比較するイメージ（1 Itinerary : N 行の場合は合算）。
+旅行後（Estimate + Expense あり）:
+
+```text
+ホテルで朝食
+予定費用: （明細表）
+Expenses: （明細）
+Planned total:
+  JPY 14,000
+Actual total:
+  JPY 13,750
+Difference:
+  JPY -250
+```
+
+Itinerary に紐づく Estimate 行の合計 vs Expense 行の合計を比較（1 Itinerary : N 行の場合は合算）。**gate:** 当該 Itinerary 内に Estimate と Expense が両方ある場合のみ Difference サマリーを表示。
 
 ---
 

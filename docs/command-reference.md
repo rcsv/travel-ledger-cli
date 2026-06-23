@@ -196,7 +196,7 @@ cargo run -- estimate delete 3
 | **export / import** | `trip export` / `trip import` の schema v6 で `days[].itineraries[].estimates[]` に含まれる（id / timestamps は出力しない） |
 | **trip diff** | schema v6+ 同士で added / removed / field changed を比較 |
 | **trip stats** | Trip 配下 Estimate の件数・通貨別 **Planned total**（`estimate_count` / `estimate_totals`）。Estimate と Expense 両方がある場合は `difference_totals`（Actual − Planned） |
-| **export-md** | Itinerary セクション内に「予定費用」表。Overview に Planned / Actual 合計。両方がある場合は **Difference** |
+| **export-md** | Itinerary セクション内に「予定費用」表・Expenses 明細。Estimate と Expense が両方ある Itinerary では **Planned total / Actual total / Difference** サマリー。Overview に Trip 単位 Planned / Actual / Difference |
 | **itinerary replicate** | source Itinerary 配下 Estimate を target にコピー（デフォルト） |
 
 **未実装:** `--without-estimates`（将来需要が明確になった場合に検討）

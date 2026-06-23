@@ -4,7 +4,7 @@ use anyhow::Result;
 use rusqlite::Connection;
 use serde::Serialize;
 
-use crate::domain::models::ItineraryCategory;
+use crate::domain::models::{Estimate, Expense, ItineraryCategory};
 
 /// 旅行統計の集計結果
 #[derive(Serialize)]
@@ -79,6 +79,24 @@ pub(crate) fn compute_difference_totals(
     }
 
     Some(difference_totals)
+}
+
+/// Itinerary 配下 Estimate の通貨別合計。
+pub(crate) fn sum_estimate_totals_by_currency(estimates: &[Estimate]) -> BTreeMap<String, i64> {
+    let mut totals = BTreeMap::new();
+    for estimate in estimates {
+        *totals.entry(estimate.currency.clone()).or_insert(0) += estimate.amount;
+    }
+    totals
+}
+
+/// Itinerary 配下 Expense の通貨別合計。
+pub(crate) fn sum_expense_totals_by_currency(expenses: &[Expense]) -> BTreeMap<String, i64> {
+    let mut totals = BTreeMap::new();
+    for expense in expenses {
+        *totals.entry(expense.currency.clone()).or_insert(0) += expense.amount;
+    }
+    totals
 }
 
 /// 旅行統計を集計する
@@ -294,7 +312,7 @@ pub(crate) fn print_trip_stats(conn: &Connection, trip_id: i64) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::models::ItineraryCategory;
+    use crate::domain::models::{Estimate, Expense, ItineraryCategory};
     use crate::storage::db::open_db_at;
     use crate::trip::add_test_trip;
     use rusqlite::Connection;
@@ -811,5 +829,114 @@ mod tests {
         let json = serde_json::to_string_pretty(&stats).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(parsed.get("difference_totals").is_none());
+    }
+
+    #[test]
+    fn test_sum_estimate_totals_by_currency() {
+        let estimates = vec![
+            Estimate {
+                id: 1,
+                itinerary_id: 1,
+                title: Some("入館料".to_string()),
+                amount: 2180,
+                currency: "JPY".to_string(),
+                note: None,
+                sort_order: 0,
+                created_at: String::new(),
+                updated_at: String::new(),
+            },
+            Estimate {
+                id: 2,
+                itinerary_id: 1,
+                title: Some("カフェ".to_string()),
+                amount: 5000,
+                currency: "JPY".to_string(),
+                note: None,
+                sort_order: 1,
+                created_at: String::new(),
+                updated_at: String::new(),
+            },
+        ];
+
+        let totals = sum_estimate_totals_by_currency(&estimates);
+        assert_eq!(totals.get("JPY"), Some(&7180));
+    }
+
+    #[test]
+    fn test_sum_expense_totals_by_currency_multi_currency() {
+        let expenses = vec![
+            Expense {
+                id: 1,
+                itinerary_id: 1,
+                title: None,
+                amount: 9500,
+                currency: "JPY".to_string(),
+                note: None,
+                expense_date: None,
+                paid_by_participant_id: None,
+                paid_by_name: None,
+                sort_order: 0,
+                created_at: String::new(),
+                updated_at: String::new(),
+            },
+            Expense {
+                id: 2,
+                itinerary_id: 1,
+                title: None,
+                amount: 1250,
+                currency: "USD".to_string(),
+                note: None,
+                expense_date: None,
+                paid_by_participant_id: None,
+                paid_by_name: None,
+                sort_order: 1,
+                created_at: String::new(),
+                updated_at: String::new(),
+            },
+        ];
+
+        let totals = sum_expense_totals_by_currency(&expenses);
+        assert_eq!(totals.get("JPY"), Some(&9500));
+        assert_eq!(totals.get("USD"), Some(&1250));
+    }
+
+    #[test]
+    fn test_itinerary_difference_actual_minus_planned() {
+        let planned = sum_estimate_totals_by_currency(&[Estimate {
+            id: 1,
+            itinerary_id: 1,
+            title: None,
+            amount: 14_000,
+            currency: "JPY".to_string(),
+            note: None,
+            sort_order: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        }]);
+        assert_eq!(planned.get("JPY"), Some(&14_000));
+
+        let actual = sum_expense_totals_by_currency(&[Expense {
+            id: 1,
+            itinerary_id: 1,
+            title: None,
+            amount: 13_750,
+            currency: "JPY".to_string(),
+            note: None,
+            expense_date: None,
+            paid_by_participant_id: None,
+            paid_by_name: None,
+            sort_order: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        }]);
+
+        let diff = compute_difference_totals(1, 1, &planned, &actual).unwrap();
+        assert_eq!(diff.get("JPY"), Some(&-250));
+
+        let mut planned_multi = planned;
+        planned_multi.insert("USD".to_string(), 50);
+        let diff = compute_difference_totals(2, 1, &planned_multi, &actual).unwrap();
+        assert_eq!(diff.get("JPY"), Some(&-250));
+        assert_eq!(diff.get("USD"), Some(&-50));
     }
 }

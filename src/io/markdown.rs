@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
-use crate::analysis::statistics::{format_minutes_duration, TripStats};
+use crate::analysis::statistics::{
+    compute_difference_totals, format_minutes_duration, sum_estimate_totals_by_currency,
+    sum_expense_totals_by_currency, TripStats,
+};
 use crate::domain::models::{
     ChecklistItem, Day, Estimate, Expense, ItineraryItem, Participant, Trip,
 };
@@ -75,7 +78,52 @@ pub(crate) fn format_itinerary_item_markdown(
         }
     }
 
+    append_itinerary_planned_actual_difference(&mut lines, estimates, expenses);
+
     Ok(lines.join("\n"))
+}
+
+fn append_itinerary_planned_actual_difference(
+    lines: &mut Vec<String>,
+    estimates: &[Estimate],
+    expenses: &[Expense],
+) {
+    let estimate_totals = sum_estimate_totals_by_currency(estimates);
+    let expense_totals = sum_expense_totals_by_currency(expenses);
+    let Some(difference_totals) = compute_difference_totals(
+        estimates.len(),
+        expenses.len(),
+        &estimate_totals,
+        &expense_totals,
+    ) else {
+        return;
+    };
+
+    lines.push(String::new());
+    lines.push("Planned total:".to_string());
+    for (currency, total) in &estimate_totals {
+        lines.push(format!(
+            "  - {} {}",
+            currency,
+            crate::money::format_amount_value(*total, currency)
+        ));
+    }
+    lines.push("Actual total:".to_string());
+    for (currency, total) in &expense_totals {
+        lines.push(format!(
+            "  - {} {}",
+            currency,
+            crate::money::format_amount_value(*total, currency)
+        ));
+    }
+    lines.push("Difference:".to_string());
+    for (currency, total) in &difference_totals {
+        lines.push(format!(
+            "  - {} {}",
+            currency,
+            crate::money::format_amount_value(*total, currency)
+        ));
+    }
 }
 
 /// チェックリスト一覧を Markdown 形式に整形する（項目がなければ None）
@@ -964,5 +1012,207 @@ mod tests {
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
         assert!(md.contains("- Planned total:"));
         assert!(!md.contains("- Difference:"));
+    }
+
+    #[test]
+    fn test_export_md_itinerary_includes_planned_actual_difference() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Itinerary Difference Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Breakfast",
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::estimate::add_estimate(
+            &conn,
+            itinerary_id,
+            "14000",
+            "JPY",
+            Some("朝食"),
+            None,
+            None,
+        )
+        .unwrap();
+        crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "13750",
+            "JPY",
+            Some("朝食"),
+            None,
+            None,
+            None,
+            &crate::expense::ExpenseSharedOptions::default(),
+        )
+        .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        let section_start = md.find("### Breakfast").unwrap();
+        let section = &md[section_start..];
+        assert!(section.contains("Planned total:"));
+        assert!(section.contains("Actual total:"));
+        assert!(section.contains("Difference:"));
+        assert!(section.contains("JPY 14,000"));
+        assert!(section.contains("JPY 13,750"));
+        assert!(section.contains("JPY -250"));
+    }
+
+    #[test]
+    fn test_export_md_itinerary_omits_difference_with_estimate_only() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Itinerary Estimate Only Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Aquarium",
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::estimate::add_estimate(&conn, itinerary_id, "2180", "JPY", None, None, None)
+            .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        let section = &md[md.find("### Aquarium").unwrap()..];
+        assert!(section.contains("予定費用:"));
+        assert!(!section.contains("Planned total:"));
+        assert!(!section.contains("Difference:"));
+    }
+
+    #[test]
+    fn test_export_md_itinerary_omits_difference_with_expense_only() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Itinerary Expense Only Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Lunch",
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "1200",
+            "JPY",
+            Some("昼食"),
+            None,
+            None,
+            None,
+            &crate::expense::ExpenseSharedOptions::default(),
+        )
+        .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        let section = &md[md.find("### Lunch").unwrap()..];
+        assert!(section.contains("Expenses:"));
+        assert!(!section.contains("Planned total:"));
+        assert!(!section.contains("Difference:"));
+    }
+
+    #[test]
+    fn test_export_md_itinerary_multi_currency_difference() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Itinerary Multi Currency Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Shopping",
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::estimate::add_estimate(&conn, itinerary_id, "10000", "JPY", None, None, None)
+            .unwrap();
+        crate::estimate::add_estimate(&conn, itinerary_id, "50000", "KRW", None, None, None)
+            .unwrap();
+        crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "9500",
+            "JPY",
+            None,
+            None,
+            None,
+            None,
+            &crate::expense::ExpenseSharedOptions::default(),
+        )
+        .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        let section = &md[md.find("### Shopping").unwrap()..];
+        assert!(section.contains("JPY -500"));
+        assert!(section.contains("KRW -50,000"));
+    }
+
+    #[test]
+    fn test_export_md_overview_difference_unaffected_by_itinerary_difference() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Overview And Itinerary Difference Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Aquarium",
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::estimate::add_estimate(&conn, itinerary_id, "180000", "JPY", None, None, None)
+            .unwrap();
+        crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "172500",
+            "JPY",
+            None,
+            None,
+            None,
+            None,
+            &crate::expense::ExpenseSharedOptions::default(),
+        )
+        .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        let overview = &md[..md.find("## Day 1").unwrap()];
+        assert!(overview.contains("- Difference:"));
+        assert!(overview.contains("JPY -7,500"));
+
+        let itinerary = &md[md.find("### Aquarium").unwrap()..];
+        assert!(itinerary.contains("Difference:"));
+        assert!(itinerary.contains("JPY -7,500"));
     }
 }
