@@ -352,7 +352,8 @@ Concept Design: [v3.5.0-receipt-inbox-concept-design.md](specifications/v3.5.0-r
 ### v3.5.x defer（実装・拡張）
 
 ```text
-Receipt Inbox 実装（Entity Design / Implementation Plan 未着手）
+Receipt Inbox 実装（Entity Design / Implementation Plan 未着手 — metadata-only から検討）
+Receipt image handling（image_path 先行実装・export/import・archive・CUI 表示は含む）
 Day 単位 Planned vs Actual difference
 doctor / advisor Estimate / Receipt 活用
 Budget 独立エンティティ
