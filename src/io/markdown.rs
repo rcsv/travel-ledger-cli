@@ -1174,6 +1174,46 @@ mod tests {
     }
 
     #[test]
+    fn test_export_md_itinerary_usd_negative_difference() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Itinerary USD Difference Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Coffee",
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::estimate::add_estimate(&conn, itinerary_id, "1.00", "USD", None, None, None)
+            .unwrap();
+        crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "0.50",
+            "USD",
+            None,
+            None,
+            None,
+            None,
+            &crate::expense::ExpenseSharedOptions::default(),
+        )
+        .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        let section = &md[md.find("### Coffee").unwrap()..];
+        assert!(section.contains("USD 1.00") || section.contains("USD 1"));
+        assert!(section.contains("USD 0.50"));
+        assert!(section.contains("USD -0.50"));
+    }
+
+    #[test]
     fn test_export_md_overview_difference_unaffected_by_itinerary_difference() {
         let conn = test_db();
         let trip_id = add_test_trip(&conn, "Overview And Itinerary Difference Trip").unwrap();

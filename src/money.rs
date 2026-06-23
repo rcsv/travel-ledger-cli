@@ -109,15 +109,22 @@ pub(crate) fn format_amount_value(amount: i64, currency: &str) -> String {
     if decimals == 0 {
         return format_integer_with_commas(amount);
     }
-    let divisor = 10_i64.pow(decimals);
-    let whole = amount / divisor;
-    let frac = amount % divisor;
-    format!(
+    let negative = amount < 0;
+    let amount_abs = amount.unsigned_abs();
+    let divisor = 10_u64.pow(decimals);
+    let whole = amount_abs / divisor;
+    let frac = amount_abs % divisor;
+    let formatted = format!(
         "{}.{:0width$}",
-        format_integer_with_commas(whole),
+        format_integer_with_commas(whole as i64),
         frac,
         width = decimals as usize
-    )
+    );
+    if negative {
+        format!("-{formatted}")
+    } else {
+        formatted
+    }
 }
 
 pub(crate) fn format_amount_display(amount: i64, currency: &str) -> String {
@@ -165,5 +172,19 @@ mod tests {
     #[test]
     fn test_parse_amount_rejects_negative() {
         assert!(parse_amount_for_currency("-100", "JPY").is_err());
+    }
+
+    #[test]
+    fn test_format_amount_value_negative_decimal_currency() {
+        assert_eq!(format_amount_value(-50, "USD"), "-0.50");
+        assert_eq!(format_amount_value(-12345, "USD"), "-123.45");
+        assert_eq!(format_amount_value(50, "USD"), "0.50");
+        assert_eq!(format_amount_value(12345, "USD"), "123.45");
+    }
+
+    #[test]
+    fn test_format_amount_value_negative_zero_decimal_currency() {
+        assert_eq!(format_amount_value(-500, "JPY"), "-500");
+        assert_eq!(format_amount_value(-50_000, "KRW"), "-50,000");
     }
 }
