@@ -62,7 +62,7 @@ fn cli_db_status_missing_db_does_not_create_file() {
             || stdout.contains(&normalize_path_str(&db_path.to_string_lossy()))
     );
     assert!(stdout.contains("Exists                    : no"));
-    assert!(stdout.contains("Trip export schema version: 6"));
+    assert!(stdout.contains("Trip export schema version: 7"));
     assert!(!stdout.contains("File size (bytes)"));
     assert!(!stdout.contains("Table counts:"));
     assert!(!db_path.exists(), "db status must not create SQLite file");
@@ -87,7 +87,7 @@ fn cli_db_status_json_missing_db_omits_optional_fields() {
     assert_eq!(parsed["schema_version"], 1);
     assert_same_resolved_db_path(parsed["path"].as_str().unwrap(), &db_path);
     assert_eq!(parsed["exists"], false);
-    assert_eq!(parsed["trip_export_schema_version"], 6);
+    assert_eq!(parsed["trip_export_schema_version"], 7);
     assert!(parsed.get("file_size_bytes").is_none());
     assert!(parsed.get("table_counts").is_none());
     assert!(
@@ -153,7 +153,7 @@ fn cli_db_status_json_existing_db_includes_table_counts() {
     let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid JSON");
     assert_eq!(parsed["schema_version"], 1);
     assert_eq!(parsed["exists"], true);
-    assert_eq!(parsed["trip_export_schema_version"], 6);
+    assert_eq!(parsed["trip_export_schema_version"], 7);
     assert!(parsed["file_size_bytes"].as_u64().unwrap() > 0);
     assert_eq!(parsed["table_counts"]["trips"], 1);
     assert_eq!(parsed["table_counts"]["itinerary_items"], 1);

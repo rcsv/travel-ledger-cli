@@ -60,7 +60,7 @@ fn okinawa_sesoko_expected_export_structure() {
     let expected_path = repo_root().join("samples/okinawa_sesoko_2026/expected-export-v3.json");
     let expected: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&expected_path).unwrap()).unwrap();
-    assert_eq!(expected["schema_version"], 6);
+    assert_eq!(expected["schema_version"], 7);
     assert_eq!(expected["trip"]["name"], "沖縄 瀬底 4日間");
     let itinerary_count: usize = expected["days"]
         .as_array()

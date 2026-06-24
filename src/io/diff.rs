@@ -5,8 +5,9 @@ use anyhow::Result;
 
 use crate::domain::models::{
     effective_export_schema_version, ExportEstimate, ExportExpense, ExportNote,
-    ExportParticipantV4, ExportReservation, ItineraryCategory, ItineraryItem, TripExport,
-    TRIP_EXPORT_SCHEMA_VERSION, TRIP_EXPORT_SCHEMA_VERSION_V5,
+    ExportParticipantV4, ExportReceiptV7, ExportReservation, ItineraryCategory, ItineraryItem,
+    TripExport, TRIP_EXPORT_SCHEMA_VERSION, TRIP_EXPORT_SCHEMA_VERSION_V5,
+    TRIP_EXPORT_SCHEMA_VERSION_V6,
 };
 
 /// export Note の比較キー
@@ -120,6 +121,29 @@ struct EstimateFieldChange {
     new_value: String,
 }
 
+/// Receipt の比較キー（export 安定参照 — DB id は使わない）
+#[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+struct ReceiptKey {
+    day_number: Option<i64>,
+    itinerary_day: Option<i64>,
+    itinerary_sort: Option<i64>,
+    itinerary_start_time: Option<String>,
+    itinerary_title: Option<String>,
+    amount: Option<i64>,
+    currency: Option<String>,
+    occurred_date: Option<String>,
+    memo: Option<String>,
+    status: String,
+}
+
+/// 1件の Receipt におけるフィールド変更
+struct ReceiptFieldChange {
+    line: String,
+    field: String,
+    old_value: String,
+    new_value: String,
+}
+
 /// trip diff の結果
 pub(crate) struct TripDiff {
     trip_changes: Vec<(String, String, String)>,
@@ -142,6 +166,9 @@ pub(crate) struct TripDiff {
     estimate_added: Vec<ExportEstimate>,
     estimate_removed: Vec<ExportEstimate>,
     estimate_modified: Vec<EstimateFieldChange>,
+    receipt_added: Vec<ExportReceiptV7>,
+    receipt_removed: Vec<ExportReceiptV7>,
+    receipt_modified: Vec<ReceiptFieldChange>,
 }
 
 fn itinerary_key(item: &ItineraryItem) -> ItineraryKey {
@@ -597,6 +624,10 @@ fn schema_supports_shared_expense_diff(schema_version: Option<i32>) -> bool {
 }
 
 fn schema_supports_estimate_diff(schema_version: Option<i32>) -> bool {
+    effective_export_schema_version(schema_version) >= TRIP_EXPORT_SCHEMA_VERSION_V6
+}
+
+fn schema_supports_receipt_diff(schema_version: Option<i32>) -> bool {
     effective_export_schema_version(schema_version) >= TRIP_EXPORT_SCHEMA_VERSION
 }
 
@@ -717,6 +748,147 @@ fn compute_estimates_diff(
     estimate_modified.sort_by(|a, b| a.line.cmp(&b.line).then_with(|| a.field.cmp(&b.field)));
 
     (estimate_added, estimate_removed, estimate_modified)
+}
+
+fn receipt_key(receipt: &ExportReceiptV7) -> ReceiptKey {
+    ReceiptKey {
+        day_number: receipt.day_ref.as_ref().map(|d| d.day_number),
+        itinerary_day: receipt.itinerary_ref.as_ref().map(|it| it.day_number),
+        itinerary_sort: receipt.itinerary_ref.as_ref().map(|it| it.sort_order),
+        itinerary_start_time: receipt
+            .itinerary_ref
+            .as_ref()
+            .and_then(|it| it.start_time.clone()),
+        itinerary_title: receipt.itinerary_ref.as_ref().map(|it| it.title.clone()),
+        amount: receipt.amount,
+        currency: receipt.currency.clone(),
+        occurred_date: receipt.occurred_date.clone(),
+        memo: receipt.memo.clone(),
+        status: receipt.status.clone(),
+    }
+}
+
+fn compare_export_receipts(a: &ExportReceiptV7, b: &ExportReceiptV7) -> Ordering {
+    receipt_key(a).cmp(&receipt_key(b))
+}
+
+fn format_receipt_line(receipt: &ExportReceiptV7) -> String {
+    let day = receipt
+        .day_ref
+        .as_ref()
+        .map(|d| d.day_number.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let amount = receipt
+        .amount
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let currency = receipt.currency.as_deref().unwrap_or("-");
+    let memo = receipt.memo.as_deref().unwrap_or("-");
+    format!(
+        "Day {day} / {amount} {currency} / {memo} / {}",
+        receipt.status
+    )
+}
+
+fn receipt_content_changed(
+    old: &ExportReceiptV7,
+    new: &ExportReceiptV7,
+) -> Vec<(String, String, String)> {
+    let old_day = old
+        .day_ref
+        .as_ref()
+        .map(|d| d.day_number.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let new_day = new
+        .day_ref
+        .as_ref()
+        .map(|d| d.day_number.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let fields = [
+        ("day_ref", old_day, new_day),
+        (
+            "amount",
+            fmt_diff_option_i64(old.amount),
+            fmt_diff_option_i64(new.amount),
+        ),
+        (
+            "currency",
+            fmt_diff_option_str(&old.currency),
+            fmt_diff_option_str(&new.currency),
+        ),
+        (
+            "occurred_date",
+            fmt_diff_option_str(&old.occurred_date),
+            fmt_diff_option_str(&new.occurred_date),
+        ),
+        (
+            "memo",
+            fmt_diff_option_str(&old.memo),
+            fmt_diff_option_str(&new.memo),
+        ),
+        ("status", old.status.clone(), new.status.clone()),
+    ];
+    fields
+        .into_iter()
+        .filter(|(_, old_value, new_value)| old_value != new_value)
+        .map(|(field, old_value, new_value)| (field.to_string(), old_value, new_value))
+        .collect()
+}
+
+fn compute_receipts_diff(
+    old_receipts: &[ExportReceiptV7],
+    new_receipts: &[ExportReceiptV7],
+    compare_receipts: bool,
+) -> (
+    Vec<ExportReceiptV7>,
+    Vec<ExportReceiptV7>,
+    Vec<ReceiptFieldChange>,
+) {
+    if !compare_receipts {
+        return (Vec::new(), Vec::new(), Vec::new());
+    }
+
+    let old_map: HashMap<ReceiptKey, &ExportReceiptV7> = old_receipts
+        .iter()
+        .map(|receipt| (receipt_key(receipt), receipt))
+        .collect();
+    let new_map: HashMap<ReceiptKey, &ExportReceiptV7> = new_receipts
+        .iter()
+        .map(|receipt| (receipt_key(receipt), receipt))
+        .collect();
+
+    let mut receipt_removed: Vec<ExportReceiptV7> = old_receipts
+        .iter()
+        .filter(|receipt| !new_map.contains_key(&receipt_key(receipt)))
+        .cloned()
+        .collect();
+    let mut receipt_added: Vec<ExportReceiptV7> = new_receipts
+        .iter()
+        .filter(|receipt| !old_map.contains_key(&receipt_key(receipt)))
+        .cloned()
+        .collect();
+
+    let mut receipt_modified = Vec::new();
+    for old_receipt in old_map.values() {
+        let Some(new_receipt) = new_map.get(&receipt_key(old_receipt)) else {
+            continue;
+        };
+        let line = format_receipt_line(new_receipt);
+        for (field, old_value, new_value) in receipt_content_changed(old_receipt, new_receipt) {
+            receipt_modified.push(ReceiptFieldChange {
+                line: line.clone(),
+                field,
+                old_value,
+                new_value,
+            });
+        }
+    }
+
+    receipt_removed.sort_by(compare_export_receipts);
+    receipt_added.sort_by(compare_export_receipts);
+    receipt_modified.sort_by(|a, b| a.line.cmp(&b.line).then_with(|| a.field.cmp(&b.field)));
+
+    (receipt_added, receipt_removed, receipt_modified)
 }
 
 fn compute_expenses_diff(
@@ -956,6 +1128,10 @@ pub(crate) fn compute_trip_diff(old: &TripExport, new: &TripExport) -> TripDiff 
         && schema_supports_estimate_diff(new.schema_version);
     let (estimate_added, estimate_removed, estimate_modified) =
         compute_estimates_diff(old.estimates(), new.estimates(), compare_estimates);
+    let compare_receipts = schema_supports_receipt_diff(old.schema_version)
+        && schema_supports_receipt_diff(new.schema_version);
+    let (receipt_added, receipt_removed, receipt_modified) =
+        compute_receipts_diff(old.receipts(), new.receipts(), compare_receipts);
 
     TripDiff {
         trip_changes,
@@ -978,6 +1154,9 @@ pub(crate) fn compute_trip_diff(old: &TripExport, new: &TripExport) -> TripDiff 
         estimate_added,
         estimate_removed,
         estimate_modified,
+        receipt_added,
+        receipt_removed,
+        receipt_modified,
     }
 }
 
@@ -1183,6 +1362,33 @@ pub(crate) fn print_trip_diff(diff: &TripDiff) {
             );
         }
     }
+
+    println!();
+    println!("Receipts:");
+    if diff.receipt_added.is_empty()
+        && diff.receipt_removed.is_empty()
+        && diff.receipt_modified.is_empty()
+    {
+        println!("  （変更なし）");
+    } else {
+        for receipt in &diff.receipt_removed {
+            println!("- Receipt removed: {}", format_receipt_line(receipt));
+        }
+        for receipt in &diff.receipt_added {
+            println!("+ Receipt added: {}", format_receipt_line(receipt));
+        }
+        let mut current_line: Option<String> = None;
+        for change in &diff.receipt_modified {
+            if current_line.as_deref() != Some(change.line.as_str()) {
+                println!("~ Receipt modified: {}", change.line);
+                current_line = Some(change.line.clone());
+            }
+            println!(
+                "  {}: {} -> {}",
+                change.field, change.old_value, change.new_value
+            );
+        }
+    }
 }
 
 /// 2つの JSON ファイルを比較して差分を表示する
@@ -1248,6 +1454,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -1263,6 +1470,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -1299,6 +1507,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -1314,6 +1523,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -1356,6 +1566,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -1371,6 +1582,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -1395,6 +1607,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
         let new = TripExport {
             schema_version: None,
@@ -1410,6 +1623,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         };
 
         let diff = compute_trip_diff(&old, &new);
@@ -1451,6 +1665,7 @@ mod tests {
             participants: vec![],
             expenses: vec![],
             estimates: vec![],
+            receipts: vec![],
         }
     }
 

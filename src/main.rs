@@ -12,6 +12,7 @@ mod money;
 mod note;
 mod output;
 mod participant;
+mod receipt;
 mod reservation;
 mod storage;
 mod summary;
@@ -21,7 +22,7 @@ use anyhow::{bail, Result};
 use clap::{CommandFactory, Parser};
 use cli::{
     ChecklistAction, Cli, Command, DayAction, EstimateAction, ExpenseAction, ItineraryAction,
-    NoteAction, ParticipantAction, ReservationAction, TripAction,
+    NoteAction, ParticipantAction, ReceiptAction, ReservationAction, TripAction,
 };
 
 fn main() -> Result<()> {
@@ -717,6 +718,148 @@ fn main() -> Result<()> {
                 crate::reservation::delete_reservation(&conn, id)?;
                 println!("Reservation を削除しました (ID: {id})");
                 println!("  Provider: {}", reservation.provider_name);
+            }
+        },
+        Command::Receipt { action } => match action {
+            ReceiptAction::Add {
+                trip,
+                day,
+                itinerary,
+                amount,
+                currency,
+                occurred_date,
+                memo,
+            } => {
+                let id = crate::receipt::add_receipt(
+                    &conn,
+                    crate::receipt::AddReceiptParams {
+                        trip_id: trip,
+                        day_number: day,
+                        itinerary_id: itinerary,
+                        amount_input: amount.as_deref(),
+                        currency_input: currency.as_deref(),
+                        occurred_date: occurred_date.as_deref(),
+                        memo: memo.as_deref(),
+                    },
+                )?;
+                println!("Receipt を追加しました (ID: {id})");
+                let receipt = crate::receipt::get_receipt(&conn, id)?;
+                crate::receipt::print_receipt_detail(&conn, &receipt)?;
+            }
+            ReceiptAction::List {
+                trip,
+                unreviewed,
+                status,
+                json,
+            } => {
+                let status_filter = if unreviewed {
+                    Some(crate::receipt::RECEIPT_STATUS_UNREVIEWED)
+                } else {
+                    status.as_deref()
+                };
+                let receipts = crate::receipt::list_receipts_for_trip(&conn, trip, status_filter)?;
+                if json {
+                    let json_receipts: Vec<crate::receipt::ReceiptJson> = receipts
+                        .iter()
+                        .map(|r| crate::receipt::receipt_to_json(&conn, r))
+                        .collect::<Result<Vec<_>>>()?;
+                    crate::output::json::print_json(&crate::receipt::ReceiptListJson {
+                        trip_id: trip,
+                        receipts: json_receipts,
+                    })?;
+                } else {
+                    println!("旅行 ID {trip} の Receipt:");
+                    crate::receipt::print_receipt_list(&conn, &receipts)?;
+                }
+            }
+            ReceiptAction::Show { id, json } => {
+                let receipt = crate::receipt::get_receipt(&conn, id)?;
+                if json {
+                    crate::output::json::print_json(&crate::receipt::receipt_to_json(
+                        &conn, &receipt,
+                    )?)?;
+                } else {
+                    crate::receipt::print_receipt_detail(&conn, &receipt)?;
+                }
+            }
+            ReceiptAction::Update {
+                id,
+                day,
+                itinerary,
+                amount,
+                currency,
+                occurred_date,
+                memo,
+                clear_day,
+                clear_itinerary,
+                clear_amount,
+                clear_occurred_date,
+                clear_memo,
+            } => {
+                let occurred_date_update = if clear_occurred_date {
+                    Some(None)
+                } else {
+                    occurred_date.as_ref().map(|value| Some(value.as_str()))
+                };
+                let memo_update = if clear_memo {
+                    Some(None)
+                } else {
+                    memo.as_ref().map(|value| Some(value.as_str()))
+                };
+                crate::receipt::update_receipt(
+                    &conn,
+                    id,
+                    crate::receipt::UpdateReceiptParams {
+                        day_number: day,
+                        itinerary_id: itinerary,
+                        amount_input: amount.as_deref(),
+                        currency_input: currency.as_deref(),
+                        occurred_date: occurred_date_update,
+                        memo: memo_update,
+                        clear_day,
+                        clear_itinerary,
+                        clear_amount_currency: clear_amount,
+                    },
+                )?;
+                println!("Receipt を更新しました (ID: {id})");
+                let receipt = crate::receipt::get_receipt(&conn, id)?;
+                crate::receipt::print_receipt_detail(&conn, &receipt)?;
+            }
+            ReceiptAction::Link { id, day, itinerary } => match (day, itinerary) {
+                (Some(day_number), None) => {
+                    crate::receipt::link_receipt_day(&conn, id, day_number)?;
+                    println!("Receipt を Day {day_number} に紐づけました (ID: {id})");
+                }
+                (None, Some(itinerary_id)) => {
+                    crate::receipt::link_receipt_itinerary(&conn, id, itinerary_id)?;
+                    println!("Receipt を Itinerary {itinerary_id} に紐づけました (ID: {id})");
+                }
+                (Some(_), Some(_)) => {
+                    bail!("--day と --itinerary は同時に指定できません");
+                }
+                (None, None) => {
+                    bail!("--day または --itinerary のいずれかを指定してください");
+                }
+            },
+            ReceiptAction::Ignore { id, memo } => {
+                crate::receipt::ignore_receipt(&conn, id, memo.as_deref())?;
+                println!("Receipt を ignored にしました (ID: {id})");
+                let receipt = crate::receipt::get_receipt(&conn, id)?;
+                crate::receipt::print_receipt_detail(&conn, &receipt)?;
+            }
+            ReceiptAction::Delete { id } => {
+                let receipt = crate::receipt::get_receipt(&conn, id)?;
+                crate::receipt::delete_receipt(&conn, id)?;
+                println!("Receipt を削除しました (ID: {id})");
+                if let Some(memo) = &receipt.memo {
+                    println!("  Memo: {memo}");
+                }
+                if let (Some(amount), Some(currency)) = (receipt.amount, &receipt.currency) {
+                    println!(
+                        "  Amount: {}",
+                        crate::money::format_amount_display(amount, currency)
+                    );
+                }
             }
         },
         Command::Participant { action } => match action {

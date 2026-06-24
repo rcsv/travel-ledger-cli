@@ -204,7 +204,7 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
 
     let exported: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&export_path).unwrap()).unwrap();
-    assert_eq!(exported["schema_version"], 6);
+    assert_eq!(exported["schema_version"], 7);
     assert_eq!(exported["notes"].as_array().unwrap().len(), 3);
 
     assert!(run_cli(&dir, &["db", "reset"]).status.success());
@@ -328,7 +328,7 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
 
     let exported: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&export_path).unwrap()).unwrap();
-    assert_eq!(exported["schema_version"], 6);
+    assert_eq!(exported["schema_version"], 7);
     assert_eq!(
         exported["days"][1]["itineraries"][0]["expenses"]
             .as_array()
@@ -460,7 +460,7 @@ fn cli_export_import_reexport_roundtrip_with_estimates() {
 
     let exported: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&export_path).unwrap()).unwrap();
-    assert_eq!(exported["schema_version"], 6);
+    assert_eq!(exported["schema_version"], 7);
     assert_eq!(
         exported["days"][0]["itineraries"][0]["estimates"]
             .as_array()
@@ -564,7 +564,10 @@ fn comparable_export_json(value: &serde_json::Value) -> serde_json::Value {
     let trip = &value["trip"];
     let schema_version = value.get("schema_version").and_then(|v| v.as_i64());
 
-    let itinerary = if matches!(schema_version, Some(3) | Some(4) | Some(5) | Some(6)) {
+    let itinerary = if matches!(
+        schema_version,
+        Some(3) | Some(4) | Some(5) | Some(6) | Some(7)
+    ) {
         value["days"]
             .as_array()
             .cloned()
@@ -638,6 +641,25 @@ fn comparable_export_json(value: &serde_json::Value) -> serde_json::Value {
         })
         .collect::<Vec<_>>();
 
+    let receipts = value
+        .get("receipts")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|item| {
+            serde_json::json!({
+                "day_ref": item.get("day_ref"),
+                "itinerary_ref": item.get("itinerary_ref"),
+                "amount": item.get("amount"),
+                "currency": item.get("currency"),
+                "occurred_date": item.get("occurred_date"),
+                "memo": item.get("memo"),
+                "status": item.get("status"),
+            })
+        })
+        .collect::<Vec<_>>();
+
     serde_json::json!({
         "trip_name": trip["name"],
         "trip_start_date": trip["start_date"],
@@ -646,5 +668,6 @@ fn comparable_export_json(value: &serde_json::Value) -> serde_json::Value {
         "checklist_items": checklist,
         "notes": notes,
         "participants": participants,
+        "receipts": receipts,
     })
 }

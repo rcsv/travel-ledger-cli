@@ -267,7 +267,7 @@ pub(crate) fn duplicate_expense_beneficiaries(
     set_expense_beneficiaries(conn, dst_expense_id, &mapped)
 }
 
-fn validate_expense_date(value: &str) -> Result<()> {
+pub(crate) fn validate_expense_date(value: &str) -> Result<()> {
     if chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_err() {
         anyhow::bail!("expense_date は YYYY-MM-DD 形式である必要があります");
     }
@@ -914,6 +914,7 @@ pub(crate) fn update_expense(
 pub(crate) fn delete_expense(conn: &Connection, id: i64) -> Result<()> {
     get_expense(conn, id)?;
     crate::storage::db::with_transaction(conn, "expense delete", |tx| {
+        crate::receipt::nullify_receipts_for_expense(tx, id)?;
         delete_beneficiaries_for_expense(tx, id)?;
         tx.execute("DELETE FROM expenses WHERE id = ?1", params![id])
             .context("Expense の削除に失敗しました")?;
@@ -926,8 +927,9 @@ pub(crate) fn delete_expenses_for_itinerary(conn: &Connection, itinerary_id: i64
         .prepare("SELECT id FROM expenses WHERE itinerary_id = ?1")?
         .query_map(params![itinerary_id], |row| row.get(0))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    for expense_id in expense_ids {
-        delete_beneficiaries_for_expense(conn, expense_id)?;
+    for expense_id in &expense_ids {
+        crate::receipt::nullify_receipts_for_expense(conn, *expense_id)?;
+        delete_beneficiaries_for_expense(conn, *expense_id)?;
     }
     conn.execute(
         "DELETE FROM expenses WHERE itinerary_id = ?1",

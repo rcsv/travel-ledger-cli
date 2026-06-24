@@ -873,6 +873,7 @@ pub(crate) fn update_itinerary_item(
 pub(crate) fn delete_itinerary_item(conn: &Connection, id: i64) -> Result<()> {
     get_itinerary_item(conn, id)?;
     crate::storage::db::with_transaction(conn, "itinerary delete", |tx| {
+        crate::receipt::nullify_receipts_for_itinerary(tx, id)?;
         crate::note::delete_notes_for_itinerary(tx, id)?;
         crate::estimate::delete_estimates_for_itinerary(tx, id)?;
         crate::expense::delete_expenses_for_itinerary(tx, id)?;

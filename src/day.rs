@@ -75,8 +75,9 @@ pub(crate) fn sync_days_to_trip_duration(
                     "Day {day_number} にタイトルまたは概要があるため、旅行期間を短縮できません"
                 );
             }
-            // Day 削除前に Day Note のみ削除（Itinerary がある Day は上で reject 済み）
+            // Day 削除前に Day Note と Receipt day 参照をクリア
             crate::note::delete_notes_for_day(conn, day.id)?;
+            crate::receipt::nullify_receipts_for_day(conn, day.id)?;
             conn.execute("DELETE FROM days WHERE id = ?1", params![day.id])
                 .context("Day の削除に失敗しました")?;
         }

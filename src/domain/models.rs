@@ -118,6 +118,30 @@ pub struct Estimate {
     pub updated_at: String,
 }
 
+/// receipts テーブルの1行分のデータ（metadata-only — image_path なし）
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Receipt {
+    pub id: i64,
+    pub trip_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub day_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub itinerary_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub linked_expense_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub occurred_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 /// trips テーブルの1行分のデータ
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Trip {
@@ -657,7 +681,10 @@ pub struct ParticipantCounts {
 }
 
 /// trip export 用 JSON の schema バージョン（現行 export）
-pub const TRIP_EXPORT_SCHEMA_VERSION: i32 = 6;
+pub const TRIP_EXPORT_SCHEMA_VERSION: i32 = 7;
+
+/// trip export schema v6（import 互換）
+pub const TRIP_EXPORT_SCHEMA_VERSION_V6: i32 = 6;
 
 /// trip export schema v5（import 互換）
 pub const TRIP_EXPORT_SCHEMA_VERSION_V5: i32 = 5;
@@ -718,6 +745,7 @@ pub fn is_supported_export_schema_version(schema_version: Option<i32>) -> bool {
             | TRIP_EXPORT_SCHEMA_VERSION_V3
             | TRIP_EXPORT_SCHEMA_VERSION_V4
             | TRIP_EXPORT_SCHEMA_VERSION_V5
+            | TRIP_EXPORT_SCHEMA_VERSION_V6
             | TRIP_EXPORT_SCHEMA_VERSION
     )
 }
@@ -846,6 +874,53 @@ pub struct ExportDaySummary {
     pub summary: Option<String>,
 }
 
+/// trip export schema v7 の Receipt Day 参照
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportReceiptDayRef {
+    pub day_number: i64,
+}
+
+/// trip export schema v7 の Receipt Itinerary 参照
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportReceiptItineraryRef {
+    pub day_number: i64,
+    pub sort_order: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<String>,
+    pub title: String,
+}
+
+/// trip export schema v7 の Receipt Expense 参照
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportReceiptExpenseRef {
+    pub itinerary_ref: ExportReceiptItineraryRef,
+    pub expense_sort_order: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expense_title: Option<String>,
+    pub amount: i64,
+    pub currency: String,
+}
+
+/// trip export schema v7 の Receipt エントリ（DB id / image_path は含めない）
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportReceiptV7 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub day_ref: Option<ExportReceiptDayRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub itinerary_ref: Option<ExportReceiptItineraryRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub linked_expense_ref: Option<ExportReceiptExpenseRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub occurred_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub status: String,
+}
+
 /// trip export schema v3 の JSON 構造
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TripExportV3 {
@@ -868,6 +943,9 @@ pub struct TripExportV3 {
     /// schema v4+: Participant 一覧。v3 import では省略可。
     #[serde(default)]
     pub participants: Option<Vec<ExportParticipantV4>>,
+    /// schema v7+: Receipt 一覧（Trip-level）。v6 以前 export では省略可。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub receipts: Vec<ExportReceiptV7>,
 }
 
 impl TripExportV3 {
@@ -881,6 +959,10 @@ impl TripExportV3 {
 
     pub fn participants(&self) -> &[ExportParticipantV4] {
         self.participants.as_deref().unwrap_or(&[])
+    }
+
+    pub fn receipts(&self) -> &[ExportReceiptV7] {
+        &self.receipts
     }
 }
 
@@ -924,6 +1006,9 @@ pub struct TripExport {
     /// schema v6+: Estimate 一覧（diff 用。v5 以前 export では省略可）
     #[serde(default)]
     pub estimates: Vec<ExportEstimate>,
+    /// schema v7+: Receipt 一覧（diff 用。v6 以前 export では省略可）
+    #[serde(default)]
+    pub receipts: Vec<ExportReceiptV7>,
 }
 
 impl TripExport {
@@ -945,6 +1030,10 @@ impl TripExport {
 
     pub fn estimates(&self) -> &[ExportEstimate] {
         &self.estimates
+    }
+
+    pub fn receipts(&self) -> &[ExportReceiptV7] {
+        &self.receipts
     }
 }
 
@@ -1037,6 +1126,7 @@ pub enum ExportValidationCheckId {
     Estimates,
     Reservations,
     Participants,
+    Receipts,
 }
 
 /// export 検証の1項目チェック結果

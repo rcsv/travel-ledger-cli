@@ -2,7 +2,9 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::models::{Estimate, ExportDayV3, ExportEstimateV3, TRIP_EXPORT_SCHEMA_VERSION};
+use crate::domain::models::{
+    Estimate, ExportDayV3, ExportEstimateV3, TRIP_EXPORT_SCHEMA_VERSION_V6,
+};
 use crate::money::{format_amount_display, parse_amount_for_currency, validate_currency_code};
 
 const ESTIMATE_SELECT_SQL: &str = "
@@ -492,7 +494,7 @@ pub(crate) fn collect_export_estimate_validation_errors(
     export: &TripExportV3ForValidation<'_>,
     effective_schema: i32,
 ) -> (Vec<String>, Vec<String>) {
-    if effective_schema < TRIP_EXPORT_SCHEMA_VERSION {
+    if effective_schema < TRIP_EXPORT_SCHEMA_VERSION_V6 {
         return (Vec::new(), Vec::new());
     }
 

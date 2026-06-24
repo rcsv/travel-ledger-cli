@@ -65,6 +65,11 @@ pub enum Command {
         #[command(subcommand)]
         action: ReservationAction,
     },
+    /// Receipt Inbox（支払い証拠メタデータ）の管理
+    Receipt {
+        #[command(subcommand)]
+        action: ReceiptAction,
+    },
     /// 参加者 (Participant) の管理
     Participant {
         #[command(subcommand)]
@@ -781,6 +786,119 @@ pub enum EstimateAction {
     /// Estimate を削除
     Delete {
         /// Estimate ID
+        id: i64,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ReceiptAction {
+    /// Receipt を追加（metadata-only）
+    Add {
+        /// Trip ID（必須）
+        #[arg(long)]
+        trip: i64,
+        /// 日目（任意）
+        #[arg(long)]
+        day: Option<i64>,
+        /// Itinerary ID（任意）
+        #[arg(long)]
+        itinerary: Option<i64>,
+        /// 金額（任意。`--currency` とセット）
+        #[arg(long)]
+        amount: Option<String>,
+        /// 通貨（任意。`--amount` とセット）
+        #[arg(long)]
+        currency: Option<String>,
+        /// 支払い日（YYYY-MM-DD）
+        #[arg(long = "occurred-date")]
+        occurred_date: Option<String>,
+        /// メモ（任意）
+        #[arg(long)]
+        memo: Option<String>,
+    },
+    /// Receipt 一覧を表示
+    List {
+        /// Trip ID（必須）
+        #[arg(long)]
+        trip: i64,
+        /// 未確認（`unreviewed`）のみ
+        #[arg(long)]
+        unreviewed: bool,
+        /// status で絞り込み（`unreviewed` / `linked` / `converted` / `ignored`）
+        #[arg(long)]
+        status: Option<String>,
+        /// JSON 形式で出力する
+        #[arg(long)]
+        json: bool,
+    },
+    /// Receipt 詳細を表示
+    Show {
+        /// Receipt ID
+        id: i64,
+        /// JSON 形式で出力する
+        #[arg(long)]
+        json: bool,
+    },
+    /// Receipt を更新
+    Update {
+        /// Receipt ID
+        id: i64,
+        /// 日目
+        #[arg(long)]
+        day: Option<i64>,
+        /// Itinerary ID
+        #[arg(long)]
+        itinerary: Option<i64>,
+        /// 金額（`--currency` とセット）
+        #[arg(long)]
+        amount: Option<String>,
+        /// 通貨（`--amount` とセット）
+        #[arg(long)]
+        currency: Option<String>,
+        /// 支払い日（空文字でクリア）
+        #[arg(long = "occurred-date")]
+        occurred_date: Option<String>,
+        /// メモ（空文字でクリア）
+        #[arg(long)]
+        memo: Option<String>,
+        /// day 紐づけをクリア
+        #[arg(long)]
+        clear_day: bool,
+        /// itinerary 紐づけをクリア
+        #[arg(long)]
+        clear_itinerary: bool,
+        /// amount / currency をクリア
+        #[arg(long)]
+        clear_amount: bool,
+        /// occurred_date をクリア
+        #[arg(long)]
+        clear_occurred_date: bool,
+        /// memo をクリア
+        #[arg(long)]
+        clear_memo: bool,
+    },
+    /// Day / Itinerary に紐づける（status を `linked` にする）
+    Link {
+        /// Receipt ID
+        id: i64,
+        /// 日目
+        #[arg(long)]
+        day: Option<i64>,
+        /// Itinerary ID
+        #[arg(long)]
+        itinerary: Option<i64>,
+    },
+    /// Receipt を対象外（`ignored`）にする
+    Ignore {
+        /// Receipt ID
+        id: i64,
+        /// 追記または更新するメモ
+        #[arg(long)]
+        memo: Option<String>,
+    },
+    /// Receipt を削除
+    Delete {
+        /// Receipt ID
         id: i64,
     },
 }

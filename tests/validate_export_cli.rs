@@ -500,7 +500,7 @@ fn cli_validate_export_v6_invalid_estimate_currency_fails() {
     fs::write(
         &export_path,
         r#"{
-  "schema_version": 6,
+  "schema_version": 7,
   "trip": {
     "id": 1,
     "name": "Estimate Trip",

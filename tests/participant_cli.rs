@@ -218,7 +218,7 @@ fn cli_participant_export_v4_roundtrip() {
 
     let exported: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&export_path).unwrap()).unwrap();
-    assert_eq!(exported["schema_version"], 6);
+    assert_eq!(exported["schema_version"], 7);
     assert_eq!(exported["participants"].as_array().unwrap().len(), 2);
 
     assert!(run_cli(&dir, &["db", "reset"]).status.success());

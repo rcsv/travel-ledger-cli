@@ -26,6 +26,7 @@ pub(crate) struct DbTableCounts {
     pub estimates: i64,
     pub participants: i64,
     pub reservations: i64,
+    pub receipts: i64,
     pub checklist_items: i64,
 }
 
@@ -58,6 +59,7 @@ pub(crate) fn collect_table_counts(conn: &Connection) -> Result<DbTableCounts> {
         estimates: table_count(conn, "estimates")?,
         participants: table_count(conn, "participants")?,
         reservations: table_count(conn, "reservations")?,
+        receipts: table_count(conn, "receipts")?,
         checklist_items: table_count(conn, "checklist_items")?,
     })
 }
@@ -128,6 +130,7 @@ pub(crate) fn print_db_status_human(status: &DbStatusJson) -> Result<()> {
         println!("  estimates               : {}", counts.estimates);
         println!("  participants            : {}", counts.participants);
         println!("  reservations            : {}", counts.reservations);
+        println!("  receipts                : {}", counts.receipts);
         println!("  checklist_items         : {}", counts.checklist_items);
     }
     Ok(())
@@ -321,6 +324,7 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
     crate::participant::migrate_participants(conn)?;
     crate::expense::migrate_expenses_shared_expense(conn)?;
     crate::estimate::migrate_estimates(conn)?;
+    crate::receipt::migrate_receipts(conn)?;
     Ok(())
 }
 
@@ -493,6 +497,8 @@ pub(crate) fn reset_db(conn: &Connection) -> Result<()> {
         .context("estimates の全削除に失敗しました")?;
     conn.execute("DELETE FROM participants", [])
         .context("participants の全削除に失敗しました")?;
+    conn.execute("DELETE FROM receipts", [])
+        .context("receipts の全削除に失敗しました")?;
     conn.execute("DELETE FROM checklist_items", [])
         .context("checklist_items の全削除に失敗しました")?;
     conn.execute("DELETE FROM itinerary_items", [])
@@ -502,7 +508,7 @@ pub(crate) fn reset_db(conn: &Connection) -> Result<()> {
     conn.execute("DELETE FROM trips", [])
         .context("trips の全削除に失敗しました")?;
     conn.execute(
-        "DELETE FROM sqlite_sequence WHERE name IN ('expense_beneficiaries', 'reservations', 'expenses', 'estimates', 'notes', 'participants', 'checklist_items', 'itinerary_items', 'days', 'trips')",
+        "DELETE FROM sqlite_sequence WHERE name IN ('expense_beneficiaries', 'reservations', 'receipts', 'expenses', 'estimates', 'notes', 'participants', 'checklist_items', 'itinerary_items', 'days', 'trips')",
         [],
     )
     .context("AUTOINCREMENT のリセットに失敗しました")?;

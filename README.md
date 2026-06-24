@@ -9,9 +9,9 @@ Caglla.Travel のコマンドライン版です。旅行の計画を、ターミ
 - **Trip（旅行）** の登録・一覧・詳細・更新・削除・複製
 - **Day（日）** の一覧・詳細・Itinerary 入れ替え（`day swap`）
 - **Itinerary（行動・予定）** の登録・一覧・詳細・更新・削除・タイムライン表示
-- **Note（メモ）** / **Expense（支出）** / **Estimate（予定費用 / Planned Budget）** / **Participant（参加者）** の CRUD
+- **Note（メモ）** / **Expense（支出）** / **Estimate（予定費用 / Planned Budget）** / **Receipt Inbox（支払い証拠メタデータ）** / **Participant（参加者）** の CRUD
 - **Checklist（持ち物・準備リスト）** の管理と自動生成（`checklist-generate`）
-- **JSON エクスポート / インポート**（`trip export` / `trip import`、現行 **schema v6**）と `trip diff`
+- **JSON エクスポート / インポート**（`trip export` / `trip import`、現行 **schema v7**）と `trip diff`
 - **Markdown エクスポート**（`trip export-md`）による旅行しおり出力
 - **trip stats** による旅行統計
 - **trip doctor / advisor** による旅行計画の点検と改善提案
@@ -26,6 +26,7 @@ Trip（旅行全体）
            ├─ Expense（支出 — Actual Money）
            ├─ Estimate（予定費用 — Planned Money）
            └─ Note（メモ）
+ └─ Receipt（支払い証拠 — 未整理メタデータ。Actual ではない）
 ```
 
 **Itinerary is not a venue.** — Itinerary は場所（Venue / POI）ではなく、**旅行中の行動を表す最小単位** です。`title` と `--day` があれば登録でき、`location` は任意です。高速道路・給油・チェックイン・帰宅など、固定 POI に紐づかない行も Itinerary として扱います。

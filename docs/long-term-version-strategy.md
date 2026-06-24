@@ -367,7 +367,7 @@ Receipt Inbox **実装**は [v3.6.0-receipt-inbox-metadata-only-implementation-p
 
 ---
 
-## v3.6 — Receipt Inbox Metadata-only（**v3.6.0 候補 — implementation plan**）
+## v3.6 — Receipt Inbox Metadata-only（**実装済み — release は別途**）
 
 ### テーマ
 
@@ -539,7 +539,7 @@ CLI を中心とした **旅行プラットフォーム** へ発展させる。
 | **v3.3** | Planned vs Actual Difference | Trip 単位の通貨別差分（stats / export-md） — **v3.3.0 リリース済み** |
 | **v3.4** | Itinerary Planned vs Actual | Itinerary 単位差分（export-md） — **v3.4.0 リリース済み** |
 | **v3.5** | Receipt Inbox | concept design — **v3.5.0 リリース済み**（documentation-only） |
-| **v3.6** | Receipt Inbox metadata-only | 未整理レシート CRUD + export v7 候補 — **implementation plan** |
+| **v3.6** | Receipt Inbox metadata-only | 未整理レシート CRUD + export v7 — **実装済み**（release 未実施） |
 | **v4** | Reservation | 予約情報の正式管理 |
 | **v5** | Travel Book | 共有用しおり（MD/PDF） |
 | **v6** | Travel Journal | 写真・添付付き旅行記 |
