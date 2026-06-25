@@ -48,3 +48,4 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v3.5.0-receipt-inbox-concept-design.md](v3.5.0-receipt-inbox-concept-design.md) | v3.5.0 Receipt Inbox Concept Design（**v3.5.0 リリース済み** — documentation-only） |
 | [v3.6.0-receipt-inbox-metadata-only-implementation-plan.md](v3.6.0-receipt-inbox-metadata-only-implementation-plan.md) | v3.6.0 Receipt Inbox Metadata-only Implementation Plan（**v3.6.0 リリース済み**） |
 | [v3.6.0-receipt-inbox-metadata-only-post-implementation-review.md](v3.6.0-receipt-inbox-metadata-only-post-implementation-review.md) | v3.6.0 Receipt Inbox Metadata-only Post-Implementation Review（**v3.6.0 リリース済み**） |
+| [v3.7.0-receipt-assignment-and-trash-workflow-design.md](v3.7.0-receipt-assignment-and-trash-workflow-design.md) | v3.7.0 Receipt Assignment and Trash Workflow Design（**v3.7.0 candidate** — documentation-only、implementation deferred） |

@@ -408,6 +408,47 @@ trip stats への Receipt 反映
 
 ---
 
+## v3.7 — Receipt Assignment / Trash workflow（**v3.7.0 candidate — documentation-only**）
+
+### テーマ
+
+```text
+Receipt Inbox の user workflow を単純化し、
+Receipt を「Expense 化（assign）」または「不要なので Trash」へ整理できるようにする
+```
+
+### 位置づけ
+
+```text
+workflow design（設計文書のみ）
+implementation deferred（DB / CLI は変更しない）
+```
+
+### 方向性（案）
+
+```text
+Receipt は Itinerary に link しない
+Receipt を Itinerary に assign することで Expense を作る（Receipt は一時 item）
+不要な Receipt は ignored ではなく trash へ送る
+ignored status は将来廃止候補（trash 導入時の移行ターゲット）
+pending sum（未割り当て Receipt 合計）は Actual ではない補助情報として有用（future）
+Expense correction routes（reassign / unassign / trash）は future work
+```
+
+設計文書: [v3.7.0-receipt-assignment-and-trash-workflow-design.md](specifications/v3.7.0-receipt-assignment-and-trash-workflow-design.md)
+
+### v3.7.x defer（維持）
+
+```text
+Receipt assign / trash の実装
+Receipt / Expense 共通の Evidence / Attachment 画像証憑
+Receipt image handling / OCR / automatic receipt parsing
+Balance / Settlement
+Planned vs Actual / trip stats への Receipt 反映
+```
+
+---
+
 ## v4 — Reservation
 
 ### テーマ
