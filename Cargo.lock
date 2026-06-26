@@ -86,18 +86,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
-name = "caglla-cli"
-version = "3.7.1"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "rusqlite",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "cc"
 version = "1.2.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -526,6 +514,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "travel-ledger-cli"
+version = "3.7.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "rusqlite",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

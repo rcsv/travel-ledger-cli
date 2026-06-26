@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_caglla-cli"))
+    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
         .current_dir(cwd)
         .args(args)
         .output()
@@ -14,7 +14,7 @@ fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
 
 fn temp_workdir() -> std::path::PathBuf {
     let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("caglla-cli-day-{n}"));
+    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-day-{n}"));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir

@@ -27,7 +27,7 @@ body:
     id: version
     attributes:
       label: バージョン
-      description: `caglla-cli --version` または git tag
+      description: `travel-ledger-cli --version` または git tag
       placeholder: v1.23.0
     validations:
       required: false

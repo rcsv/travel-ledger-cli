@@ -10,13 +10,13 @@ Caglla CLI のインストールと初回利用の手順です。
 
 ### GitHub Release からダウンロード
 
-[GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases) から、OS 向けのアーカイブ（Linux / macOS: `.tar.gz`、Windows: `.zip`）をダウンロードできます。中身の `caglla-cli`（Windows は `caglla-cli.exe`）を PATH の通った場所に置いて実行してください。
+[GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases) から、OS 向けのアーカイブ（Linux / macOS: `.tar.gz`、Windows: `.zip`）をダウンロードできます。中身の `travel-ledger-cli`（Windows は `travel-ledger-cli.exe`）を PATH の通った場所に置いて実行してください。
 
 | OS | Asset 名（例: v1.0.5） |
 |---|---|
-| Linux (x86_64) | `caglla-cli-1.0.5-linux-amd64.tar.gz` |
-| macOS (Apple Silicon) | `caglla-cli-1.0.5-macos-arm64.tar.gz` |
-| Windows (x86_64) | `caglla-cli-1.0.5-windows-amd64.zip` |
+| Linux (x86_64) | `travel-ledger-cli-1.0.5-linux-amd64.tar.gz` |
+| macOS (Apple Silicon) | `travel-ledger-cli-1.0.5-macos-arm64.tar.gz` |
+| Windows (x86_64) | `travel-ledger-cli-1.0.5-windows-amd64.zip` |
 
 `v*` タグを push すると、GitHub Actions が release build を作成し、上記アセットを Release に添付します。
 

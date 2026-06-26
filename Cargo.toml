@@ -1,5 +1,5 @@
 [package]
-name = "caglla-cli"
+name = "travel-ledger-cli"
 version = "3.7.1"
 edition = "2021"
 description = "A local SQLite-based travel planning CLI."

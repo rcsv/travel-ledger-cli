@@ -12,9 +12,9 @@ v3.7.1 release verification completed
 - v3.7.1 fixes trashed Receipt export timestamp formatting so `validate-export` accepts exported trashed Receipts.
 - v3.7.1 post-implementation review was created (`v3.7.1-receipt-inbox-post-implementation-review.md`).
 - GitHub Release assets were generated:
-  - caglla-cli-3.7.1-linux-amd64.tar.gz
-  - caglla-cli-3.7.1-macos-arm64.tar.gz
-  - caglla-cli-3.7.1-windows-amd64.zip
+  - travel-ledger-cli-3.7.1-linux-amd64.tar.gz
+  - travel-ledger-cli-3.7.1-macos-arm64.tar.gz
+  - travel-ledger-cli-3.7.1-windows-amd64.zip
 
 ## Repository state
 

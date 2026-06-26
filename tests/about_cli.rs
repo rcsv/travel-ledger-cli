@@ -6,11 +6,11 @@ static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn run_cli_in_temp_dir(args: &[&str]) -> (std::process::Output, std::path::PathBuf) {
     let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("caglla-cli-about-test-{n}"));
+    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-about-test-{n}"));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
 
-    let output = Command::new(env!("CARGO_BIN_EXE_caglla-cli"))
+    let output = Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
         .current_dir(&dir)
         .args(args)
         .output()
