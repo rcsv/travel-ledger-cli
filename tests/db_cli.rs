@@ -362,3 +362,136 @@ fn cli_db_status_json_legacy_days_without_summary_column() {
     assert_eq!(parsed["table_counts"]["trips"], 1);
     assert_eq!(parsed["table_counts"]["days"], 3);
 }
+
+#[test]
+fn cli_db_use_then_db_path_uses_config_source() {
+    let dir = temp_workdir();
+    let db_path = dir.join("data").join("app.db");
+
+    let use_output = run_cli(&dir, &["db", "use", "./data/app.db"]);
+    assert!(
+        use_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&use_output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&use_output.stdout);
+    assert!(stdout.contains("Database path saved to config"));
+    assert!(stdout.contains("./data/app.db"));
+    assert!(!db_path.exists(), "db use must not create SQLite file");
+
+    let path_output = run_cli(&dir, &["db", "path"]);
+    assert!(path_output.status.success());
+    let path_stdout = String::from_utf8_lossy(&path_output.stdout)
+        .trim()
+        .to_string();
+    assert_same_resolved_db_path(&path_stdout, &db_path);
+
+    let status_output = run_cli(&dir, &["db", "status", "--json"]);
+    assert!(status_output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&status_output.stdout).trim()).unwrap();
+    assert_eq!(parsed["path_source"], "config");
+    assert!(parsed["config_path"].is_string());
+}
+
+#[test]
+fn cli_db_use_clear_reverts_to_default_db_path() {
+    let dir = temp_workdir();
+    let default_db = dir.join("caglla.db");
+
+    assert!(run_cli(&dir, &["db", "use", "./data/app.db"])
+        .status
+        .success());
+    assert!(dir.join("caglla.toml").exists());
+
+    let clear_output = run_cli(&dir, &["db", "use", "--clear"]);
+    assert!(
+        clear_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&clear_output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&clear_output.stdout);
+    assert!(stdout.contains("Database path cleared from config"));
+    assert!(stdout.contains("./caglla.db") || stdout.contains("Default"));
+
+    let path_output = run_cli(&dir, &["db", "path"]);
+    assert!(path_output.status.success());
+    let path_stdout = String::from_utf8_lossy(&path_output.stdout)
+        .trim()
+        .to_string();
+    assert_same_resolved_db_path(&path_stdout, &default_db);
+
+    let status_output = run_cli(&dir, &["db", "status", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&status_output.stdout).trim()).unwrap();
+    assert_eq!(parsed["path_source"], "default");
+}
+
+#[test]
+fn cli_db_use_config_is_overridden_by_cli_db_flag() {
+    let dir = temp_workdir();
+    let config_db = dir.join("from-config.db");
+    let cli_db = dir.join("from-cli.db");
+
+    assert!(run_cli(&dir, &["db", "use", "./from-config.db"])
+        .status
+        .success());
+
+    let output = run_cli(&dir, &["--db", cli_db.to_str().unwrap(), "db", "path"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    assert_same_resolved_db_path(&stdout, &cli_db);
+    assert_ne!(
+        normalize_path_str(&stdout),
+        normalize_path_str(&config_db.to_string_lossy())
+    );
+}
+
+#[test]
+fn cli_db_use_config_is_overridden_by_caglla_db_env() {
+    let dir = temp_workdir();
+    let config_db = dir.join("from-config.db");
+    let env_db = dir.join("from-env.db");
+
+    assert!(run_cli(&dir, &["db", "use", "./from-config.db"])
+        .status
+        .success());
+
+    let output = Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
+        .current_dir(&dir)
+        .env("CAGLLA_DB", "./from-env.db")
+        .args(["db", "path"])
+        .output()
+        .expect("failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    assert_same_resolved_db_path(&stdout, &env_db);
+    assert_ne!(
+        normalize_path_str(&stdout),
+        normalize_path_str(&config_db.to_string_lossy())
+    );
+}
+
+#[test]
+fn cli_db_use_invalid_toml_does_not_corrupt_config() {
+    let dir = temp_workdir();
+    let invalid = "not = [valid";
+    fs::write(dir.join("caglla.toml"), invalid).unwrap();
+
+    let output = run_cli(&dir, &["db", "use", "./app.db"]);
+    assert!(!output.status.success());
+    let contents = fs::read_to_string(dir.join("caglla.toml")).unwrap();
+    assert_eq!(contents, invalid);
+}
+
+#[test]
+fn cli_db_use_missing_db_prints_note() {
+    let dir = temp_workdir();
+
+    let output = run_cli(&dir, &["db", "use", "./missing.db"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("database file does not exist yet"));
+    assert!(!dir.join("missing.db").exists());
+}

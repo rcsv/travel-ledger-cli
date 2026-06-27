@@ -504,7 +504,7 @@ Roadmap document: [v3.8.0-roadmap-realignment-after-receipt-inbox.md](specificat
 
 | 優先 | 候補 | 設計 | 実装 |
 |---|---|---|---|
-| 高 | DB path 切替（`--db` / `CAGLLA_DB` / `db use`） | **Phase 2 設計完了（v3.10.0）** | Phase 1 **v3.9.0**；`db use` 実装 **未** |
+| 高 | DB path 切替（`--db` / `CAGLLA_DB` / `db use`） | **Phase 2 設計完了（v3.10.0）** | Phase 1 **v3.9.0**；Phase 2 **`db use` v3.11.0** |
 | 中 | Travel Book v4 concept design | 可 | v4 スコープ |
 | 中 | doctor / advisor Estimate・Receipt 活用 | 可 | 未 |
 
@@ -538,7 +538,7 @@ Implementation plan: [v3.9.0-config-and-db-path-foundation-implementation-plan.m
 
 | 優先 | 候補 | 設計 | 実装 |
 |---|---|---|---|
-| 中 | DB path Phase 2（`db use` 実装） | **v3.10.0 設計完了** | 未 |
+| 中 | DB path Phase 2（`db use` 実装） | **v3.10.0 設計完了** | **v3.11.0** |
 | 低 | 親 dir 探索 / user-global config | defer | 未 |
 | 中 | Travel Book v4 concept design | 可 | v4 スコープ |
 | 中 | doctor / advisor Estimate・Receipt 活用 | 可 | 未 |
@@ -573,10 +573,43 @@ Concept design: [v3.10.0-db-use-concept-design.md](specifications/v3.10.0-db-use
 
 | 優先 | 候補 | 設計 | 実装 |
 |---|---|---|---|
-| 高 | `db use` Implementation Plan + Phase 2 実装 | **v3.10.0 完了** | 未 |
+| 高 | `db use` Implementation Plan + Phase 2 実装 | **v3.10.0 完了** | **v3.11.0** |
 | 中 | Travel Book v4 concept design | 可 | v4 スコープ |
 | 中 | doctor / advisor Estimate・Receipt 活用 | 可 | 未 |
 | 低 | 親 dir config 探索 | defer Phase 3+ | 未 |
+
+---
+
+## v3.11 — DB Use implementation（**v3.11.0**）
+
+### テーマ
+
+```text
+db use — CWD ./caglla.toml への [database].path 永続化（Phase 2 実装）
+v3.10.0 concept design の実装
+```
+
+### リリース内容（v3.11.0）
+
+```text
+caglla db use <path> / caglla db use --clear
+相対パス優先保存、未知 TOML キー保持、atomic write
+db path / db status / --db / CAGLLA_DB 優先順位は v3.9.0 維持
+SQLite schema / trip export schema 変更なし
+```
+
+Implementation plan: [v3.11.0-db-use-implementation-plan.md](specifications/v3.11.0-db-use-implementation-plan.md)
+
+リリースノート: [v3.11.0-notes.md](releases/v3.11.0-notes.md)
+
+### v3.11 後の着手候補
+
+| 優先 | 候補 | 設計 | 実装 |
+|---|---|---|---|
+| 中 | 親 dir `caglla.toml` 探索（Phase 3） | 要設計 | 未 |
+| 中 | Travel Book v4 concept design | 可 | v4 スコープ |
+| 中 | doctor / advisor Estimate・Receipt 活用 | 可 | 未 |
+| 低 | user-global config / profile | defer | 未 |
 
 ---
 
@@ -709,6 +742,7 @@ Reservation Display（Trip / Itinerary 一覧）
 | **v3.8** | Roadmap realignment | v4+ 再整列・次候補の開始可否 — **v3.8.0 documentation-only** |
 | **v3.9** | Config and DB path foundation | `--db` / `CAGLLA_DB` / `caglla.toml` — **v3.9.0 Phase 1**；v3.9.1–v3.9.2 patches |
 | **v3.10** | DB Use concept design | `db use` 永続 config — **v3.10.0 documentation-only** |
+| **v3.11** | DB Use implementation | `db use` / `db use --clear` — **v3.11.0** |
 | **v4** | Travel Book | 共有用しおり（MD/PDF、Summary・Reservation 統合） |
 | **v5** | Travel Journal | 写真・添付付き旅行記（Evidence 設計が先） |
 | **v6** | Identity | 利用者・アカウント |

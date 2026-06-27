@@ -2,7 +2,7 @@
 
 A local-first travel planning CLI for managing trips, itineraries, checklists, expenses, and Markdown/JSON exports.
 
-Caglla.Travel のコマンドライン版です。旅行の計画を、ターミナルから管理できます。データはローカルの SQLite データベースに保存されます（既定は CWD の `caglla.db`）。`--db` / `CAGLLA_DB` / `./caglla.toml` でパスを切り替えられます。Web 版やクラウド同期は未対応です。
+Caglla.Travel のコマンドライン版です。旅行の計画を、ターミナルから管理できます。データはローカルの SQLite データベースに保存されます（既定は CWD の `caglla.db`）。`caglla db use` で `./caglla.toml` に既定 DB を記録でき、一時的な上書きには `--db` / `CAGLLA_DB` を使えます。Web 版やクラウド同期は未対応です。
 
 ## Features
 
@@ -68,7 +68,19 @@ cargo run -- itinerary timeline 1
 | Checklist | `checklist add/list/check/...`, `trip checklist-generate` |
 | Export | `trip export`, `trip import`, `trip validate-export`, `trip diff`, `trip export-md` |
 | Diagnostics | `trip doctor`, `trip advisor` |
-| Dev | `db path`, `db status`, `db reset`（`--db` / `CAGLLA_DB` / `caglla.toml` で DB パス指定可） |
+| Dev | `db path`, `db status`, `db reset`, `db use`（`--db` / `CAGLLA_DB` / `caglla.toml` で DB パス指定可） |
+
+### Database path（`caglla.toml`）
+
+プロジェクトごとに既定の DB を記録するには:
+
+```bash
+caglla db use ./data/okinawa.db   # CWD の caglla.toml に [database].path を保存
+caglla db path                  # 解決後の DB パスを表示
+caglla db use --clear           # config の path を削除（既定 ./caglla.db に戻る）
+```
+
+優先順位: `--db` > `CAGLLA_DB` > `./caglla.toml` > `./caglla.db`。`db use` は config 更新のみで、当該コマンド実行中の DB を即時切り替えしません。
 
 コマンド詳細: [docs/command-reference.md](docs/command-reference.md)
 
@@ -92,7 +104,7 @@ cargo run -- itinerary timeline 1
 
 | 項目 | 状態 |
 |---|---|
-| データ保存 | ローカル SQLite（既定 `caglla.db`）。`--db` / `CAGLLA_DB` / `./caglla.toml` でパス切替可。Web 版・クラウド同期は未対応 |
+| データ保存 | ローカル SQLite（既定 `caglla.db`）。`db use` で `caglla.toml` に既定パスを保存。`--db` / `CAGLLA_DB` で一時上書き可。Web 版・クラウド同期は未対応 |
 | JSON 出力（`--json`） | ツール連携向け。**内部仕様扱い**（構造は将来変更の可能性あり） |
 | 費用管理・通貨換算 | Expense（実績）・Estimate（予定）CRUD は対応。Trip / Itinerary 単位の Planned vs Actual 差分表示は対応。精算（Settlement）は未対応 |
 | 類似旅行検索（Similarity） | 将来候補（現 CLI には未実装） |
@@ -101,12 +113,13 @@ cargo run -- itinerary timeline 1
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v3.10.0](docs/releases/v3.10.0-notes.md) — **documentation-only**. DB Use concept design（`db use` / Phase 2 config write rules）。
+**最新:** [v3.11.0](docs/releases/v3.11.0-notes.md) — DB Use implementation（`db use` / `db use --clear`）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v3.11.0](docs/releases/v3.11.0-notes.md) | minor | DB Use implementation |
 | [v3.10.0](docs/releases/v3.10.0-notes.md) | docs | DB Use concept design |
 | [v3.9.2](docs/releases/v3.9.2-notes.md) | test | Legacy migration test hardening |
 | [v3.9.1](docs/releases/v3.9.1-notes.md) | patch | Legacy days summary migration fix |

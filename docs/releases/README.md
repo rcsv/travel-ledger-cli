@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v3.11.0 | DB Use implementation | [v3.11.0-notes.md](v3.11.0-notes.md) |
 | v3.10.0 | DB Use concept design | [v3.10.0-notes.md](v3.10.0-notes.md) |
 | v3.9.2 | Legacy migration test hardening | [v3.9.2-notes.md](v3.9.2-notes.md) |
 | v3.9.1 | Legacy days summary migration fix | [v3.9.1-notes.md](v3.9.1-notes.md) |

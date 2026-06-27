@@ -91,6 +91,14 @@ pub enum DbAction {
         #[arg(long)]
         json: bool,
     },
+    /// このディレクトリの既定 DB を caglla.toml に記録（DB は開かない）
+    Use {
+        /// データベースファイルパス（CWD 基準）
+        path: Option<std::path::PathBuf>,
+        /// 記録を消去し default ./caglla.db に戻す
+        #[arg(long, conflicts_with = "path")]
+        clear: bool,
+    },
     /// 【開発用】全データを削除して DB を初期状態に戻す（本番運用では使わない）
     Reset,
 }
