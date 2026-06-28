@@ -1,0 +1,109 @@
+# tools/release/release.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# shellcheck source=tools/release/env.sh
+. "$SCRIPT_DIR/env.sh"
+
+usage() {
+  cat <<EOF
+Usage:
+  tools/release/release.sh <version> <release title without version>
+
+Example:
+  tools/release/release.sh v4.1.2 "Okinawa Travel Book sample enrichment"
+
+Environment:
+  WAIT_RELEASE_SECONDS=180   Seconds to wait for auto-created GitHub Release
+  WAIT_ASSETS_SECONDS=300    Seconds to wait for 3OS assets
+EOF
+}
+
+[ "$#" -ge 2 ] || {
+  usage
+  exit 1
+}
+
+VERSION="$(with_v "$1")"
+shift
+TITLE="$*"
+RELEASE_TITLE="$VERSION $TITLE"
+NOTES_FILE="$(release_notes_file "$VERSION")"
+
+WAIT_RELEASE_SECONDS="${WAIT_RELEASE_SECONDS:-180}"
+WAIT_ASSETS_SECONDS="${WAIT_ASSETS_SECONDS:-300}"
+
+require_cmd gh
+require_cmd git
+
+assert_notes_file_exists "$NOTES_FILE"
+
+info "Release version : $VERSION"
+info "Release title   : $RELEASE_TITLE"
+info "Release notes   : $NOTES_FILE"
+info "Repository      : $REPO"
+
+info "Waiting for GitHub Release to appear, if workflow creates it automatically"
+
+elapsed=0
+release_exists=0
+
+while [ "$elapsed" -le "$WAIT_RELEASE_SECONDS" ]; do
+  if gh release view "$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+    release_exists=1
+    break
+  fi
+
+  sleep 10
+  elapsed=$((elapsed + 10))
+done
+
+if [ "$release_exists" -eq 1 ]; then
+  info "GitHub Release already exists. Editing title and notes."
+  gh release edit "$VERSION" \
+    --repo "$REPO" \
+    --title "$RELEASE_TITLE" \
+    --notes-file "$NOTES_FILE"
+else
+  info "GitHub Release was not auto-created. Creating it manually."
+  gh release create "$VERSION" \
+    --repo "$REPO" \
+    --verify-tag \
+    --title "$RELEASE_TITLE" \
+    --notes-file "$NOTES_FILE"
+fi
+
+info "Waiting for expected assets"
+
+elapsed=0
+
+while [ "$elapsed" -le "$WAIT_ASSETS_SECONDS" ]; do
+  missing=""
+
+  for asset in $(expected_asset_names "$VERSION"); do
+    if ! gh release view "$VERSION" --repo "$REPO" --json assets --jq '.assets[].name' | grep -Fx "$asset" >/dev/null 2>&1; then
+      missing="$missing $asset"
+    fi
+  done
+
+  if [ -z "$missing" ]; then
+    info "All expected assets are uploaded"
+    break
+  fi
+
+  info "Still waiting for assets:$missing"
+  sleep 15
+  elapsed=$((elapsed + 15))
+done
+
+if [ -n "${missing:-}" ]; then
+  die "Some expected assets are still missing:$missing"
+fi
+
+info "Final release view"
+gh release view "$VERSION" \
+  --repo "$REPO" \
+  --json tagName,name,assets,url
+
+info "Done"
