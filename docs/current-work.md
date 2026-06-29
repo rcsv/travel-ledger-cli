@@ -2,46 +2,36 @@
 
 ## Current phase
 
-v4.2.0 release verification
+v4.2.1 post-release review（documentation-only）
 
 ## Latest completed
 
-- v4.2.0 Travel Book export-md chapter layout (`src/io/markdown.rs`).
-- Okinawa `expected-export-md.md` golden + integration test.
-- v4.1.2 Okinawa Travel Book sample enrichment (seed + golden).
+- v4.2.0 Travel Book export-md chapter layout — **released**
+- v4.2.1 Travel Book export-md post-release review（本書・分類表）
 
 ## Repository state
 
-- Cargo version: `4.2.0`
-- Next tag candidate: `v4.2.0`
+- Cargo version: `4.2.0`（v4.2.1 はドキュメントのみ — バージョン bump は release 時）
+- Review doc: [v4.2.1-travel-book-export-md-post-release-review.md](specifications/v4.2.1-travel-book-export-md-post-release-review.md)
 
 ## Next action
 
-After v4.2.0 release:
+**v4.2.2 — Travel Book Markdown polish**（review の Defer 項目。小規模実装）:
 
-- **v4.3.0** — Reservation / Summary display refinement (per roadmap)
-- or export-md follow-ups (Highlights, output profiles)
+1. Trip overview — omit all-zero Stay / Travel / Total time lines
+2. Okinawa seed — user-facing remark / estimate note wording（fixture 注記は README 正本へ）
+3. Notes export order — Trip → Day → Itinerary
+4. Reservations — reduce Provider duplication
 
-Deferred:
+その後:
 
-- DB path Phase 3
-- PDF export
-- Highlights auto-extraction
-- Expense / Receipt in Travel Book output
+- **v4.3.0** — Reservation / Summary display refinement（ロードマップ）
 
 ## Do not start yet
 
-Canonical defer list (synced with [long-term-version-strategy.md](long-term-version-strategy.md)):
+- Travel Book への Expense / Receipt 追加
+- Highlights 自動抽出
+- PDF export
+- fixture 文字列の export 時自動除去
 
-- Evidence / Attachment（共通レイヤー設計が先）
-- image_path（Receipt / Expense 専用の先行実装）
-- OCR
-- automatic receipt parsing
-- Balance / Settlement（精算・振込計算）
-- Participant sharing 拡張（Settlement 連動）
-- Expense reassign / unassign / trash
-- receipt purge
-- Travel Journal 実装（v5 — Evidence / Attachment 未設計）
-- trip stats / Planned vs Actual への Receipt・Pending 反映
-- Potential Actual 表示
-- Cloud / Identity / Platform 実装
+Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

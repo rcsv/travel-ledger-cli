@@ -111,6 +111,8 @@ cargo run -- trip export-md 1
 
 Golden: `samples/okinawa_sesoko_2026/expected-export-md.md`
 
+Post-release review（v4.2.1）: [v4.2.1-travel-book-export-md-post-release-review.md](specifications/v4.2.1-travel-book-export-md-post-release-review.md)
+
 ### checklist_generate サンプル
 
 4日間・Itinerary 15件・チェックリスト10件の小規模サンプル:

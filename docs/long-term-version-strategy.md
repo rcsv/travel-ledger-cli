@@ -757,9 +757,62 @@ Implementation plan: [v4.1.2-okinawa-travel-book-sample-enrichment-implementatio
 
 | 優先 | 候補 | 設計 | 実装 |
 |---|---|---|---|
-| 高 | export-md layout improvement | v4.1.0 + v4.1.2 完了 | **v4.2.0** |
+| 高 | export-md layout improvement | v4.1.0 + v4.1.2 完了 | **v4.2.0 完了** |
+| 中 | export-md post-release review | v4.2.0 後 | **v4.2.1**（documentation-only） |
+| 中 | Travel Book Markdown polish | v4.2.1 review | **v4.2.2** 候補 |
 | 中 | Reservation / Summary display refinement | v4.2 後 | v4.3.0 候補 |
 | 低 | PDF feasibility study | defer | 未 |
+
+---
+
+## v4.2.0 — Travel Book export-md layout（**v4.2.0**）
+
+### テーマ
+
+```text
+trip export-md を v4.1.0 章立てで実装
+Okinawa sample で Travel Book として検証
+```
+
+### リリース内容（v4.2.0）
+
+```text
+Cover → Trip overview → Daily schedule → Reservations → Checklist
+     → Planned cost → Notes → Colophon
+Expense / Receipt / Difference は Travel Book に含めない
+expected-export-md.md golden + integration test
+```
+
+Implementation plan: [v4.2.0-export-md-layout-improvement-implementation-plan.md](specifications/v4.2.0-export-md-layout-improvement-implementation-plan.md)
+
+リリースノート: [v4.2.0-notes.md](releases/v4.2.0-notes.md)
+
+### v4.2.0 後の着手候補
+
+| 優先 | 候補 | 設計 | 実装 |
+|---|---|---|---|
+| 高 | export-md post-release review | v4.2.0 完了 | **v4.2.1** |
+| 高 | Travel Book Markdown polish | v4.2.1 review | **v4.2.2** |
+| 中 | Reservation / Summary display refinement | v4.2 後 | v4.3.0 候補 |
+| 低 | PDF feasibility study | defer | 未 |
+
+---
+
+## v4.2.1 — Travel Book export-md post-release review（**documentation-only**）
+
+### テーマ
+
+```text
+v4.2.0 出力の責務境界・可読性・文言のレビュー
+沖縄 expected-export-md.md を正本
+分類: Keep / Defer / Do not do → v4.2.2 へ polish を分離
+```
+
+Post-release review: [v4.2.1-travel-book-export-md-post-release-review.md](specifications/v4.2.1-travel-book-export-md-post-release-review.md)
+
+リリースノート: [v4.2.1-notes.md](releases/v4.2.1-notes.md)
+
+コード / golden / CLI 変更なし。
 
 ---
 

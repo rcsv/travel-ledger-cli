@@ -143,6 +143,8 @@ Estimate は **Planned cost 表示検証用 fixture**（当初予定の主張で
 | `expected-export-v3.json` | seed 後 export の正規化 golden file（metadata 除く） |
 | `expected-export-md.md` | seed 後 `trip export-md` の golden（`Generated at` はテストで正規化） |
 
+Travel Book 出力の post-release review: [v4.2.1-travel-book-export-md-post-release-review.md](../../docs/specifications/v4.2.1-travel-book-export-md-post-release-review.md)
+
 ### golden file の再生成
 
 ```bash
