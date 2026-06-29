@@ -13,9 +13,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="${CAGLLA_SAMPLE_WORKDIR:-$ROOT}"
 cd "$WORK"
 
-RESERVATION_FIXTURE_REMARK="canonical sample fixture — derived from actual ledger"
-ESTIMATE_FIXTURE_NOTE="Travel Book planned-cost fixture; not original pre-trip budget"
-
 run() {
   cargo run --quiet --manifest-path "$ROOT/Cargo.toml" -- "$@"
 }
@@ -379,46 +376,43 @@ run reservation add --itinerary 3 \
   --reservation-type parking \
   --provider "セントレア P1 G Parking" \
   --confirmation 655098 \
-  --remark "$RESERVATION_FIXTURE_REMARK"
+  --remark "出発日の駐車場予約"
 # R2: Day 1 / sort 6 / NU045 (id 6)
 run reservation add --itinerary 6 \
   --reservation-type flight \
-  --provider "NU045 NGO ⇒ OKA" \
-  --remark "$RESERVATION_FIXTURE_REMARK"
+  --provider "NU045 NGO ⇒ OKA"
 # R3: Day 4 / sort 17 / NU046 (id 54)
 run reservation add --itinerary 54 \
   --reservation-type flight \
-  --provider "NU046 OKA ⇒ NGO" \
-  --remark "$RESERVATION_FIXTURE_REMARK"
+  --provider "NU046 OKA ⇒ NGO"
 # R4: Day 1 / sort 9 / Toyota Alphard (id 9)
 run reservation add --itinerary 9 \
   --reservation-type rental_car \
   --provider "Ks Rent A Car" \
-  --remark "$RESERVATION_FIXTURE_REMARK — ETC card required"
+  --remark "ETCカード必須"
 # R5: Day 1 / sort 14 / チェックイン (id 14)
 run reservation add --itinerary 14 \
   --reservation-type hotel \
   --provider "ヒルトン瀬底" \
-  --remark "$RESERVATION_FIXTURE_REMARK" \
   --start-at "2026-04-26T16:40" \
   --end-at "2026-04-29T10:00"
 
 run estimate add --itinerary 6 --amount 200000 --currency JPY \
-  --title "航空券（往路）" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "航空券（往路）"
 run estimate add --itinerary 54 --amount 200000 --currency JPY \
-  --title "航空券（復路）" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "航空券（復路）"
 run estimate add --itinerary 9 --amount 50000 --currency JPY \
-  --title "レンタカー" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "レンタカー"
 run estimate add --itinerary 3 --amount 13000 --currency JPY \
-  --title "駐車場（出発）" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "駐車場（出発）"
 run estimate add --itinerary 14 --amount 120000 --currency JPY \
-  --title "宿泊（3泊）" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "宿泊（3泊）"
 run estimate add --itinerary 19 --amount 10000 --currency JPY \
-  --title "美ら海水族館" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "美ら海水族館"
 run estimate add --itinerary 29 --amount 6000 --currency JPY \
-  --title "フェリー" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "フェリー"
 run estimate add --itinerary 27 --amount 80000 --currency JPY \
-  --title "食費ざっくり" --note "$ESTIMATE_FIXTURE_NOTE"
+  --title "食費ざっくり"
 
 echo "==> Receipt Inbox（帰宅後に整理する未整理支払い候補）"
 # Receipt は Actual ではない。assign 後に作成された Expense だけが Actual に入る。

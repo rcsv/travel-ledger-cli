@@ -108,18 +108,20 @@ fn append_trip_overview_stats(output: &mut String, stats: &TripStats) {
         "- Checklist: {} / {} completed\n",
         stats.checklist_completed, stats.checklist_total
     ));
-    output.push_str(&format!(
-        "- Stay Time: {}\n",
-        format_minutes_duration(stats.stay_minutes)
-    ));
-    output.push_str(&format!(
-        "- Travel Time: {}\n",
-        format_minutes_duration(stats.travel_minutes)
-    ));
-    output.push_str(&format!(
-        "- Total Time: {}\n",
-        format_minutes_duration(stats.total_minutes())
-    ));
+    if stats.stay_minutes > 0 || stats.travel_minutes > 0 || stats.total_minutes() > 0 {
+        output.push_str(&format!(
+            "- Stay Time: {}\n",
+            format_minutes_duration(stats.stay_minutes)
+        ));
+        output.push_str(&format!(
+            "- Travel Time: {}\n",
+            format_minutes_duration(stats.travel_minutes)
+        ));
+        output.push_str(&format!(
+            "- Total Time: {}\n",
+            format_minutes_duration(stats.total_minutes())
+        ));
+    }
     if stats.participants_recorded {
         if stats.self_known {
             let travelers = stats
@@ -329,14 +331,74 @@ fn note_body(note: &ExportNote) -> &str {
     }
 }
 
+fn travel_book_note_sort_key(note: &ExportNote) -> (i32, i64, i64, String) {
+    match note {
+        ExportNote::Trip { title, body, .. } => {
+            let label = title.as_deref().unwrap_or("").to_string();
+            (0, 0, 0, label + body)
+        }
+        ExportNote::Day {
+            day_number,
+            title,
+            body,
+            ..
+        } => {
+            let label = title.as_deref().unwrap_or("").to_string();
+            (1, *day_number, 0, label + body)
+        }
+        ExportNote::Itinerary {
+            itinerary_key,
+            title,
+            body,
+            ..
+        } => {
+            let label = title.as_deref().unwrap_or("").to_string();
+            (
+                2,
+                itinerary_key.day_number,
+                itinerary_key.sort_order,
+                label + body,
+            )
+        }
+    }
+}
+
+fn sort_export_notes_for_travel_book(export_notes: &mut [ExportNote]) {
+    export_notes.sort_by(|left, right| {
+        travel_book_note_sort_key(left).cmp(&travel_book_note_sort_key(right))
+    });
+}
+
+/// Provider 行が見出しと冗長か（同一または Itinerary タイトルに含まれる場合は省略）
+pub(crate) fn reservation_provider_line_redundant(
+    provider_name: &str,
+    itinerary_title: &str,
+) -> bool {
+    let provider = provider_name.trim();
+    let title = itinerary_title.trim();
+    if provider.is_empty() {
+        return true;
+    }
+    if provider == title {
+        return true;
+    }
+    if title.contains(provider) || provider.contains(title) {
+        return true;
+    }
+    false
+}
+
 /// Trip / Day / Itinerary スコープの Note entity を Markdown 章に整形する（0 件なら None）
 pub(crate) fn format_notes_chapter(export_notes: &[ExportNote]) -> Option<String> {
     if export_notes.is_empty() {
         return None;
     }
 
+    let mut notes = export_notes.to_vec();
+    sort_export_notes_for_travel_book(&mut notes);
+
     let mut lines = vec!["## Notes".to_string(), String::new()];
-    for (index, note) in export_notes.iter().enumerate() {
+    for (index, note) in notes.iter().enumerate() {
         if index > 0 {
             lines.push(String::new());
         }
@@ -402,7 +464,9 @@ pub(crate) fn format_reservations_markdown(
             "**Day {} / {}** — {}",
             row.day_number, row.itinerary_title, res.provider_name
         ));
-        lines.push(format!("Provider: {}", res.provider_name));
+        if !reservation_provider_line_redundant(&res.provider_name, &row.itinerary_title) {
+            lines.push(format!("Provider: {}", res.provider_name));
+        }
         if let Some(code) = &res.confirmation_code {
             lines.push(format!("Confirmation: {code}"));
         }
@@ -833,6 +897,9 @@ mod tests {
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
         assert!(md.contains("## Trip overview"));
         assert!(md.contains("- Checklist: 0 / 0 completed"));
+        assert!(!md.contains("- Stay Time:"));
+        assert!(!md.contains("- Travel Time:"));
+        assert!(!md.contains("- Total Time:"));
     }
 
     #[test]
@@ -912,6 +979,7 @@ mod tests {
         assert!(md.contains("Day 1 / Check-in"));
         assert!(md.contains("Confirmation: ABC123"));
         assert!(md.contains("Period: 2026-04-26T16:40 — 2026-04-29T10:00"));
+        assert!(md.contains("Provider: Hilton Sesoko Resort"));
 
         let reservations_pos = md.find("## Reservations").unwrap();
         let daily_pos = md.find("## Daily schedule").unwrap();
@@ -1244,5 +1312,89 @@ mod tests {
         assert!(!cover.contains("Short trip summary"));
         assert!(md.contains("## Trip overview"));
         assert!(md.contains("Short trip summary"));
+    }
+
+    #[test]
+    fn test_reservation_provider_line_redundant() {
+        assert!(reservation_provider_line_redundant(
+            "NU045 NGO ⇒ OKA",
+            "NU045 NGO ⇒ OKA (11:00着)"
+        ));
+        assert!(reservation_provider_line_redundant(
+            "セントレア P1 G Parking",
+            "P1 G Parking"
+        ));
+        assert!(!reservation_provider_line_redundant(
+            "ヒルトン瀬底",
+            "チェックイン"
+        ));
+        assert!(!reservation_provider_line_redundant(
+            "Ks Rent A Car",
+            "Toyota Alphard 又は同等車種"
+        ));
+    }
+
+    #[test]
+    fn test_export_md_reservation_omits_redundant_provider_line() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Flight Reservation MD Trip").unwrap();
+        let itinerary_id = add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "NU045 NGO ⇒ OKA (11:00着)",
+            None,
+            Some("08:30"),
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::reservation::add_reservation(
+            &conn,
+            itinerary_id,
+            "flight",
+            "NU045 NGO ⇒ OKA",
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        assert!(md.contains("## Reservations"));
+        assert!(md.contains("NU045 NGO ⇒ OKA"));
+        assert!(!md.contains("Provider: NU045 NGO ⇒ OKA"));
+    }
+
+    #[test]
+    fn test_export_md_notes_trip_before_day() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "Notes Order Trip").unwrap();
+        crate::note::add_note(
+            &conn,
+            crate::note::ResolvedNoteOwner::Day(
+                crate::day::find_day_id_by_trip_and_day_number(&conn, trip_id, 1).unwrap(),
+            ),
+            None,
+            "Day note body",
+        )
+        .unwrap();
+        crate::note::add_note(
+            &conn,
+            crate::note::ResolvedNoteOwner::Trip(trip_id),
+            None,
+            "Trip note body",
+        )
+        .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        let trip_pos = md.find("Trip note body").unwrap();
+        let day_pos = md.find("Day note body").unwrap();
+        assert!(trip_pos < day_pos);
     }
 }

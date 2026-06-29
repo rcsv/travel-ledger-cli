@@ -32,6 +32,7 @@ Trip `summary` は Cover ではなく **Trip overview** に載せます。
 - Trip `summary`（要約）
 - Participants 表（登録時）
 - 日数・Itinerary 件数・チェックリスト進捗・滞在/移動時間などの運用サマリー
+- Stay / Travel / Total の3つがすべて 0 のときは時間行を出さない（v4.2.2+）
 
 会計向けの Planned / Actual 合計や Difference は **含めません**（`trip stats` を使用）。
 
@@ -59,10 +60,10 @@ Trip `summary` は Cover ではなく **Trip overview** に載せます。
 
 ### Reservations / Checklist / Planned cost / Notes
 
-- **Reservations** — 予約情報（0 件なら章ごと省略）
+- **Reservations** — 予約情報（0 件なら章ごと省略）。見出しと同一の `Provider:` 行は省略（v4.2.2+）
 - **Checklist** — 持ち物（0 件なら省略）
 - **Planned cost** — Estimate の通貨別合計と Itinerary 別表（Estimate = 予定費用）
-- **Notes** — Trip / Day / Itinerary スコープの **Note entity**（Itinerary の単行 `note` フィールドとは別）
+- **Notes** — Trip → Day → Itinerary の順で **Note entity**（Itinerary の単行 `note` フィールドは Daily schedule 内のまま）
 
 ### Colophon（奥付）
 
@@ -112,6 +113,8 @@ cargo run -- trip export-md 1
 Golden: `samples/okinawa_sesoko_2026/expected-export-md.md`
 
 Post-release review（v4.2.1）: [v4.2.1-travel-book-export-md-post-release-review.md](specifications/v4.2.1-travel-book-export-md-post-release-review.md)
+
+Polish implementation（v4.2.2）: [v4.2.2-travel-book-markdown-polish-implementation-plan.md](specifications/v4.2.2-travel-book-markdown-polish-implementation-plan.md)
 
 ### checklist_generate サンプル
 

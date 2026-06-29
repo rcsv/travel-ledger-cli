@@ -816,6 +816,28 @@ Post-release review: [v4.2.1-travel-book-export-md-post-release-review.md](speci
 
 ---
 
+## v4.2.2 — Travel Book Markdown polish
+
+### テーマ
+
+```text
+v4.2.1 review の Defer 項目を小規模実装
+章立ては v4.2.0 維持
+```
+
+Implementation plan: [v4.2.2-travel-book-markdown-polish-implementation-plan.md](specifications/v4.2.2-travel-book-markdown-polish-implementation-plan.md)
+
+リリースノート: [v4.2.2-notes.md](releases/v4.2.2-notes.md)
+
+1. Trip overview — 全ゼロの Stay / Travel / Total 行を省略
+2. Okinawa seed — ユーザー向け Remark / Estimate 文言（fixture 由来は README 正本）
+3. Notes — Trip → Day → Itinerary の出力順
+4. Reservations — 冗長な `Provider:` 行を省略
+
+非対象: Venue / map provider / 移動時間自動算出 / Expense を Travel Book に追加
+
+---
+
 ## v5 — Travel Journal
 
 ### テーマ

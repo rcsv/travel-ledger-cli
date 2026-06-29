@@ -55,7 +55,6 @@
               "title": "駐車場（出発）",
               "amount": 13000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ],
@@ -64,7 +63,7 @@
               "reservation_type": "parking",
               "provider_name": "セントレア P1 G Parking",
               "confirmation_code": "655098",
-              "remark": "canonical sample fixture — derived from actual ledger"
+              "remark": "出発日の駐車場予約"
             }
           ]
         },
@@ -120,15 +119,13 @@
               "title": "航空券（往路）",
               "amount": 200000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ],
           "reservations": [
             {
               "reservation_type": "flight",
-              "provider_name": "NU045 NGO ⇒ OKA",
-              "remark": "canonical sample fixture — derived from actual ledger"
+              "provider_name": "NU045 NGO ⇒ OKA"
             }
           ]
         },
@@ -178,7 +175,6 @@
               "title": "レンタカー",
               "amount": 50000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ],
@@ -186,7 +182,7 @@
             {
               "reservation_type": "rental_car",
               "provider_name": "Ks Rent A Car",
-              "remark": "canonical sample fixture — derived from actual ledger — ETC card required"
+              "remark": "ETCカード必須"
             }
           ]
         },
@@ -291,7 +287,6 @@
               "title": "宿泊（3泊）",
               "amount": 120000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ],
@@ -299,7 +294,6 @@
             {
               "reservation_type": "hotel",
               "provider_name": "ヒルトン瀬底",
-              "remark": "canonical sample fixture — derived from actual ledger",
               "start_at": "2026-04-26T16:40",
               "end_at": "2026-04-29T10:00"
             }
@@ -380,7 +374,6 @@
               "title": "美ら海水族館",
               "amount": 10000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ]
@@ -528,7 +521,6 @@
               "title": "食費ざっくり",
               "amount": 80000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ]
@@ -567,7 +559,6 @@
               "title": "フェリー",
               "amount": 6000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ]
@@ -966,15 +957,13 @@
               "title": "航空券（復路）",
               "amount": 200000,
               "currency": "JPY",
-              "note": "Travel Book planned-cost fixture; not original pre-trip budget",
               "sort_order": 0
             }
           ],
           "reservations": [
             {
               "reservation_type": "flight",
-              "provider_name": "NU046 OKA ⇒ NGO",
-              "remark": "canonical sample fixture — derived from actual ledger"
+              "provider_name": "NU046 OKA ⇒ NGO"
             }
           ]
         },
