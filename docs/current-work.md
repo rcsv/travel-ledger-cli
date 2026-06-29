@@ -2,26 +2,24 @@
 
 ## Current phase
 
-v4.2.2 Travel Book Markdown polish（実装完了 — release 待ち）
+v4.3.0 Reservation / Summary display refinement（planning）
 
 ## Latest completed
 
 - v4.2.1 Travel Book export-md post-release review — **released**
-- v4.2.2 Travel Book Markdown polish（本マイルストーン）
+- v4.2.2 Travel Book Markdown polish — **released**
 
 ## Repository state
 
 - Cargo version: `4.2.2`
+- Latest release: `v4.2.2`
+- Travel Book Markdown polish completed
 - Implementation plan: [v4.2.2-travel-book-markdown-polish-implementation-plan.md](specifications/v4.2.2-travel-book-markdown-polish-implementation-plan.md)
 - Review doc: [v4.2.1-travel-book-export-md-post-release-review.md](specifications/v4.2.1-travel-book-export-md-post-release-review.md)
 
 ## Next action
 
-**v4.2.2 release** — tag / GitHub Release（`make check` 通過後）
-
-その後:
-
-- **v4.3.0** — Reservation / Summary display refinement（ロードマップ）
+**v4.3.0 — Reservation / Summary display refinement**
 
 ## Do not start yet
 
