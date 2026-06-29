@@ -196,7 +196,7 @@ cargo run -- estimate delete 3
 | **export / import** | `trip export` / `trip import` の schema v6 で `days[].itineraries[].estimates[]` に含まれる（id / timestamps は出力しない） |
 | **trip diff** | schema v6+ 同士で added / removed / field changed を比較 |
 | **trip stats** | Trip 配下 Estimate の件数・通貨別 **Planned total**（`estimate_count` / `estimate_totals`）。Estimate と Expense 両方がある場合は `difference_totals`（Actual − Planned） |
-| **export-md** | Itinerary セクション内に「予定費用」表・Expenses 明細。Estimate と Expense が両方ある Itinerary では **Planned total / Actual total / Difference** サマリー。Overview に Trip 単位 Planned / Actual / Difference |
+| **export-md** | Travel Book 章立て（v4.2.0+）— Cover / Trip overview / Daily schedule / Reservations / Checklist / **Planned cost**（Estimate）/ Notes / Colophon。**Expense・Difference は含めない**（会計は `trip stats`） |
 | **itinerary replicate** | source Itinerary 配下 Estimate を target にコピー（デフォルト） |
 
 **未実装:** `--without-estimates`（将来需要が明確になった場合に検討）
@@ -243,7 +243,7 @@ cargo run -- receipt delete 3
 | pending sum | `receipt list` の先頭に **Pending Receipts** サマリを表示（**Actual ではない**） |
 | status 値 | **`unreviewed` / `ignored` のみ**（user-facing） |
 | **export / import** | schema **v8** で `receipts[]`（Trip-level、`day_ref` optional、`trashed_at` optional）。v6 / v7 import は互換 |
-| **trip stats / export-md** | Receipt は **含めない**（Planned / Actual / Difference は Estimate + Expense のみ） |
+| **trip stats / export-md** | Receipt は **含めない**。`trip stats` の Planned / Actual / Difference は Estimate + Expense。`export-md` は Travel Book 向けのため Expense / Difference も **含めない** |
 | **未実装** | `receipt purge` / `receipt summary` standalone、Evidence / Attachment 画像証憑 |
 
 設計: [specifications/v3.5.0-receipt-inbox-concept-design.md](specifications/v3.5.0-receipt-inbox-concept-design.md)  

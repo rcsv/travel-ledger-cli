@@ -34,4 +34,13 @@ jq '{
   ] | sort_by(.memo)
 }' "$EXPORT_PATH" > "$GOLDEN"
 
+MD_EXPORT_PATH="$WORK/okinawa-export-md-regen.md"
+MD_GOLDEN="$SAMPLE_DIR/expected-export-md.md"
+
+cargo run --quiet --manifest-path "$ROOT/Cargo.toml" -- \
+  trip export-md 1 --output "$MD_EXPORT_PATH"
+
+sed -E 's/^Generated at: .*/Generated at: TIMESTAMP/' "$MD_EXPORT_PATH" > "$MD_GOLDEN"
+
 echo "Wrote $GOLDEN"
+echo "Wrote $MD_GOLDEN"

@@ -420,6 +420,7 @@ pub(crate) fn format_estimate_amount_markdown(amount: i64, currency: &str) -> St
 }
 
 /// Itinerary 配下 Estimate の Markdown 表（0 件なら None）
+#[allow(dead_code)]
 pub(crate) fn format_estimates_markdown_section(estimates: &[Estimate]) -> Option<String> {
     if estimates.is_empty() {
         return None;

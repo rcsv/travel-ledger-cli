@@ -196,3 +196,58 @@ fn cli_okinawa_sesoko_seed_export_matches_expected() {
     assert!(receipts_stdout.contains("美ら海水族館ショップ"));
     assert!(!receipts_stdout.contains("個人的な雑貨購入"));
 }
+
+fn normalize_export_md_timestamp(markdown: &str) -> String {
+    markdown
+        .lines()
+        .map(|line| {
+            if line.starts_with("Generated at: ") {
+                "Generated at: TIMESTAMP"
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn cli_okinawa_sesoko_seed_export_md_matches_expected() {
+    let dir = temp_workdir();
+    let root = repo_root();
+    let seed_script = root.join("samples/okinawa_sesoko_2026/seed.sh");
+
+    let seed = Command::new("bash")
+        .current_dir(&root)
+        .env("CAGLLA_SAMPLE_WORKDIR", &dir)
+        .arg(&seed_script)
+        .output()
+        .expect("failed to run seed.sh");
+    assert!(
+        seed.status.success(),
+        "seed stderr: {}",
+        String::from_utf8_lossy(&seed.stderr)
+    );
+
+    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    assert!(
+        output.status.success(),
+        "export-md stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let actual = normalize_export_md_timestamp(&String::from_utf8_lossy(&output.stdout));
+    let expected_path = root.join("samples/okinawa_sesoko_2026/expected-export-md.md");
+    let expected = normalize_export_md_timestamp(&fs::read_to_string(&expected_path).unwrap());
+
+    assert_eq!(actual, expected);
+
+    assert!(actual.contains("## Trip overview"));
+    assert!(actual.contains("## Daily schedule"));
+    assert!(actual.contains("## Reservations"));
+    assert!(actual.contains("## Planned cost"));
+    assert!(actual.contains("## Notes"));
+    assert!(actual.contains("## Colophon"));
+    assert!(!actual.contains("Expenses:"));
+    assert!(!actual.contains("- Difference:"));
+}

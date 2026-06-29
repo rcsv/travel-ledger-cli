@@ -11,22 +11,26 @@ usage() {
 Usage:
   tools/release/create-tag.sh <version> <release title without version>
 
+Or:
+  export VNUM=v4.1.2
+  export VSTR="Okinawa Travel Book sample enrichment"
+  tools/release/create-tag.sh
+
 Example:
   tools/release/create-tag.sh v4.1.2 "Okinawa Travel Book sample enrichment"
 
 Environment:
-  SKIP_CHECK=1   Skip make check
+  VNUM / VSTR     Version and title when args are omitted
+  SKIP_CHECK=1    Skip make check
 EOF
 }
 
-[ "$#" -ge 2 ] || {
+if [ "$#" -lt 2 ] && { [ -z "${VNUM:-}" ] || [ -z "${VSTR:-}" ]; }; then
   usage
   exit 1
-}
+fi
 
-VERSION="$(with_v "$1")"
-shift
-TITLE="$*"
+resolve_release_args "$@"
 NOTES_FILE="$(release_notes_file "$VERSION")"
 
 require_cmd git
@@ -77,4 +81,5 @@ git push "$REMOTE" "$VERSION"
 
 info "Done"
 info "Next:"
-info "  tools/release/release.sh $VERSION \"$TITLE\""
+info "  export VNUM=$VERSION VSTR=\"$TITLE\""
+info "  tools/release/release.sh"

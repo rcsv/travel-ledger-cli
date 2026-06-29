@@ -346,6 +346,7 @@ pub(crate) fn expense_to_json(conn: &Connection, expense: &Expense) -> Result<Ex
 }
 
 /// Markdown export 用の Expense 1行
+#[allow(dead_code)]
 pub(crate) fn format_expense_markdown_line(conn: &Connection, exp: &Expense) -> Result<String> {
     let amount = format_amount_display(exp.amount, &exp.currency);
     let title_part = match exp.title.as_deref() {

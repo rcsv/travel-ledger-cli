@@ -2,31 +2,32 @@
 
 ## Current phase
 
-v4.1.2 release verification
+v4.2.0 release verification
 
 ## Latest completed
 
+- v4.2.0 Travel Book export-md chapter layout (`src/io/markdown.rs`).
+- Okinawa `expected-export-md.md` golden + integration test.
 - v4.1.2 Okinawa Travel Book sample enrichment (seed + golden).
-- v4.1.1 Okinawa enrichment plan (documentation-only).
-- v4.1.0 Travel Book chapter structure design.
 
 ## Repository state
 
-- Latest tag: `v4.1.1` (expected; update after release)
-- Cargo version: `4.1.2` (implementation ready; release pending)
+- Cargo version: `4.2.0`
+- Next tag candidate: `v4.2.0`
 
 ## Next action
 
-**v4.2.0 — export-md layout improvement** (after v4.1.2 release):
+After v4.2.0 release:
 
-- Implement [v4.1.0 chapter structure](specifications/v4.1.0-travel-book-chapter-structure-design.md) in `src/io/markdown.rs`
-- Verify with enriched Okinawa sample (`trip export-md 1`)
+- **v4.3.0** — Reservation / Summary display refinement (per roadmap)
+- or export-md follow-ups (Highlights, output profiles)
 
 Deferred:
 
 - DB path Phase 3
 - PDF export
 - Highlights auto-extraction
+- Expense / Receipt in Travel Book output
 
 ## Do not start yet
 

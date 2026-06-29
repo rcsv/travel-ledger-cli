@@ -82,6 +82,8 @@ pub(crate) fn compute_difference_totals(
 }
 
 /// Itinerary 配下 Estimate の通貨別合計。
+/// Itinerary 配下 Estimate の通貨別合計（export-md 等で利用可能）
+#[allow(dead_code)]
 pub(crate) fn sum_estimate_totals_by_currency(estimates: &[Estimate]) -> BTreeMap<String, i64> {
     let mut totals = BTreeMap::new();
     for estimate in estimates {
@@ -91,6 +93,8 @@ pub(crate) fn sum_estimate_totals_by_currency(estimates: &[Estimate]) -> BTreeMa
 }
 
 /// Itinerary 配下 Expense の通貨別合計。
+/// Itinerary 配下 Expense の通貨別合計（export-md 等で利用可能）
+#[allow(dead_code)]
 pub(crate) fn sum_expense_totals_by_currency(expenses: &[Expense]) -> BTreeMap<String, i64> {
     let mut totals = BTreeMap::new();
     for expense in expenses {

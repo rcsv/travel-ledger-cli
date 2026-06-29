@@ -11,23 +11,27 @@ usage() {
 Usage:
   tools/release/release.sh <version> <release title without version>
 
+Or:
+  export VNUM=v4.1.2
+  export VSTR="Okinawa Travel Book sample enrichment"
+  tools/release/release.sh
+
 Example:
   tools/release/release.sh v4.1.2 "Okinawa Travel Book sample enrichment"
 
 Environment:
+  VNUM / VSTR                Version and title when args are omitted
   WAIT_RELEASE_SECONDS=180   Seconds to wait for auto-created GitHub Release
   WAIT_ASSETS_SECONDS=300    Seconds to wait for 3OS assets
 EOF
 }
 
-[ "$#" -ge 2 ] || {
+if [ "$#" -lt 2 ] && { [ -z "${VNUM:-}" ] || [ -z "${VSTR:-}" ]; }; then
   usage
   exit 1
-}
+fi
 
-VERSION="$(with_v "$1")"
-shift
-TITLE="$*"
+resolve_release_args "$@"
 RELEASE_TITLE="$VERSION $TITLE"
 NOTES_FILE="$(release_notes_file "$VERSION")"
 

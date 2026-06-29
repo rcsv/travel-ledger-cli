@@ -1,0 +1,461 @@
+# 沖縄 瀬底 4日間
+
+2026-04-26 〜 2026-04-29
+
+## Trip overview
+
+高齢者2名を含む5名で、沖縄本島北部・瀬底島を拠点に過ごす4日間の家族旅行。レンタカーで美ら海水族館、古宇利島、伊江島、万座毛を巡り、最終日は那覇空港へ戻る。
+
+- Days: 4
+- Itineraries: 58
+- Checklist: 2 / 4 completed
+- Stay Time: 0m
+- Travel Time: 0m
+- Total Time: 0m
+
+## Daily schedule
+
+### Day 1 — 2026-04-26
+
+中部国際空港から那覇へ移動し、レンタカーを受け取って首里城を観光。夕方に瀬底島へ入り、買い出し後にヒルトン瀬底へチェックインする移動中心の日。
+
+#### 06:00 出発、せっちゃんやっちゃんピックアップ
+
+- Category: transport
+- 場所: 粟根家
+
+#### 06:30 高速道路 東浦→セントレア
+
+- Category: transport
+- 場所: 東浦→セントレア
+
+#### 06:50 P1 G Parking
+
+- Category: transport
+- 場所: セントレア駐車場
+
+#### 07:30 チェックイン
+
+- Category: flight
+- 場所: セントレア空港
+
+#### 07:44 朝食 スタンダードコーヒー
+
+- Category: restaurant
+- 場所: セントレア3F
+
+#### 08:30 NU045 NGO ⇒ OKA (11:00着)
+
+- Category: flight
+- 場所: 中部国際空港
+
+#### 11:30 昼食
+
+- Category: restaurant
+- 場所: 那覇国際空港 食堂
+
+#### 12:30 レンタカー屋へのシャトルバス乗車
+
+- Category: transport
+- 場所: 那覇国際空港
+- メモ: スタッフに電話 : +81 80 6489 6688。エレベーターで3階に移動。[出口5番]。
+
+#### 13:00 Toyota Alphard 又は同等車種
+
+- Category: transport
+- 場所: Ks Rent A Car
+- メモ: 要：ETCカード
+
+#### 観光:首里城
+
+- Category: activity
+- 場所: 首里城
+
+#### 移動 高速道路
+
+- Category: transport
+
+#### 16:00 夕食の買い出し
+
+- Category: shopping
+- 場所: ザ・ビッグもとぶ店
+
+#### 16:30 瀬底島に入る
+
+- Category: transport
+- 場所: 瀬底大橋
+
+#### 16:40 チェックイン
+
+- Category: hotel
+- 場所: ヒルトン瀬底
+- メモ: 管理費など
+
+#### 18:00 夕食 部屋
+
+- Category: restaurant
+
+### Day 2 — 2026-04-27
+
+朝から美ら海水族館を楽しみ、カフェ オーシャンブルーやドリームセンターを回る。午後は古宇利島・ハナサキマルシェ方面に立ち寄り、夜はホテルで夕食。
+
+#### 07:00 出発
+
+- Category: transport
+- 場所: ヒルトン瀬底
+
+#### 07:10 朝食 ローソン
+
+- Category: restaurant
+- 場所: 海洋公園前店
+
+#### 07:30 水族館の駐車場に到着
+
+- Category: transport
+- 場所: 美ら海水族館駐車場
+- メモ: 手続きを早々に済ませカフェ準備
+
+#### 08:30 水族館に入館
+
+- Category: museum
+- 場所: 美ら海水族館
+
+#### 08:40 軽食＆ジンベイザメ
+
+- Category: restaurant
+- 場所: カフェ オーシャンブルー
+
+#### ドリームセンター入館
+
+- Category: activity
+- 場所: ドリームセンター
+
+#### 11:00 昼食
+
+- Category: restaurant
+- 場所: スナックスコール
+
+#### 周遊バス乗車
+
+- Category: transport
+- 場所: ドリームセンター入口
+
+#### 13:00 砂浜見学
+
+- Category: beach
+- 場所: 古宇利島
+
+#### 14:15 お土産 古宇利島
+
+- Category: shopping
+- 場所: 物販ソラハシ
+
+#### 14:30 スタバる
+
+- Category: restaurant
+- 場所: 沖縄ハナサキマルシェ
+
+#### 19:30 夕食
+
+- Category: restaurant
+- 場所: AMAHAJI
+
+### Day 3 — 2026-04-28
+
+フェリーで伊江島へ渡り、リリー園やハイビスカス園を訪れる。午後は瀬底へ戻り、買い出しと海水浴でゆっくり過ごす日。
+
+#### 07:30 朝食
+
+- Category: restaurant
+- 場所: ヒルトン瀬底
+
+#### 08:30 フェリー乗船
+
+- Category: transport
+- 場所: 本部港フェリーターミナル
+
+#### 09:00 出港
+
+- Category: transport
+
+#### 09:30 伊江島着
+
+- Category: transport
+
+#### 09:45 リリー園着
+
+- Category: activity
+- 場所: リリー園
+
+#### 10:00 朝食の焼きそば
+
+- Category: restaurant
+- 場所: リリー園売店
+
+#### 入園料 ハイビスカス園
+
+- Category: activity
+- 場所: ハイビスカス園
+
+#### 14:20 昼食以降の食材調達
+
+- Category: shopping
+- 場所: ザ・ビッグもとぶ店
+
+#### 14:30 昼食
+
+- Category: restaurant
+- 場所: ヒルトン瀬底
+
+#### 16:00 海水浴
+
+- Category: beach
+- 場所: ヒルトン瀬底
+
+### Day 4 — 2026-04-29
+
+朝食後にチェックアウトし、御菓子御殿・万座毛・ウミカジテラスを経由して那覇空港へ向かう。レンタカー返却後、空港で夕食と買い物を済ませて中部国際空港へ戻る。
+
+#### 07:30 朝食
+
+- Category: restaurant
+- 場所: AMAHAJI
+
+#### 07:50 土産屋さん
+
+- Category: shopping
+
+#### 10:00 出発
+
+- Category: hotel
+- 場所: ヒルトン瀬底
+- メモ: チェックアウトリミット：10:00
+
+#### お土産 御菓子御殿
+
+- Category: shopping
+- 場所: 御菓子御殿 恩納店
+
+#### 11:00 万座毛見学
+
+- Category: activity
+- 場所: 万座毛
+
+#### 11:24 昼食 元祖海ブドウ丼
+
+- Category: restaurant
+- 場所: 万座毛
+
+#### 14:00 買い物
+
+- Category: shopping
+- 場所: ウミカジテラス
+
+#### 15:20 ガソリン満タン返し
+
+- Category: transport
+- 場所: りゅうせき SSG
+
+#### 15:30 レンタカー返却
+
+- Category: transport
+- 場所: Ks Rent A Car
+- メモ: レンタカー返却:16:00
+
+#### 15:45 空港入り
+
+- Category: transport
+- 場所: 那覇国際空港
+
+#### 16:30 みなとさんへのおみやげ
+
+- Category: shopping
+- 場所: 那覇空港内 ファミマ
+
+#### 16:38 ロイズ
+
+- Category: shopping
+- 場所: 那覇空港内
+
+#### 16:45 ラングドシャ：会社のお土産
+
+- Category: shopping
+- 場所: 那覇空港内 売店
+
+#### 18:00 夕食
+
+- Category: restaurant
+- 場所: Royal Host
+
+#### 18:30 チェックイン
+
+- Category: flight
+- 場所: 那覇国際空港
+
+#### 18:39 那覇空港内 DFS・売店
+
+- Category: shopping
+- 場所: 那覇空港 DFS
+
+#### 20:05 NU046 OKA ⇒ NGO (22:05着)
+
+- Category: flight
+- 場所: 中部国際空港
+
+#### 22:30 P1 G Parking
+
+- Category: transport
+- 場所: セントレア駐車場
+
+#### 22:45 高速道路 セントレア→東浦
+
+- Category: transport
+- 場所: セントレア→東浦
+
+#### 23:10 やっちゃんせっちゃんおろす
+
+- Category: transport
+- 場所: シャトレー
+- メモ: 有料道路:700円ぐらい？
+
+#### 23:30 帰宅
+
+- Category: transport
+- 場所: 自宅
+
+## Reservations
+
+### Parking
+
+**Day 1 / P1 G Parking** — セントレア P1 G Parking
+Provider: セントレア P1 G Parking
+Confirmation: 655098
+Remark: canonical sample fixture — derived from actual ledger
+
+
+### Flight
+
+**Day 1 / NU045 NGO ⇒ OKA (11:00着)** — NU045 NGO ⇒ OKA
+Provider: NU045 NGO ⇒ OKA
+Remark: canonical sample fixture — derived from actual ledger
+
+
+### Rental Car
+
+**Day 1 / Toyota Alphard 又は同等車種** — Ks Rent A Car
+Provider: Ks Rent A Car
+Remark: canonical sample fixture — derived from actual ledger — ETC card required
+
+
+### Hotel
+
+**Day 1 / チェックイン** — ヒルトン瀬底
+Provider: ヒルトン瀬底
+Remark: canonical sample fixture — derived from actual ledger
+Period: 2026-04-26T16:40 — 2026-04-29T10:00
+
+
+### Flight
+
+**Day 4 / NU046 OKA ⇒ NGO (22:05着)** — NU046 OKA ⇒ NGO
+Provider: NU046 OKA ⇒ NGO
+Remark: canonical sample fixture — derived from actual ledger
+
+
+## Checklist
+
+- [ ] ETCカード
+- [ ] パスポート・身分証
+- [x] レンタカー予約確認
+- [x] 駐車場予約確認（セントレア P1G）
+
+
+## Planned cost
+
+- Estimates: 8
+- Planned total:
+  - JPY 679,000
+
+### Day 1 / 06:50 P1 G Parking
+
+| Item | Amount | Note |
+|---|---:|---|
+| 駐車場（出発） | JPY 13,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+### Day 1 / 08:30 NU045 NGO ⇒ OKA (11:00着)
+
+| Item | Amount | Note |
+|---|---:|---|
+| 航空券（往路） | JPY 200,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+### Day 1 / 13:00 Toyota Alphard 又は同等車種
+
+| Item | Amount | Note |
+|---|---:|---|
+| レンタカー | JPY 50,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+### Day 1 / 16:40 チェックイン
+
+| Item | Amount | Note |
+|---|---:|---|
+| 宿泊（3泊） | JPY 120,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+### Day 2 / 08:30 水族館に入館
+
+| Item | Amount | Note |
+|---|---:|---|
+| 美ら海水族館 | JPY 10,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+### Day 2 / 19:30 夕食
+
+| Item | Amount | Note |
+|---|---:|---|
+| 食費ざっくり | JPY 80,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+### Day 3 / 08:30 フェリー乗船
+
+| Item | Amount | Note |
+|---|---:|---|
+| フェリー | JPY 6,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+### Day 4 / 20:05 NU046 OKA ⇒ NGO (22:05着)
+
+| Item | Amount | Note |
+|---|---:|---|
+| 航空券（復路） | JPY 200,000 | Travel Book planned-cost fixture; not original pre-trip budget |
+
+
+## Notes
+
+### Day 1 — Day note
+
+朝が早いため、セントレア到着後の朝食と休憩を確保する。沖縄到着後はレンタカー受け取りに時間がかかる可能性あり。
+
+### Day 2 — Day note
+
+美ら海水族館は早め到着を前提にする。カフェや植物園は混雑・体調に応じて滞在時間を調整する。
+
+### Day 3 — Day note
+
+フェリー利用日。出港時刻を優先し、朝の移動に余裕を持つ。午後はホテル周辺で無理をしない構成にする。
+
+### Day 4 — Day note
+
+チェックアウト後から夜便まで時間が長い。荷物・高齢者の疲労・レンタカー返却時刻を優先して調整する。
+
+### Trip — Trip note
+
+高齢者2名を含むため、移動時間と休憩を多めに見る。レンタカー移動を前提にし、空港・ホテル・観光地間の乗り換え負担を減らす。
+
+### Trip — Trip note
+
+部屋食や買い出しを活用し、外食だけに寄せない。天候や体調次第で、古宇利島・海水浴・空港買い物は調整可能とする。
+
+## Colophon
+
+Generated by Caglla.Travel CLI
+Travel Book Generator v0
+Version: 4.2.0
+Generated at: TIMESTAMP
+Trip: 沖縄 瀬底 4日間
+Dates: 2026-04-26 〜 2026-04-29

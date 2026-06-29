@@ -141,6 +141,7 @@ Estimate は **Planned cost 表示検証用 fixture**（当初予定の主張で
 | `seed.sh` | CLI でデータ投入（v1） |
 | `regenerate-golden.sh` | seed 後 golden 再生成 |
 | `expected-export-v3.json` | seed 後 export の正規化 golden file（metadata 除く） |
+| `expected-export-md.md` | seed 後 `trip export-md` の golden（`Generated at` はテストで正規化） |
 
 ### golden file の再生成
 

@@ -93,3 +93,18 @@ ${PACKAGE_NAME}-${version_without_v}-macos-arm64.tar.gz
 ${PACKAGE_NAME}-${version_without_v}-windows-amd64.zip
 EOF
 }
+
+# Sets VERSION and TITLE from positional args or VNUM/VSTR environment variables.
+resolve_release_args() {
+  if [ "$#" -ge 2 ]; then
+    VERSION="$(with_v "$1")"
+    shift
+    TITLE="$*"
+  else
+    [ -n "${VNUM:-}" ] || die "Version is required: pass arg or set VNUM"
+    [ -n "${VSTR:-}" ] || die "Release title is required: pass arg or set VSTR"
+
+    VERSION="$(with_v "$VNUM")"
+    TITLE="$VSTR"
+  fi
+}

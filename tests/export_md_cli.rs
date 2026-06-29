@@ -48,7 +48,7 @@ fn cli_export_md_stdout_mode() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("# Okinawa Trip"));
-    assert!(stdout.contains("## Overview"));
+    assert!(stdout.contains("## Trip overview"));
     assert!(
         !stdout.contains("Markdown exported:"),
         "stdout mode should not print export confirmation"
@@ -86,7 +86,7 @@ fn cli_export_md_output_file() {
 
     let content = fs::read_to_string(dir.join("okinawa.md")).expect("output file should exist");
     assert!(content.contains("# Okinawa Trip"));
-    assert!(content.contains("## Overview"));
+    assert!(content.contains("## Trip overview"));
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn cli_export_md_output_overwrites_existing_file() {
 }
 
 #[test]
-fn cli_export_md_includes_expenses_under_itinerary() {
+fn cli_export_md_omits_expenses_in_travel_book() {
     let dir = temp_workdir();
     assert!(run_cli(
         &dir,
@@ -172,8 +172,9 @@ fn cli_export_md_includes_expenses_under_itinerary() {
     let output = run_cli(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Expenses:"));
-    assert!(stdout.contains("- 入館料: 2,500 JPY"));
+    assert!(!stdout.contains("Expenses:"));
+    assert!(!stdout.contains("- 入館料: 2,500 JPY"));
+    assert!(stdout.contains("#### Aquarium") || stdout.contains("Aquarium"));
 }
 
 #[test]
@@ -229,8 +230,7 @@ fn cli_export_md_includes_participants_section() {
     let output = run_cli(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("## Overview"));
-    assert!(stdout.contains("## Participants"));
+    assert!(stdout.contains("## Trip overview"));
     assert!(stdout.contains("| Name | Self |"));
     assert!(stdout.contains("ともさん"));
     assert!(stdout.contains("妻"));
@@ -238,13 +238,13 @@ fn cli_export_md_includes_participants_section() {
     assert!(stdout.contains("| no |"));
     assert!(stdout.contains("Travelers: 2 (companions: 1)"));
     assert!(
-        stdout.find("## Participants").unwrap() > stdout.find("## Overview").unwrap(),
-        "Participants section should follow Overview"
+        stdout.find("| Name | Self |").unwrap() > stdout.find("## Trip overview").unwrap(),
+        "Participants table should be inside Trip overview"
     );
 }
 
 #[test]
-fn cli_export_md_includes_estimates_under_itinerary() {
+fn cli_export_md_includes_estimates_in_planned_cost_chapter() {
     let dir = temp_workdir();
     assert!(run_cli(
         &dir,
@@ -315,11 +315,12 @@ fn cli_export_md_includes_estimates_under_itinerary() {
     let output = run_cli(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("予定費用:"));
+    assert!(stdout.contains("## Planned cost"));
     assert!(stdout.contains("| 入館料 | JPY 2,180 | 大人5名想定 |"));
     assert!(stdout.contains("| カフェ | JPY 5,000 |  |"));
     assert!(stdout.contains("- Planned total:"));
-    assert!(stdout.contains("- JPY 7,180"));
+    assert!(stdout.contains("JPY 7,180"));
+    assert!(!stdout.contains("予定費用:"));
 }
 
 #[test]
