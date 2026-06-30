@@ -881,6 +881,54 @@ Post-release review: [v4.3.1-reservation-summary-display-post-release-review.md]
 
 ---
 
+## v4.3.2 — Travel Book planned cost polish
+
+### テーマ
+
+```text
+Planned cost 表 — Note 列がすべて空のとき列省略
+v4.3.1 review V9
+```
+
+Implementation plan: [v4.3.2-travel-book-planned-cost-polish-implementation-plan.md](specifications/v4.3.2-travel-book-planned-cost-polish-implementation-plan.md)
+
+---
+
+## v4.4.0 — Travel Book presentation model review（**documentation-only**）
+
+### テーマ
+
+```text
+renderer 非依存の Travel Book presentation model / view model 設計レビュー
+Markdown は検証用 renderer の一つ — 正本ではない
+macOS native app / caglla.travel v2 前の機能検証
+```
+
+Design: [v4.4.0-travel-book-presentation-model-review.md](specifications/v4.4.0-travel-book-presentation-model-review.md)
+
+リリースノート: [v4.4.0-notes.md](releases/v4.4.0-notes.md)
+
+1. Domain / Presentation / Markdown renderer の三層分離
+2. TravelBookItineraryItem（時刻・タイトル・カテゴリ表示名・cue 等）
+3. `markdown.rs` から presentation 層へ移す候補の分類
+
+非対象: 大規模抽象化一括導入、GUI コード、Markdown-only 業務ルール追加、DB schema 変更
+
+---
+
+## v4.4.1 — Category display name in Travel Book（**planning**）
+
+### テーマ
+
+```text
+Daily schedule で ItineraryCategory::definition().display_name を使用
+Markdown 専用ハックではなく presentation model へ移せる形
+```
+
+根拠: [v4.4.0-travel-book-presentation-model-review.md](specifications/v4.4.0-travel-book-presentation-model-review.md) §4.4 / §5.2
+
+---
+
 ## v5 — Travel Journal
 
 ### テーマ
