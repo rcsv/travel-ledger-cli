@@ -838,7 +838,7 @@ Implementation plan: [v4.2.2-travel-book-markdown-polish-implementation-plan.md]
 
 ---
 
-## v4.3.0 — Reservation / Summary display refinement（**planning**）
+## v4.3.0 — Reservation / Summary display refinement
 
 ### テーマ
 
@@ -849,12 +849,13 @@ Travel Book 内の Reservation / Summary 表示を実旅行向けに整える
 
 Design: [v4.3.0-reservation-summary-display-refinement-design.md](specifications/v4.3.0-reservation-summary-display-refinement-design.md)
 
-主な提案:
+Implementation plan: [v4.3.0-reservation-summary-display-refinement-implementation-plan.md](specifications/v4.3.0-reservation-summary-display-refinement-implementation-plan.md)
 
-1. Summary（Trip / Day）— 配置は Keep、変更最小
+リリースノート: [v4.3.0-notes.md](releases/v4.3.0-notes.md)
+
+1. Summary（Trip / Day）— 配置 Keep
 2. Reservations — 種別 `###` 廃止、旅程順フラット
-3. 見出し行の provider 冗長抑制（v4.2.2 の拡張）
-4. 確認番号・期間・備考のしおり向けラベルと Period 人間可読化
+3. 見出し provider 冗長抑制、日本語フィールドラベル、Period 人間可読化
 
 非対象: Daily schedule 内予約ハイライト（v4.3.1+）、Venue / Maps、Expense / Receipt
 

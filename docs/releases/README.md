@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.3.0 | Reservation / Summary display refinement | [v4.3.0-notes.md](v4.3.0-notes.md) |
 | v4.2.2 | Travel Book Markdown polish | [v4.2.2-notes.md](v4.2.2-notes.md) |
 | v4.2.1 | Travel Book export-md post-release review | [v4.2.1-notes.md](v4.2.1-notes.md) |
 | v4.2.0 | Travel Book export-md layout | [v4.2.0-notes.md](v4.2.0-notes.md) |

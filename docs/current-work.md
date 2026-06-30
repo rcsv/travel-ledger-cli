@@ -2,32 +2,29 @@
 
 ## Current phase
 
-v4.3.0 Reservation / Summary display refinement（planning）
+v4.3.0 Reservation / Summary display refinement（実装完了 — release 待ち）
 
 ## Latest completed
 
-- v4.2.1 Travel Book export-md post-release review — **released**
 - v4.2.2 Travel Book Markdown polish — **released**
+- v4.3.0 Reservation / Summary display refinement（本マイルストーン）
 
 ## Repository state
 
-- Cargo version: `4.2.2`
-- Latest release: `v4.2.2`
-- Travel Book Markdown polish completed
-- **v4.3.0 design:** [v4.3.0-reservation-summary-display-refinement-design.md](specifications/v4.3.0-reservation-summary-display-refinement-design.md)
-- Implementation plan (v4.2.2): [v4.2.2-travel-book-markdown-polish-implementation-plan.md](specifications/v4.2.2-travel-book-markdown-polish-implementation-plan.md)
-- Review doc: [v4.2.1-travel-book-export-md-post-release-review.md](specifications/v4.2.1-travel-book-export-md-post-release-review.md)
+- Cargo version: `4.3.0`
+- Design: [v4.3.0-reservation-summary-display-refinement-design.md](specifications/v4.3.0-reservation-summary-display-refinement-design.md)
+- Implementation plan: [v4.3.0-reservation-summary-display-refinement-implementation-plan.md](specifications/v4.3.0-reservation-summary-display-refinement-implementation-plan.md)
 
 ## Next action
 
-**v4.3.0 design review** — [Reservation / Summary display refinement design](specifications/v4.3.0-reservation-summary-display-refinement-design.md) を確認し、承認後に実装へ
+**v4.3.0 release** — tag / GitHub Release（`make check` 通過後）
 
 ## Do not start yet
 
+- Daily schedule 内 Reservation ハイライト
 - Travel Book への Expense / Receipt 追加
 - Highlights 自動抽出
 - PDF export
-- fixture 文字列の export 時自動除去
 - Venue model / map provider / 移動時間自動算出
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

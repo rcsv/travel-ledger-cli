@@ -369,20 +369,6 @@ pub(crate) fn fmt_optional_text(value: &Option<String>) -> &str {
     value.as_deref().unwrap_or("-")
 }
 
-pub(crate) fn format_reservation_type_display(reservation_type: &str) -> String {
-    match reservation_type {
-        "hotel" => "Hotel".to_string(),
-        "flight" => "Flight".to_string(),
-        "restaurant" => "Restaurant".to_string(),
-        "rental_car" => "Rental Car".to_string(),
-        "activity" => "Activity".to_string(),
-        "parking" => "Parking".to_string(),
-        "ticket" => "Ticket".to_string(),
-        "other" => "Other".to_string(),
-        other => other.to_string(),
-    }
-}
-
 pub(crate) fn format_period(start_at: &Option<String>, end_at: &Option<String>) -> String {
     match (start_at.as_deref(), end_at.as_deref()) {
         (Some(start), Some(end)) => format!("{start} — {end}"),

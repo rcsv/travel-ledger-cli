@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use chrono::Utc;
+use chrono::{NaiveDate, NaiveDateTime, Timelike, Utc};
 use rusqlite::Connection;
 
 use crate::analysis::statistics::{format_minutes_duration, TripStats};
@@ -141,9 +141,48 @@ fn append_trip_overview_stats(output: &mut String, stats: &TripStats) {
     }
 }
 
+fn format_day_overview_list_label(trip: &Trip, day_number: i64) -> String {
+    match crate::day::day_date_for_trip(trip, day_number) {
+        Ok(date) => format!("Day {day_number} — {date}"),
+        Err(_) => format!("Day {day_number}"),
+    }
+}
+
+fn append_days_overview(output: &mut String, trip: &Trip, days: &[Day]) {
+    let mut day_summaries: Vec<(&Day, &str)> = days
+        .iter()
+        .filter_map(|day| {
+            day.summary
+                .as_deref()
+                .map(str::trim)
+                .filter(|summary| !summary.is_empty())
+                .map(|summary| (day, summary))
+        })
+        .collect();
+    if day_summaries.is_empty() {
+        return;
+    }
+
+    day_summaries.sort_by_key(|(day, _)| day.day_number);
+
+    output.push_str("\n### Days overview\n\n");
+    for (index, (day, summary)) in day_summaries.iter().enumerate() {
+        if index > 0 {
+            output.push('\n');
+        }
+        output.push_str(&format!(
+            "- **{}**: {}",
+            format_day_overview_list_label(trip, day.day_number),
+            summary
+        ));
+    }
+    output.push('\n');
+}
+
 fn append_trip_overview(
     output: &mut String,
     trip: &Trip,
+    days: &[Day],
     participants: &[Participant],
     stats: &TripStats,
 ) {
@@ -169,6 +208,7 @@ fn append_trip_overview(
         output.push('\n');
     }
     append_trip_overview_stats(output, stats);
+    append_days_overview(output, trip, days);
 }
 
 fn format_day_heading(trip: &Trip, day_number: i64) -> String {
@@ -205,7 +245,12 @@ fn append_daily_schedule(output: &mut String, trip: &Trip, days: &[Day], items: 
         }
         output.push_str(&format_day_heading(trip, *day_number));
         output.push_str("\n\n");
-        if let Some(day_summary) = summaries.get(day_number).and_then(|s| s.as_ref()) {
+        if let Some(day_summary) = summaries
+            .get(day_number)
+            .and_then(|s| s.as_deref())
+            .map(str::trim)
+            .filter(|summary| !summary.is_empty())
+        {
             output.push_str(day_summary);
             output.push_str("\n\n");
         }
@@ -388,6 +433,92 @@ pub(crate) fn reservation_provider_line_redundant(
     false
 }
 
+fn parse_reservation_datetime(value: &str) -> Option<NaiveDateTime> {
+    let trimmed = value.trim();
+    NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%dT%H:%M")
+        .or_else(|_| NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%dT%H:%M:%S"))
+        .or_else(|_| NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%d %H:%M:%S"))
+        .ok()
+}
+
+fn parse_reservation_date(value: &str) -> Option<NaiveDate> {
+    let trimmed = value.trim();
+    NaiveDate::parse_from_str(trimmed, "%Y-%m-%d").ok()
+}
+
+fn format_reservation_datetime_endpoint(value: &str) -> String {
+    if let Some(dt) = parse_reservation_datetime(value) {
+        return format!("{} {:02}:{:02}", dt.date(), dt.hour(), dt.minute());
+    }
+    if let Some(date) = parse_reservation_date(value) {
+        return date.to_string();
+    }
+    value.trim().to_string()
+}
+
+/// Travel Book 向けに Reservation の start/end を人間可読な期間文字列に整形する
+pub(crate) fn format_travel_book_reservation_period(
+    start_at: &Option<String>,
+    end_at: &Option<String>,
+) -> Option<String> {
+    let start_raw = start_at
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let end_raw = end_at
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    match (start_raw, end_raw) {
+        (Some(start), Some(end)) => {
+            if let (Some(start_dt), Some(end_dt)) = (
+                parse_reservation_datetime(start),
+                parse_reservation_datetime(end),
+            ) {
+                let start_text = format!(
+                    "{} {:02}:{:02}",
+                    start_dt.date(),
+                    start_dt.hour(),
+                    start_dt.minute()
+                );
+                let end_text = if start_dt.date() == end_dt.date() {
+                    format!("{:02}:{:02}", end_dt.hour(), end_dt.minute())
+                } else {
+                    format!(
+                        "{} {:02}:{:02}",
+                        end_dt.date(),
+                        end_dt.hour(),
+                        end_dt.minute()
+                    )
+                };
+                return Some(format!("{start_text} 〜 {end_text}"));
+            }
+            Some(format!(
+                "{} 〜 {}",
+                format_reservation_datetime_endpoint(start),
+                format_reservation_datetime_endpoint(end)
+            ))
+        }
+        (Some(start), None) => Some(format_reservation_datetime_endpoint(start)),
+        (None, Some(end)) => Some(format_reservation_datetime_endpoint(end)),
+        (None, None) => None,
+    }
+}
+
+pub(crate) fn format_travel_book_reservation_heading(
+    day_number: i64,
+    itinerary_title: &str,
+    provider_name: &str,
+) -> String {
+    let primary = format!("**Day {day_number} / {itinerary_title}**");
+    if reservation_provider_line_redundant(provider_name, itinerary_title) {
+        primary
+    } else {
+        format!("{primary} — {provider_name}")
+    }
+}
+
 /// Trip / Day / Itinerary スコープの Note entity を Markdown 章に整形する（0 件なら None）
 pub(crate) fn format_notes_chapter(export_notes: &[ExportNote]) -> Option<String> {
     if export_notes.is_empty() {
@@ -445,42 +576,29 @@ pub(crate) fn format_reservations_markdown(
     }
 
     let mut lines = vec!["## Reservations".to_string(), String::new()];
-    let mut current_type: Option<String> = None;
-    for row in reservations {
-        let res = &row.reservation;
-        if current_type.as_deref() != Some(res.reservation_type.as_str()) {
-            if current_type.is_some() {
-                lines.push(String::new());
-            }
-            lines.push(format!(
-                "### {}",
-                crate::reservation::format_reservation_type_display(&res.reservation_type)
-            ));
+    for (index, row) in reservations.iter().enumerate() {
+        if index > 0 {
             lines.push(String::new());
-            current_type = Some(res.reservation_type.clone());
         }
 
-        lines.push(format!(
-            "**Day {} / {}** — {}",
-            row.day_number, row.itinerary_title, res.provider_name
+        let res = &row.reservation;
+        lines.push(format_travel_book_reservation_heading(
+            row.day_number,
+            &row.itinerary_title,
+            &res.provider_name,
         ));
-        if !reservation_provider_line_redundant(&res.provider_name, &row.itinerary_title) {
-            lines.push(format!("Provider: {}", res.provider_name));
-        }
         if let Some(code) = &res.confirmation_code {
-            lines.push(format!("Confirmation: {code}"));
+            lines.push(format!("確認番号: {code}"));
+        }
+        if let Some(period) = format_travel_book_reservation_period(&res.start_at, &res.end_at) {
+            lines.push(format!("期間: {period}"));
         }
         if let Some(url) = &res.reservation_site_url {
             lines.push(format!("URL: {url}"));
         }
         if let Some(remark) = &res.remark {
-            lines.push(format!("Remark: {remark}"));
+            lines.push(format!("備考: {remark}"));
         }
-        let period = crate::reservation::format_period(&res.start_at, &res.end_at);
-        if period != "-" {
-            lines.push(format!("Period: {period}"));
-        }
-        lines.push(String::new());
     }
 
     Some(format!("\n\n{}\n", lines.join("\n").trim_end()))
@@ -504,7 +622,7 @@ pub(crate) fn format_trip_markdown(
     append_cover(&mut output, trip, stats);
 
     if trip_overview_worth_showing(trip, participants, stats) {
-        append_trip_overview(&mut output, trip, participants, stats);
+        append_trip_overview(&mut output, trip, days, participants, stats);
     }
 
     append_daily_schedule(&mut output, trip, days, items);
@@ -835,6 +953,44 @@ mod tests {
     }
 
     #[test]
+    fn test_export_md_days_overview_in_trip_overview() {
+        let conn = test_db();
+        let trip_id = add_trip(
+            &conn,
+            "Days Overview Trip",
+            "2026-04-26",
+            "2026-04-27",
+            None,
+        )
+        .unwrap();
+        crate::day::set_day_summary(&conn, trip_id, 1, Some("First day summary.".to_string()))
+            .unwrap();
+        crate::day::set_day_summary(&conn, trip_id, 2, Some("Second day summary.".to_string()))
+            .unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        assert!(md.contains("### Days overview"));
+        assert!(md.contains("- **Day 1 — 2026-04-26**: First day summary."));
+        assert!(md.contains("- **Day 2 — 2026-04-27**: Second day summary."));
+
+        let metrics_pos = md.find("- Checklist:").unwrap();
+        let days_overview_pos = md.find("### Days overview").unwrap();
+        let daily_pos = md.find("## Daily schedule").unwrap();
+        assert!(metrics_pos < days_overview_pos);
+        assert!(days_overview_pos < daily_pos);
+        assert!(md.contains("### Day 1 — 2026-04-26\n\nFirst day summary."));
+    }
+
+    #[test]
+    fn test_export_md_omits_days_overview_without_summaries() {
+        let conn = test_db();
+        let trip_id = add_test_trip(&conn, "No Day Summary Trip").unwrap();
+
+        let md = generate_trip_markdown(&conn, trip_id).unwrap();
+        assert!(!md.contains("### Days overview"));
+    }
+
+    #[test]
     fn test_export_md_includes_overview() {
         let conn = test_db();
         let trip_id = add_trip(&conn, "沖縄旅行", "2026-04-26", "2026-04-29", None).unwrap();
@@ -975,11 +1131,13 @@ mod tests {
 
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
         assert!(md.contains("## Reservations"));
-        assert!(md.contains("### Hotel"));
-        assert!(md.contains("Day 1 / Check-in"));
-        assert!(md.contains("Confirmation: ABC123"));
-        assert!(md.contains("Period: 2026-04-26T16:40 — 2026-04-29T10:00"));
-        assert!(md.contains("Provider: Hilton Sesoko Resort"));
+        assert!(!md.contains("### Hotel"));
+        assert!(md.contains("**Day 1 / Check-in** — Hilton Sesoko Resort"));
+        assert!(md.contains("確認番号: ABC123"));
+        assert!(md.contains("期間: 2026-04-26 16:40 〜 2026-04-29 10:00"));
+        assert!(md.contains("備考: Twin room"));
+        assert!(!md.contains("Provider: Hilton Sesoko Resort"));
+        assert!(!md.contains("Confirmation:"));
 
         let reservations_pos = md.find("## Reservations").unwrap();
         let daily_pos = md.find("## Daily schedule").unwrap();
@@ -1367,8 +1525,28 @@ mod tests {
 
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
         assert!(md.contains("## Reservations"));
-        assert!(md.contains("NU045 NGO ⇒ OKA"));
+        assert!(md.contains("**Day 1 / NU045 NGO ⇒ OKA (11:00着)**"));
+        assert!(!md.contains("— NU045 NGO ⇒ OKA"));
         assert!(!md.contains("Provider: NU045 NGO ⇒ OKA"));
+    }
+
+    #[test]
+    fn test_format_travel_book_reservation_period_human_readable() {
+        assert_eq!(
+            format_travel_book_reservation_period(
+                &Some("2026-04-26T16:40".to_string()),
+                &Some("2026-04-29T10:00".to_string()),
+            ),
+            Some("2026-04-26 16:40 〜 2026-04-29 10:00".to_string())
+        );
+        assert_eq!(
+            format_travel_book_reservation_period(
+                &Some("2026-04-26T16:40".to_string()),
+                &Some("2026-04-26T18:00".to_string()),
+            ),
+            Some("2026-04-26 16:40 〜 18:00".to_string())
+        );
+        assert_eq!(format_travel_book_reservation_period(&None, &None), None);
     }
 
     #[test]
