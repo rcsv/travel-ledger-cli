@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.4.1 | Category display name in Travel Book | [v4.4.1-notes.md](v4.4.1-notes.md) |
 | v4.4.0 | Travel Book presentation model review | [v4.4.0-notes.md](v4.4.0-notes.md) |
 | v4.3.2 | Travel Book planned cost polish | [v4.3.2-notes.md](v4.3.2-notes.md) |
 | v4.3.1 | Reservation / Summary display post-release review | [v4.3.1-notes.md](v4.3.1-notes.md) |

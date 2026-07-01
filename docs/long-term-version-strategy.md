@@ -916,16 +916,20 @@ Design: [v4.4.0-travel-book-presentation-model-review.md](specifications/v4.4.0-
 
 ---
 
-## v4.4.1 — Category display name in Travel Book（**planning**）
+## v4.4.1 — Category display name in Travel Book
 
 ### テーマ
 
 ```text
-Daily schedule で ItineraryCategory::definition().display_name を使用
-Markdown 専用ハックではなく presentation model へ移せる形
+Daily schedule カテゴリ行を ItineraryCategory::definition().display_name に寄せる
+presentation model 向けの小さな抽出 — Markdown 専用マッピングではない
 ```
 
-根拠: [v4.4.0-travel-book-presentation-model-review.md](specifications/v4.4.0-travel-book-presentation-model-review.md) §4.4 / §5.2
+Implementation plan: [v4.4.1-category-display-name-in-travel-book-implementation-plan.md](specifications/v4.4.1-category-display-name-in-travel-book-implementation-plan.md)
+
+リリースノート: [v4.4.1-notes.md](releases/v4.4.1-notes.md)
+
+例: `- Category: transport` → `- 種別: 移動`
 
 ---
 

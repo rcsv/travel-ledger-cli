@@ -6,7 +6,7 @@ use rusqlite::Connection;
 
 use crate::analysis::statistics::{format_minutes_duration, TripStats};
 use crate::domain::models::{
-    ChecklistItem, Day, Estimate, ExportNote, ItineraryItem, Participant, Trip,
+    ChecklistItem, Day, Estimate, ExportNote, ItineraryCategory, ItineraryItem, Participant, Trip,
 };
 use crate::reservation::ReservationWithContext;
 
@@ -28,6 +28,11 @@ pub(crate) fn format_trip_date_range(trip: &Trip) -> Option<String> {
     }
 }
 
+/// Travel Book 向け itinerary カテゴリ詳細行（domain 定義の表示名を使用）
+pub(crate) fn format_travel_book_category_detail_line(category: ItineraryCategory) -> String {
+    format!("- 種別: {}", category.definition().display_name)
+}
+
 /// Daily schedule 章向けに 1 件の Itinerary を Markdown 形式に整形する
 pub(crate) fn format_itinerary_item_markdown(item: &ItineraryItem) -> String {
     let heading = match &item.start_time {
@@ -38,7 +43,7 @@ pub(crate) fn format_itinerary_item_markdown(item: &ItineraryItem) -> String {
 
     let mut detail_lines = Vec::new();
     if let Some(category) = item.category {
-        detail_lines.push(format!("- Category: {}", category.as_str()));
+        detail_lines.push(format_travel_book_category_detail_line(category));
     }
     if let Some(location) = &item.location {
         detail_lines.push(format!("- 場所: {location}"));
@@ -828,9 +833,9 @@ mod tests {
 
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
         assert!(md.contains("#### Hilton Hawaiian Village"));
-        assert!(md.contains("- Category: hotel"));
+        assert!(md.contains("- 種別: ホテル"));
         assert!(md.contains("- 場所: Waikiki"));
-        let category_pos = md.find("- Category: hotel").unwrap();
+        let category_pos = md.find("- 種別: ホテル").unwrap();
         let location_pos = md.find("- 場所: Waikiki").unwrap();
         assert!(category_pos < location_pos);
     }
@@ -883,7 +888,24 @@ mod tests {
         .unwrap();
 
         let md = generate_trip_markdown(&conn, trip_id).unwrap();
-        assert!(!md.contains("- Category:"));
+        assert!(!md.contains("- 種別:"));
+    }
+
+    #[test]
+    fn test_format_travel_book_category_detail_line_uses_definition_display_name() {
+        assert_eq!(
+            format_travel_book_category_detail_line(ItineraryCategory::Transport),
+            "- 種別: 移動"
+        );
+        assert_eq!(
+            format_travel_book_category_detail_line(ItineraryCategory::Flight),
+            "- 種別: フライト"
+        );
+        for category in ItineraryCategory::all() {
+            let line = format_travel_book_category_detail_line(category);
+            assert!(line.starts_with("- 種別: "));
+            assert!(!line.contains(category.as_str()));
+        }
     }
 
     #[test]
