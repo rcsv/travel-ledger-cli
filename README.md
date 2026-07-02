@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.2](docs/releases/v4.6.2-notes.md) — SQLite migration strategy review。
+**最新:** [v4.6.3](docs/releases/v4.6.3-notes.md) — Command handler split Phase 1。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.3](docs/releases/v4.6.3-notes.md) | docs | Command handler split Phase 1 |
 | [v4.6.2](docs/releases/v4.6.2-notes.md) | docs | SQLite migration strategy review |
 | [v4.6.1](docs/releases/v4.6.1-notes.md) | docs | SQLite FK / orphan data hardening review |
 | [v4.6.0](docs/releases/v4.6.0-notes.md) | minor | TripStats.days semantics fix |

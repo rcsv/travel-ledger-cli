@@ -76,7 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
-| [v4.6.3-command-handler-split-phase-1.md](v4.6.3-command-handler-split-phase-1.md) | v4.6.3 Command handler split Phase 1（**planning — 本書**） |
+| [v4.6.3-command-handler-split-phase-1.md](v4.6.3-command-handler-split-phase-1.md) | v4.6.3 Command handler split Phase 1（**released**） |
 | [v4.6.2-sqlite-migration-strategy-review.md](v4.6.2-sqlite-migration-strategy-review.md) | v4.6.2 SQLite migration strategy review（**released**） |
 | [v4.6.1-sqlite-fk-orphan-data-hardening-review.md](v4.6.1-sqlite-fk-orphan-data-hardening-review.md) | v4.6.1 SQLite FK / orphan data hardening review（**released**） |
 | [v4.6.0-trip-stats-days-semantics-fix.md](v4.6.0-trip-stats-days-semantics-fix.md) | v4.6.0 TripStats.days semantics fix（**released**） |
