@@ -613,48 +613,26 @@ fn main() -> Result<()> {
                 itinerary,
                 json,
             } => {
-                let target = crate::reservation::resolve_reservation_list_target(trip, itinerary)?;
-                match target {
-                    crate::reservation::ReservationListTarget::Trip(trip_id) => {
-                        let context_rows =
-                            crate::reservation::list_reservations_for_trip(&conn, trip_id)?;
-                        let reservations = context_rows
-                            .iter()
-                            .map(|row| row.reservation.clone())
-                            .collect::<Vec<_>>();
-                        if json {
-                            crate::output::json::print_json(
-                                &crate::reservation::ReservationListJson {
-                                    trip_id: Some(trip_id),
-                                    itinerary_id: None,
-                                    reservations,
-                                },
-                            )?;
-                        } else {
-                            crate::reservation::print_reservation_list(
-                                target,
-                                &reservations,
-                                Some(&context_rows),
-                            );
+                let result =
+                    crate::services::reservation_list::list_reservations(&conn, trip, itinerary)?;
+                if json {
+                    let (trip_id, itinerary_id) = match result.target {
+                        crate::reservation::ReservationListTarget::Trip(id) => (Some(id), None),
+                        crate::reservation::ReservationListTarget::Itinerary(id) => {
+                            (None, Some(id))
                         }
-                    }
-                    crate::reservation::ReservationListTarget::Itinerary(itinerary_id) => {
-                        let reservations = crate::reservation::list_reservations_for_itinerary(
-                            &conn,
-                            itinerary_id,
-                        )?;
-                        if json {
-                            crate::output::json::print_json(
-                                &crate::reservation::ReservationListJson {
-                                    trip_id: None,
-                                    itinerary_id: Some(itinerary_id),
-                                    reservations: reservations.clone(),
-                                },
-                            )?;
-                        } else {
-                            crate::reservation::print_reservation_list(target, &reservations, None);
-                        }
-                    }
+                    };
+                    crate::output::json::print_json(&crate::reservation::ReservationListJson {
+                        trip_id,
+                        itinerary_id,
+                        reservations: result.reservations,
+                    })?;
+                } else {
+                    crate::reservation::print_reservation_list(
+                        result.target,
+                        &result.reservations,
+                        result.trip_context.as_deref(),
+                    );
                 }
             }
             ReservationAction::Show { id, json } => {
