@@ -76,7 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
-| [v4.6.6-trip-show-service-boundary.md](v4.6.6-trip-show-service-boundary.md) | v4.6.6 Trip show service boundary（**draft**） |
+| [v4.6.6-trip-show-service-boundary.md](v4.6.6-trip-show-service-boundary.md) | v4.6.6 Trip show service boundary（**released**） |
 | [v4.6.5-read-only-service-boundary-expansion.md](v4.6.5-read-only-service-boundary-expansion.md) | v4.6.5 Read-only service boundary expansion（**released**） |
 | [v4.6.4-read-only-service-boundary-pilot.md](v4.6.4-read-only-service-boundary-pilot.md) | v4.6.4 Read-only service boundary pilot（**released**） |
 | [v4.6.3-command-handler-split-phase-1.md](v4.6.3-command-handler-split-phase-1.md) | v4.6.3 Command handler split Phase 1（**released**） |

@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.6 planning — trip show service boundary
+v4.6.7 planning — day list service boundary
 
 ## Latest completed
 
+- v4.6.6 Trip show service boundary — **released**
 - v4.6.5 Read-only service boundary expansion — **released**
 - v4.6.4 Read-only service boundary pilot — **released**
 - v4.6.3 Command handler split Phase 1 — **released**
@@ -14,15 +15,15 @@ v4.6.6 planning — trip show service boundary
 
 ## Repository state
 
-- Cargo version: `4.6.5`
-- Latest release: **v4.6.5** — [v4.6.5-notes.md](releases/v4.6.5-notes.md)
-- **v4.6.5 spec:** [v4.6.5-read-only-service-boundary-expansion.md](specifications/v4.6.5-read-only-service-boundary-expansion.md)
+- Cargo version: `4.6.6`
+- Latest release: **v4.6.6** — [v4.6.6-notes.md](releases/v4.6.6-notes.md)
+- **v4.6.6 spec:** [v4.6.6-trip-show-service-boundary.md](specifications/v4.6.6-trip-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.6 — `trip show` service boundary**（optional implementation）
+**v4.6.7 — `day list` service boundary**（optional implementation）
 
-- `trip list` と同様に service + CLI display 分離
+- `trip show` と同様に service + CLI display 分離
 - CLI behavior / JSON output / ordering 不変を gate とする
 
 **Parallel track（v4.6.x、独立）:**
