@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.6.9 planning — itinerary timeline service boundary
+v4.6.9 — itinerary timeline service boundary（implementation complete, release pending）
 
 ## Latest completed
 
@@ -17,16 +17,20 @@ v4.6.9 planning — itinerary timeline service boundary
 
 ## Repository state
 
-- Cargo version: `4.6.8`
+- Cargo version: `4.6.9`
 - Latest release: **v4.6.8** — [v4.6.8-notes.md](releases/v4.6.8-notes.md)
-- **v4.6.8 spec:** [v4.6.8-itinerary-list-service-boundary.md](specifications/v4.6.8-itinerary-list-service-boundary.md)
+- **v4.6.9 spec:** [v4.6.9-itinerary-timeline-service-boundary.md](specifications/v4.6.9-itinerary-timeline-service-boundary.md)
 
 ## Next action
 
-**v4.6.9 — `itinerary timeline` service boundary**（optional implementation）
+**v4.6.9 release**（optional formal release）
 
-- `itinerary list` と同様に service + CLI display 分離
-- CLI behavior / JSON output / ordering 不変を gate とする
+- `make check` PASS
+- Okinawa golden: Colophon `Version: 4.6.9` のみ
+
+**v4.6.10 候補:**
+
+- `itinerary show` service boundary
 
 **Parallel track（v4.6.x、独立）:**
 

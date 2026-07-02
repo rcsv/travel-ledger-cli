@@ -104,11 +104,10 @@ fn main() -> Result<()> {
                 }
             }
             ItineraryAction::Timeline { trip_id } => {
-                let items = crate::itinerary::list_itinerary_items(&conn, trip_id)?;
-                let trip = crate::trip::get_trip(&conn, trip_id)?;
-                println!("{} のタイムライン:", trip.name);
+                let result = crate::services::itinerary_timeline::get_timeline(&conn, trip_id)?;
+                println!("{} のタイムライン:", result.trip.name);
                 println!();
-                crate::itinerary::print_itinerary_timeline(&items);
+                crate::itinerary::print_itinerary_timeline(&result.items);
             }
             ItineraryAction::Show { id, json } => {
                 let item = crate::itinerary::get_itinerary_item(&conn, id)?;
