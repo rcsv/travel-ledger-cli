@@ -2,34 +2,42 @@
 
 ## Current phase
 
-v4.4.8 Travel Book presentation helper cleanup — **implementation complete** (release pending)
+v4.5.0 Receipt Inbox responsibilities review（planning / review）
 
 ## Latest completed
 
+- v4.4.8 Travel Book presentation helper cleanup — **released**
 - v4.4.7 Travel Book presentation helpers final review — **released**
 - v4.4.6 Travel Book presentation helpers extraction Phase 3 — **released**
-- v4.4.5 Travel Book presentation extraction review — **released**
 
 ## Repository state
 
 - Cargo version: `4.4.8`
-- Implementation plan: [v4.4.8-travel-book-presentation-helper-cleanup.md](specifications/v4.4.8-travel-book-presentation-helper-cleanup.md)
-- Presentation module: `src/io/travel_book_presentation.rs` — Markdown syntax boundary clean
+- **v4.5.0 review:** [v4.5.0-receipt-inbox-responsibilities-review.md](specifications/v4.5.0-receipt-inbox-responsibilities-review.md)
+- Receipt Inbox: v3.6–v3.7 実装済み（metadata-only + assign/trash workflow）
 
 ## v4.4.x arc status
 
-Helper extraction Phase 1–3 + v4.4.8 cleanup **complete**. Presentation helpers are renderer-independent.
+Travel Book presentation helper extraction **complete**（Phase 1–3 + v4.4.8 cleanup）。
 
-## Next action
+## Next action（v4.5.0 レビュー結論）
 
-- **v4.4.8 release** — helper cleanup (golden Colophon `Version:` only)
-- **v4.5.0** — `TravelBookDocument` prototype (**Defer** — UI / Venue requirements)
-- Or return to another roadmap item outside Travel Book presentation
+**A 推奨:**
+
+- **v4.5.1** — doctor / advisor Receipt utilization（ledger 側の未整理 receipt 可視化）
+- trip stats / Travel Book / Actual 定義は変更しない
+
+**Defer:**
+
+- `TravelBookDocument` prototype（UI / Venue 要件まで）
+- Evidence / Attachment / Travel Journal 実装
+- trip stats への Receipt 反映、Potential Actual 表示
 
 ## Do not start yet
 
-- `TravelBookDocument` full abstraction (UI/Venue requirements)
-- GUI / native app code
-- Venue model / map provider
+- Receipt 専用 `image_path` 先行実装
+- trip stats / Planned vs Actual への Receipt・Pending 反映
+- Balance / Settlement
+- `TravelBookDocument` full abstraction（UI/Venue requirements）
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

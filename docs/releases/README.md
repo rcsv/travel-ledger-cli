@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.5.0 | Receipt Inbox responsibilities review | [v4.5.0-notes.md](v4.5.0-notes.md) |
 | v4.4.8 | Travel Book presentation helper cleanup | [v4.4.8-notes.md](v4.4.8-notes.md) |
 | v4.4.7 | Travel Book presentation helpers final review | [v4.4.7-notes.md](v4.4.7-notes.md) |
 | v4.4.6 | Travel Book presentation helpers extraction Phase 3 | [v4.4.6-notes.md](v4.4.6-notes.md) |

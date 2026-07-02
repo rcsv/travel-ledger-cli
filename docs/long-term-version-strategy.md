@@ -1046,6 +1046,22 @@ Plan: [v4.4.8-travel-book-presentation-helper-cleanup.md](specifications/v4.4.8-
 
 ---
 
+## v4.5.0 — Receipt Inbox responsibilities review（**documentation-only**）
+
+### テーマ
+
+```text
+Receipt Inbox の責務・境界の再整理
+Expense / Estimate / Travel Book / stats / export との関係確認
+Attachment / Travel Journal との将来境界
+```
+
+Review: [v4.5.0-receipt-inbox-responsibilities-review.md](specifications/v4.5.0-receipt-inbox-responsibilities-review.md)
+
+結論: Receipt Inbox 実装は **Healthy**。Travel Book 除外・stats=Expense only は **Keep**。次は **v4.5.1 doctor/advisor Receipt 活用** を推奨。
+
+---
+
 ## v5 — Travel Journal
 
 ### テーマ
