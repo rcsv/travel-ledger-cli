@@ -2,33 +2,27 @@
 
 ## Current phase
 
-v4.5.1 planning — doctor / advisor Receipt utilization
+v4.6.0 planning — Core architecture hardening review
 
 ## Latest completed
 
+- v4.5.1 doctor / advisor Receipt utilization — **released**
 - v4.5.0 Receipt Inbox responsibilities review — **released**
 - v4.4.8 Travel Book presentation helper cleanup — **released**
-- v4.4.7 Travel Book presentation helpers final review — **released**
 
 ## Repository state
 
 - Cargo version: `4.5.1`
-- Latest release: **v4.5.0** — [v4.5.0-notes.md](releases/v4.5.0-notes.md)
+- Latest release: **v4.5.1** — [v4.5.1-notes.md](releases/v4.5.1-notes.md)
+- **v4.5.1 plan:** [v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md](specifications/v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md)
 - **v4.5.0 review:** [v4.5.0-receipt-inbox-responsibilities-review.md](specifications/v4.5.0-receipt-inbox-responsibilities-review.md)
-- Receipt Inbox: v3.6–v3.7 実装済み（metadata-only + assign/trash workflow）
-- v4.5.1 plan: [v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md](specifications/v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md)
 
-## v4.4.x arc status
+## Next action
 
-Travel Book presentation helper extraction **complete**（Phase 1–3 + v4.4.8 cleanup）。
+**v4.6.0 — Core architecture hardening review**（documentation-only）
 
-## Next action（v4.5.0 レビュー結論）
-
-**v4.5.1 — doctor / advisor Receipt utilization**
-
-- 未整理 receipt の助言・警告を ledger 側に追加
-- trip stats / Travel Book / Actual 定義は変更しない
-- Receipt Inbox を Potential Actual として扱わない
+- TripStats.days 意味、SQLite FK / orphan data、migration strategy、Receipt state、main.rs、domain/models.rs 等を棚卸し
+- v4.6.1+ は review で確定した優先順位に従って小さく実装
 
 **Defer:**
 

@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.5.0](docs/releases/v4.5.0-notes.md) — Receipt Inbox responsibilities review（documentation-only）。
+**最新:** [v4.5.1](docs/releases/v4.5.1-notes.md) — doctor / advisor Receipt utilization。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.5.1](docs/releases/v4.5.1-notes.md) | minor | doctor / advisor Receipt utilization |
 | [v4.5.0](docs/releases/v4.5.0-notes.md) | docs | Receipt Inbox responsibilities review |
 | [v4.4.8](docs/releases/v4.4.8-notes.md) | patch | Travel Book presentation helper cleanup |
 | [v4.4.7](docs/releases/v4.4.7-notes.md) | docs | Travel Book presentation helpers final review |

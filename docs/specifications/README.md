@@ -76,4 +76,4 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
-| [v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md](v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md) | v4.5.1 doctor / advisor Receipt Utilization Implementation Plan（**planning — 本書**） |
+| [v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md](v4.5.1-doctor-advisor-receipt-utilization-implementation-plan.md) | v4.5.1 doctor / advisor Receipt Utilization Implementation Plan（**released**） |
