@@ -75,4 +75,4 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.6-travel-book-presentation-helpers-extraction-phase-3.md](v4.4.6-travel-book-presentation-helpers-extraction-phase-3.md) | v4.4.6 Travel Book Presentation Helpers Extraction Phase 3（**v4.4.6**） |
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
-| [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**planning — 本書**） |
+| [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |

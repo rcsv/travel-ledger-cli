@@ -113,12 +113,16 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.1.2](docs/releases/v4.1.2-notes.md) — Okinawa Travel Book sample enrichment（seed + golden）。
+**最新:** [v4.5.0](docs/releases/v4.5.0-notes.md) — Receipt Inbox responsibilities review（documentation-only）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.5.0](docs/releases/v4.5.0-notes.md) | docs | Receipt Inbox responsibilities review |
+| [v4.4.8](docs/releases/v4.4.8-notes.md) | patch | Travel Book presentation helper cleanup |
+| [v4.4.7](docs/releases/v4.4.7-notes.md) | docs | Travel Book presentation helpers final review |
+| [v4.4.6](docs/releases/v4.4.6-notes.md) | patch | Travel Book presentation helpers extraction Phase 3 |
 | [v4.1.2](docs/releases/v4.1.2-notes.md) | minor | Okinawa Travel Book sample enrichment |
 | [v4.1.1](docs/releases/v4.1.1-notes.md) | docs | Okinawa sample enrichment plan |
 | [v4.1.0](docs/releases/v4.1.0-notes.md) | docs | Travel Book chapter structure design |
