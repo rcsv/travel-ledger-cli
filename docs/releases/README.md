@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.7 | Day list service boundary | [v4.6.7-notes.md](v4.6.7-notes.md) |
 | v4.6.6 | Trip show service boundary | [v4.6.6-notes.md](v4.6.6-notes.md) |
 | v4.6.5 | Read-only service boundary expansion | [v4.6.5-notes.md](v4.6.5-notes.md) |
 | v4.6.4 | Read-only service boundary pilot | [v4.6.4-notes.md](v4.6.4-notes.md) |

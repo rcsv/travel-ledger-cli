@@ -158,30 +158,34 @@ struct DayShowJson {
     itineraries: Vec<ItineraryItem>,
 }
 
-/// Day 一覧を表示する
-pub(crate) fn run_day_list(conn: &Connection, trip_id: i64, json: bool) -> Result<()> {
-    let trip = crate::trip::get_trip(conn, trip_id)?;
-    let days = list_days(conn, trip_id)?;
-    if json {
-        let entries = days
-            .iter()
-            .map(|day| {
-                Ok(DayListEntryJson {
-                    id: day.id,
-                    day_number: day.day_number,
-                    date: day_date_for_trip(&trip, day.day_number)?,
-                    title: day.title.clone(),
-                    summary: day.summary.clone(),
-                })
+/// Day 一覧を JSON 出力する（CLI layer）
+pub(crate) fn print_day_list_json(trip: &Trip, trip_id: i64, days: &[Day]) -> Result<()> {
+    let entries = days
+        .iter()
+        .map(|day| {
+            Ok(DayListEntryJson {
+                id: day.id,
+                day_number: day.day_number,
+                date: day_date_for_trip(trip, day.day_number)?,
+                title: day.title.clone(),
+                summary: day.summary.clone(),
             })
-            .collect::<Result<Vec<_>>>()?;
-        crate::output::json::print_json(&DayListJson {
-            trip_id,
-            trip_name: trip.name,
-            days: entries,
-        })?;
-    } else {
-        print_day_list(&trip, &days)?;
+        })
+        .collect::<Result<Vec<_>>>()?;
+    crate::output::json::print_json(&DayListJson {
+        trip_id,
+        trip_name: trip.name.clone(),
+        days: entries,
+    })
+}
+
+/// Day 一覧を人間向けに表示する（CLI layer）
+pub(crate) fn print_day_list_display(trip: &Trip, days: &[Day]) -> Result<()> {
+    println!("Trip: {}", trip.name);
+    println!();
+    for day in days {
+        let date = day_date_for_trip(trip, day.day_number)?;
+        println!("Day {}  {}", day.day_number, date);
     }
     Ok(())
 }
@@ -329,16 +333,6 @@ pub(crate) fn swap_day_plan_payload(
     tx.commit()
         .context("Day swap トランザクションの確定に失敗しました")?;
     Ok(itinerary_updated)
-}
-
-fn print_day_list(trip: &Trip, days: &[Day]) -> Result<()> {
-    println!("Trip: {}", trip.name);
-    println!();
-    for day in days {
-        let date = day_date_for_trip(trip, day.day_number)?;
-        println!("Day {}  {}", day.day_number, date);
-    }
-    Ok(())
 }
 
 fn print_day_show(trip: &Trip, day: &Day, day_number: i64, date: &str, items: &[ItineraryItem]) {

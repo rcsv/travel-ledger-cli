@@ -268,7 +268,12 @@ fn main() -> Result<()> {
         },
         Command::Day { action } => match action {
             DayAction::List { trip_id, json } => {
-                crate::day::run_day_list(&conn, trip_id, json)?;
+                let result = crate::services::day_list::list_days(&conn, trip_id)?;
+                if json {
+                    crate::day::print_day_list_json(&result.trip, trip_id, &result.days)?;
+                } else {
+                    crate::day::print_day_list_display(&result.trip, &result.days)?;
+                }
             }
             DayAction::Show {
                 trip_id,

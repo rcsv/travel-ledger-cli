@@ -15,9 +15,9 @@ v4.6.7 planning — day list service boundary
 
 ## Repository state
 
-- Cargo version: `4.6.6`
+- Cargo version: `4.6.6` (planned: `4.6.7`)
 - Latest release: **v4.6.6** — [v4.6.6-notes.md](releases/v4.6.6-notes.md)
-- **v4.6.6 spec:** [v4.6.6-trip-show-service-boundary.md](specifications/v4.6.6-trip-show-service-boundary.md)
+- **v4.6.7 draft spec:** [v4.6.7-day-list-service-boundary.md](specifications/v4.6.7-day-list-service-boundary.md)
 
 ## Next action
 
