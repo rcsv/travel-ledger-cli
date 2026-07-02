@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.6.16 planning — read-only service boundary follow-up review
+v4.6.16 — read-only service boundary follow-up review（documentation complete, release pending）
 
 ## Latest completed
 
@@ -18,24 +18,21 @@ v4.6.16 planning — read-only service boundary follow-up review
 - v4.6.6 Trip show service boundary — **released**
 - v4.6.5 Read-only service boundary expansion — **released**
 - v4.6.4 Read-only service boundary pilot — **released**
-- v4.6.3 Command handler split Phase 1 — **released**
-- v4.6.2 SQLite migration strategy review — **released**
-- v4.6.1 SQLite FK / orphan data hardening review — **released**
 
 ## Repository state
 
 - Cargo version: `4.6.15`
 - Latest release: **v4.6.15** — [v4.6.15-notes.md](releases/v4.6.15-notes.md)
-- **v4.6.15 spec:** [v4.6.15-checklist-list-service-boundary.md](specifications/v4.6.15-checklist-list-service-boundary.md)
+- **v4.6.16 draft review:** [v4.6.16-read-only-service-boundary-follow-up-review.md](specifications/v4.6.16-read-only-service-boundary-follow-up-review.md)
 
 ## Next action
 
-**v4.6.16 — read-only service boundary follow-up review**（optional）
+**v4.6.16 release**（optional formal release）
 
-- v4.6.4〜v4.6.15 の read-only service boundary 展開を横断レビュー
-- 次の service 化候補（`checklist show` 等）を整理
+- documentation-only follow-up review
+- Rust code 変更なし
 
-**代替候補:**
+**v4.6.17 推奨候補:**
 
 - `checklist show` service boundary
 
