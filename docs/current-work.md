@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.10 — itinerary show service boundary（implementation complete, release pending）
+v4.6.11 planning — read-only service boundary review
 
 ## Latest completed
 
+- v4.6.10 Itinerary show service boundary — **released**
 - v4.6.9 Itinerary timeline service boundary — **released**
 - v4.6.8 Itinerary list service boundary — **released**
 - v4.6.7 Day list service boundary — **released**
@@ -19,19 +20,15 @@ v4.6.10 — itinerary show service boundary（implementation complete, release p
 ## Repository state
 
 - Cargo version: `4.6.10`
-- Latest release: **v4.6.9** — [v4.6.9-notes.md](releases/v4.6.9-notes.md)
+- Latest release: **v4.6.10** — [v4.6.10-notes.md](releases/v4.6.10-notes.md)
 - **v4.6.10 spec:** [v4.6.10-itinerary-show-service-boundary.md](specifications/v4.6.10-itinerary-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.10 release**（optional formal release）
+**v4.6.11 — read-only service boundary review**（optional）
 
-- `make check` PASS
-- Okinawa golden: Colophon `Version: 4.6.10` のみ
-
-**v4.6.11 候補:**
-
-- read-only service boundary review
+- v4.6.4〜v4.6.10 の read-only service boundary 展開を横断レビュー
+- 次の service 化候補（`note list` 等）を整理
 
 **Parallel track（v4.6.x、独立）:**
 

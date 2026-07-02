@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.9](docs/releases/v4.6.9-notes.md) — Itinerary timeline service boundary。
+**最新:** [v4.6.10](docs/releases/v4.6.10-notes.md) — Itinerary show service boundary。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.10](docs/releases/v4.6.10-notes.md) | minor | Itinerary show service boundary (`itinerary show`) |
 | [v4.6.9](docs/releases/v4.6.9-notes.md) | minor | Itinerary timeline service boundary (`itinerary timeline`) |
 | [v4.6.8](docs/releases/v4.6.8-notes.md) | minor | Itinerary list service boundary (`itinerary list`) |
 | [v4.6.7](docs/releases/v4.6.7-notes.md) | minor | Day list service boundary (`day list`) |
