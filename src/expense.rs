@@ -309,13 +309,30 @@ pub(crate) struct ExpenseJson {
     pub updated_at: String,
 }
 
-pub(crate) fn expense_to_json(conn: &Connection, expense: &Expense) -> Result<ExpenseJson> {
+/// Service-layer enrichment for read-only expense output (not a CLI wire DTO).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ExpenseBeneficiaryPart {
+    pub participant_id: i64,
+    pub name: String,
+    pub sort_order: i32,
+}
+
+/// Expense plus resolved participant/beneficiary context for read-only list/show.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ExpenseEnrichedPart {
+    pub expense: Expense,
+    pub paid_by_participant_name: Option<String>,
+    pub beneficiaries: Vec<ExpenseBeneficiaryPart>,
+    pub shared: bool,
+}
+
+pub(crate) fn enrich_expense(conn: &Connection, expense: &Expense) -> Result<ExpenseEnrichedPart> {
     let beneficiaries = list_beneficiaries_for_expense(conn, expense.id)?;
-    let beneficiary_json = beneficiaries
+    let beneficiary_parts = beneficiaries
         .iter()
         .map(|b| {
             let participant = crate::participant::get_participant(conn, b.participant_id)?;
-            Ok(ExpenseBeneficiaryJson {
+            Ok(ExpenseBeneficiaryPart {
                 participant_id: b.participant_id,
                 name: participant.name,
                 sort_order: b.sort_order,
@@ -326,7 +343,18 @@ pub(crate) fn expense_to_json(conn: &Connection, expense: &Expense) -> Result<Ex
         Some(id) => Some(crate::participant::get_participant(conn, id)?.name),
         None => None,
     };
-    Ok(ExpenseJson {
+    let shared = expense_is_shared(beneficiary_parts.len());
+    Ok(ExpenseEnrichedPart {
+        expense: expense.clone(),
+        paid_by_participant_name,
+        beneficiaries: beneficiary_parts,
+        shared,
+    })
+}
+
+pub(crate) fn enriched_expense_to_json(part: &ExpenseEnrichedPart) -> ExpenseJson {
+    let expense = &part.expense;
+    ExpenseJson {
         id: expense.id,
         itinerary_id: expense.itinerary_id,
         title: expense.title.clone(),
@@ -334,15 +362,29 @@ pub(crate) fn expense_to_json(conn: &Connection, expense: &Expense) -> Result<Ex
         currency: expense.currency.clone(),
         paid_by_name: expense.paid_by_name.clone(),
         paid_by_participant_id: expense.paid_by_participant_id,
-        paid_by_participant_name,
-        shared: expense_is_shared(beneficiary_json.len()),
-        beneficiaries: beneficiary_json,
+        paid_by_participant_name: part.paid_by_participant_name.clone(),
+        shared: part.shared,
+        beneficiaries: part
+            .beneficiaries
+            .iter()
+            .map(|b| ExpenseBeneficiaryJson {
+                participant_id: b.participant_id,
+                name: b.name.clone(),
+                sort_order: b.sort_order,
+            })
+            .collect(),
         expense_date: expense.expense_date.clone(),
         note: expense.note.clone(),
         sort_order: expense.sort_order,
         created_at: expense.created_at.clone(),
         updated_at: expense.updated_at.clone(),
-    })
+    }
+}
+
+/// Adapter for write paths and tests; read-only list/show use service enrichment + mapper.
+#[allow(dead_code)]
+pub(crate) fn expense_to_json(conn: &Connection, expense: &Expense) -> Result<ExpenseJson> {
+    Ok(enriched_expense_to_json(&enrich_expense(conn, expense)?))
 }
 
 /// Markdown export 用の Expense 1行
@@ -974,10 +1016,25 @@ fn row_to_expense(row: &rusqlite::Row) -> rusqlite::Result<Expense> {
     })
 }
 
+/// Adapter for write paths; read-only list uses `print_expense_list_from_enriched`.
+#[allow(dead_code)]
 pub(crate) fn print_expense_list(
     conn: &Connection,
     target: ExpenseListTarget,
     expenses: &[Expense],
+) -> Result<()> {
+    print_expense_list_from_enriched(
+        target,
+        &expenses
+            .iter()
+            .map(|e| enrich_expense(conn, e))
+            .collect::<Result<Vec<_>>>()?,
+    )
+}
+
+pub(crate) fn print_expense_list_from_enriched(
+    target: ExpenseListTarget,
+    expenses: &[ExpenseEnrichedPart],
 ) -> Result<()> {
     let label = match target {
         ExpenseListTarget::Trip(id) => format!("Trip {id}"),
@@ -992,14 +1049,13 @@ pub(crate) fn print_expense_list(
         "{:<4} {:<6} {:<16} {:<12} {:<10}",
         "ID", "Itin.", "Amount", "Title", "Paid By"
     );
-    for expense in expenses {
-        let payer = match expense.paid_by_participant_id {
-            Some(id) => crate::participant::get_participant(conn, id)?.name,
-            None => expense
-                .paid_by_name
-                .clone()
-                .unwrap_or_else(|| "-".to_string()),
-        };
+    for part in expenses {
+        let expense = &part.expense;
+        let payer = part
+            .paid_by_participant_name
+            .clone()
+            .or_else(|| expense.paid_by_name.clone())
+            .unwrap_or_else(|| "-".to_string());
         println!(
             "{:<4} {:<6} {:<16} {:<12} {:<10}",
             expense.id,
@@ -1013,7 +1069,11 @@ pub(crate) fn print_expense_list(
 }
 
 pub(crate) fn print_expense_detail(conn: &Connection, expense: &Expense) -> Result<()> {
-    let json = expense_to_json(conn, expense)?;
+    print_expense_detail_from_enriched(&enrich_expense(conn, expense)?)
+}
+
+pub(crate) fn print_expense_detail_from_enriched(part: &ExpenseEnrichedPart) -> Result<()> {
+    let json = enriched_expense_to_json(part);
     println!("Expense ID  : {}", json.id);
     println!("Itinerary ID: {}", json.itinerary_id);
     println!("Title       : {}", fmt_optional_text(&json.title));
@@ -1168,6 +1228,36 @@ mod tests {
         assert_eq!(expense.paid_by_name.as_deref(), Some("Alice"));
         let beneficiaries = list_beneficiaries_for_expense(&conn, id).unwrap();
         assert_eq!(beneficiaries.len(), 2);
+    }
+
+    #[test]
+    fn test_enriched_expense_to_json_matches_expense_to_json() {
+        let conn = test_db();
+        let (itinerary_id, payer, beneficiary) = setup_itinerary_with_participants(&conn);
+        let id = add_expense(
+            &conn,
+            itinerary_id,
+            "4000",
+            "JPY",
+            Some("Dinner"),
+            None,
+            None,
+            None,
+            &ExpenseSharedOptions {
+                paid_by_participant_id: Some(payer),
+                beneficiary_participant_ids: Some(vec![beneficiary]),
+                ..ExpenseSharedOptions::default()
+            },
+        )
+        .unwrap();
+        let expense = get_expense(&conn, id).unwrap();
+        let enriched = enrich_expense(&conn, &expense).unwrap();
+        assert!(enriched.shared);
+        assert_eq!(enriched.beneficiaries.len(), 1);
+        assert_eq!(
+            serde_json::to_value(enriched_expense_to_json(&enriched)).unwrap(),
+            serde_json::to_value(expense_to_json(&conn, &expense).unwrap()).unwrap()
+        );
     }
 
     #[test]

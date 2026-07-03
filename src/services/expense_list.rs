@@ -1,28 +1,31 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-use crate::domain::models::Expense;
-use crate::expense::ExpenseListTarget;
+use crate::expense::{ExpenseEnrichedPart, ExpenseListTarget};
 
 /// Read-only `expense list` use case result (CLI / future GUI).
 pub struct ExpenseListServiceResult {
     pub target: ExpenseListTarget,
-    pub expenses: Vec<Expense>,
+    pub expenses: Vec<ExpenseEnrichedPart>,
 }
 
-/// Resolves the list target and loads expenses without terminal I/O.
+/// Resolves the list target and loads enriched expenses without terminal I/O.
 pub fn list_expenses(
     conn: &Connection,
     trip: Option<i64>,
     itinerary: Option<i64>,
 ) -> Result<ExpenseListServiceResult> {
     let target = crate::expense::resolve_expense_list_target(trip, itinerary)?;
-    let expenses = match target {
+    let raw_expenses = match target {
         ExpenseListTarget::Trip(trip_id) => crate::expense::list_expenses_for_trip(conn, trip_id)?,
         ExpenseListTarget::Itinerary(itinerary_id) => {
             crate::expense::list_expenses_for_itinerary(conn, itinerary_id)?
         }
     };
+    let expenses = raw_expenses
+        .iter()
+        .map(|e| crate::expense::enrich_expense(conn, e))
+        .collect::<Result<Vec<_>>>()?;
     Ok(ExpenseListServiceResult { target, expenses })
 }
 
@@ -71,7 +74,7 @@ mod tests {
         let result = list_expenses(&conn, None, Some(itinerary_id)).unwrap();
         assert_eq!(result.target, ExpenseListTarget::Itinerary(itinerary_id));
         assert_eq!(result.expenses.len(), 1);
-        assert_eq!(result.expenses[0].title.as_deref(), Some("Lunch"));
+        assert_eq!(result.expenses[0].expense.title.as_deref(), Some("Lunch"));
     }
 
     #[test]
@@ -109,8 +112,42 @@ mod tests {
 
         let result = list_expenses(&conn, None, Some(itinerary_id)).unwrap();
         assert_eq!(result.expenses.len(), 2);
-        assert_eq!(result.expenses[0].id, first);
-        assert_eq!(result.expenses[1].id, second);
+        assert_eq!(result.expenses[0].expense.id, first);
+        assert_eq!(result.expenses[1].expense.id, second);
+    }
+
+    #[test]
+    fn service_resolves_paid_by_participant_name_in_list() {
+        let conn = test_db();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Shared Trip", "2026-04-26", "2026-04-29", None).unwrap();
+        let payer_id =
+            crate::participant::create_participant(&conn, trip_id, "Alice", None, true).unwrap();
+        let itinerary_id = crate::itinerary::add_itinerary_item(
+            &conn, trip_id, 1, "Dinner", None, None, None, None, None, None, None,
+        )
+        .unwrap();
+        crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "3000",
+            "JPY",
+            None,
+            None,
+            None,
+            None,
+            &ExpenseSharedOptions {
+                paid_by_participant_id: Some(payer_id),
+                ..ExpenseSharedOptions::default()
+            },
+        )
+        .unwrap();
+
+        let result = list_expenses(&conn, None, Some(itinerary_id)).unwrap();
+        assert_eq!(
+            result.expenses[0].paid_by_participant_name.as_deref(),
+            Some("Alice")
+        );
     }
 
     #[test]

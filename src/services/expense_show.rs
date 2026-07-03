@@ -1,17 +1,18 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-use crate::domain::models::Expense;
+use crate::expense::ExpenseEnrichedPart;
 
 /// Read-only `expense show` use case result (CLI / future GUI).
 pub struct ExpenseShowServiceResult {
-    pub expense: Expense,
+    pub expense: ExpenseEnrichedPart,
 }
 
-/// Loads an expense without terminal I/O.
+/// Loads an expense with enriched output context, without terminal I/O.
 pub fn show_expense(conn: &Connection, id: i64) -> Result<ExpenseShowServiceResult> {
     let expense = crate::expense::get_expense(conn, id)?;
-    Ok(ExpenseShowServiceResult { expense })
+    let enriched = crate::expense::enrich_expense(conn, &expense)?;
+    Ok(ExpenseShowServiceResult { expense: enriched })
 }
 
 #[cfg(test)]
@@ -57,17 +58,22 @@ mod tests {
         let id = add_sample_expense(&conn, itinerary_id);
 
         let result = show_expense(&conn, id).unwrap();
-        assert_eq!(result.expense.id, id);
-        assert_eq!(result.expense.itinerary_id, itinerary_id);
-        assert_eq!(result.expense.title.as_deref(), Some("Lunch"));
-        assert_eq!(result.expense.amount, 2200);
-        assert_eq!(result.expense.currency, "JPY");
-        assert_eq!(result.expense.paid_by_name.as_deref(), Some("Tomo"));
-        assert_eq!(result.expense.expense_date.as_deref(), Some("2026-04-27"));
+        assert_eq!(result.expense.expense.id, id);
+        assert_eq!(result.expense.expense.itinerary_id, itinerary_id);
+        assert_eq!(result.expense.expense.title.as_deref(), Some("Lunch"));
+        assert_eq!(result.expense.expense.amount, 2200);
+        assert_eq!(result.expense.expense.currency, "JPY");
+        assert_eq!(result.expense.expense.paid_by_name.as_deref(), Some("Tomo"));
+        assert_eq!(
+            result.expense.expense.expense_date.as_deref(),
+            Some("2026-04-27")
+        );
+        assert!(!result.expense.shared);
+        assert!(result.expense.beneficiaries.is_empty());
     }
 
     #[test]
-    fn service_preserves_participant_payer_field() {
+    fn service_resolves_paid_by_participant_name() {
         let conn = test_db();
         let trip_id =
             crate::trip::add_trip(&conn, "Shared Trip", "2026-04-26", "2026-04-29", None).unwrap();
@@ -94,7 +100,93 @@ mod tests {
         .unwrap();
 
         let result = show_expense(&conn, id).unwrap();
-        assert_eq!(result.expense.paid_by_participant_id, Some(payer_id));
+        assert_eq!(
+            result.expense.expense.paid_by_participant_id,
+            Some(payer_id)
+        );
+        assert_eq!(
+            result.expense.paid_by_participant_name.as_deref(),
+            Some("Alice")
+        );
+    }
+
+    #[test]
+    fn service_resolves_beneficiaries_and_shared_flag() {
+        let conn = test_db();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Shared Trip", "2026-04-26", "2026-04-29", None).unwrap();
+        let payer_id =
+            crate::participant::create_participant(&conn, trip_id, "Alice", None, true).unwrap();
+        let beneficiary_id =
+            crate::participant::create_participant(&conn, trip_id, "Bob", None, false).unwrap();
+        let itinerary_id = crate::itinerary::add_itinerary_item(
+            &conn, trip_id, 1, "Dinner", None, None, None, None, None, None, None,
+        )
+        .unwrap();
+        let id = crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "3000",
+            "JPY",
+            None,
+            None,
+            None,
+            None,
+            &ExpenseSharedOptions {
+                paid_by_participant_id: Some(payer_id),
+                beneficiary_participant_ids: Some(vec![beneficiary_id]),
+                ..ExpenseSharedOptions::default()
+            },
+        )
+        .unwrap();
+
+        let result = show_expense(&conn, id).unwrap();
+        assert!(result.expense.shared);
+        assert_eq!(result.expense.beneficiaries.len(), 1);
+        assert_eq!(
+            result.expense.beneficiaries[0].participant_id,
+            beneficiary_id
+        );
+        assert_eq!(result.expense.beneficiaries[0].name, "Bob");
+    }
+
+    #[test]
+    fn service_json_mapper_matches_expense_to_json() {
+        let conn = test_db();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Shared Trip", "2026-04-26", "2026-04-29", None).unwrap();
+        let payer_id =
+            crate::participant::create_participant(&conn, trip_id, "Alice", None, true).unwrap();
+        let beneficiary_id =
+            crate::participant::create_participant(&conn, trip_id, "Bob", None, false).unwrap();
+        let itinerary_id = crate::itinerary::add_itinerary_item(
+            &conn, trip_id, 1, "Dinner", None, None, None, None, None, None, None,
+        )
+        .unwrap();
+        let id = crate::expense::add_expense(
+            &conn,
+            itinerary_id,
+            "3000",
+            "JPY",
+            Some("Dinner"),
+            None,
+            None,
+            None,
+            &ExpenseSharedOptions {
+                paid_by_participant_id: Some(payer_id),
+                beneficiary_participant_ids: Some(vec![beneficiary_id]),
+                ..ExpenseSharedOptions::default()
+            },
+        )
+        .unwrap();
+
+        let result = show_expense(&conn, id).unwrap();
+        let from_mapper = crate::expense::enriched_expense_to_json(&result.expense);
+        let from_helper = crate::expense::expense_to_json(&conn, &result.expense.expense).unwrap();
+        assert_eq!(
+            serde_json::to_value(&from_mapper).unwrap(),
+            serde_json::to_value(&from_helper).unwrap()
+        );
     }
 
     #[test]

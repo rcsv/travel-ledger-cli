@@ -424,26 +424,28 @@ fn main() -> Result<()> {
                     let json_expenses: Vec<crate::expense::ExpenseJson> = result
                         .expenses
                         .iter()
-                        .map(|e| crate::expense::expense_to_json(&conn, e))
-                        .collect::<Result<Vec<_>>>()?;
+                        .map(crate::expense::enriched_expense_to_json)
+                        .collect();
                     crate::output::json::print_json(&crate::expense::ExpenseListJson {
                         trip_id,
                         itinerary_id,
                         expenses: json_expenses,
                     })?;
                 } else {
-                    crate::expense::print_expense_list(&conn, result.target, &result.expenses)?;
+                    crate::expense::print_expense_list_from_enriched(
+                        result.target,
+                        &result.expenses,
+                    )?;
                 }
             }
             ExpenseAction::Show { id, json } => {
                 let result = crate::services::expense_show::show_expense(&conn, id)?;
                 if json {
-                    crate::output::json::print_json(&crate::expense::expense_to_json(
-                        &conn,
+                    crate::output::json::print_json(&crate::expense::enriched_expense_to_json(
                         &result.expense,
-                    )?)?;
+                    ))?;
                 } else {
-                    crate::expense::print_expense_detail(&conn, &result.expense)?;
+                    crate::expense::print_expense_detail_from_enriched(&result.expense)?;
                 }
             }
             ExpenseAction::Update {
