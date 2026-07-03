@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.36 | Note write service migration plan | [v4.6.36-notes.md](v4.6.36-notes.md) |
 | v4.6.35 | Note write path boundary review | [v4.6.35-notes.md](v4.6.35-notes.md) |
 | v4.6.34 | Expense write adapter cleanup | [v4.6.34-notes.md](v4.6.34-notes.md) |
 | v4.6.33 | Expense write service Phase W-2+W-3 | [v4.6.33-notes.md](v4.6.33-notes.md) |
