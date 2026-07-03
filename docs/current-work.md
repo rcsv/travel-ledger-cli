@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.24 planning — expense DTO context ownership review（推奨候補）
+v4.6.25 planning — expense output DTO migration plan（推奨候補）
 
 ## Latest completed
 
+- v4.6.24 Expense DTO context ownership review — **released**
 - v4.6.23 Read-only helper context review — **released**
 - v4.6.22 Read-only service boundary completion review — **released**
 - v4.6.21 Expense show service boundary — **released**
@@ -29,27 +30,27 @@ v4.6.24 planning — expense DTO context ownership review（推奨候補）
 
 ## Repository state
 
-- Cargo version: `4.6.23`
-- Latest release: **v4.6.23** — [v4.6.23-notes.md](releases/v4.6.23-notes.md)
-- **v4.6.23 spec:** [v4.6.23-read-only-helper-context-review.md](specifications/v4.6.23-read-only-helper-context-review.md)
+- Cargo version: `4.6.24`
+- Latest release: **v4.6.24** — [v4.6.24-notes.md](releases/v4.6.24-notes.md)
+- **v4.6.24 spec:** [v4.6.24-expense-dto-context-ownership-review.md](specifications/v4.6.24-expense-dto-context-ownership-review.md)
 
 ## Next action
 
-**v4.6.24 — expense DTO context ownership review**（推奨、documentation-first）
+**v4.6.25 — expense output DTO migration plan**（推奨、documentation-first）
 
-- `ExpenseJson` を service / mapper / GUI API のどこが own するか設計 review
-- v4.6.23 で特定した主軸 read-only の最大 gap
+- Option C: service enriched parts + CLI mapper → 既存 `ExpenseJson`（shape 不変）
+- v4.6.24 ownership 方針の Phase 1 設計書
 
 **代替候補:**
 
-- v4.6.24 — itinerary show aggregate boundary review
-- v4.6.24 — SQLite migration runner implementation（parallel track）
+- v4.6.25 — itinerary show aggregate boundary review
+- v4.6.25 — SQLite migration runner implementation（parallel track）
 - v4.7.0 — Trip Proposal Envelope / Travel Ledger schema publication planning
 
-**Known helper context（v4.6.23 棚卸し）:**
+**Ownership 方針（v4.6.24 結論）:**
 
-- `expense_to_json` / `print_expense_detail` / `print_expense_list` — participant / beneficiary context
-- itinerary show — handler-side `list_reservations_for_itinerary`（human-only）
+- 短期: Option A 現状維持（`expense_to_json` / `ExpenseJson` 不変）
+- migration 推奨: Option C（service が context parts、CLI が `ExpenseJson` 組み立て）
 
 **Parallel track（v4.6.x、独立）:**
 

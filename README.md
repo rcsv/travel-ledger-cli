@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.23](docs/releases/v4.6.23-notes.md) — Read-only helper context review。
+**最新:** [v4.6.24](docs/releases/v4.6.24-notes.md) — Expense DTO context ownership review。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.24](docs/releases/v4.6.24-notes.md) | docs | Expense DTO context ownership review |
 | [v4.6.23](docs/releases/v4.6.23-notes.md) | docs | Read-only helper context review |
 | [v4.6.22](docs/releases/v4.6.22-notes.md) | docs | Read-only service boundary completion review |
 | [v4.6.21](docs/releases/v4.6.21-notes.md) | minor | Expense show service boundary (`expense show`) |
