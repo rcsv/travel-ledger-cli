@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.31 | Expense write path migration plan | [v4.6.31-notes.md](v4.6.31-notes.md) |
 | v4.6.30 | Expense write path boundary review | [v4.6.30-notes.md](v4.6.30-notes.md) |
 | v4.6.29 | Itinerary show aggregate migration plan | [v4.6.29-notes.md](v4.6.29-notes.md) |
 | v4.6.28 | Itinerary show aggregate boundary review | [v4.6.28-notes.md](v4.6.28-notes.md) |
