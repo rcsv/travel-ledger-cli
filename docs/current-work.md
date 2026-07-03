@@ -2,11 +2,12 @@
 
 ## Current phase
 
-v4.6.32 planning — expense write path Phase W-2+W-3 implementation（推奨候補）
+v4.6.33 planning — expense write service Phase W-2+W-3 implementation（推奨候補）
 
 ## Latest completed
 
-- v4.6.31 Expense write path migration plan — **released**
+- v4.6.32 Expense write service migration plan — **released**
+- v4.6.31 Expense write path migration plan — **released**（follow-up `a3a28c8` — DB integrity §15）
 - v4.6.30 Expense write path boundary review — **released**
 - v4.6.29 Itinerary show aggregate migration plan — **released**
 - v4.6.28 Itinerary show aggregate boundary review — **released**
@@ -37,44 +38,50 @@ v4.6.32 planning — expense write path Phase W-2+W-3 implementation（推奨候
 
 ## Repository state
 
-- Cargo version: `4.6.31`
-- Latest release: **v4.6.31** — [v4.6.31-notes.md](releases/v4.6.31-notes.md)
+- Cargo version: `4.6.32`
+- Latest release: **v4.6.32** — [v4.6.32-notes.md](releases/v4.6.32-notes.md)
+- **v4.6.32 plan:** [v4.6.32-expense-write-service-migration-plan.md](specifications/v4.6.32-expense-write-service-migration-plan.md)
 - **v4.6.31 plan:** [v4.6.31-expense-write-path-migration-plan.md](specifications/v4.6.31-expense-write-path-migration-plan.md)
 
 ## Next action
 
-**v4.6.32 — expense write path Phase W-2+W-3 implementation**（推奨）
+**v4.6.33 — expense write service Phase W-2+W-3 implementation**（推奨）
 
-- `expense_add` / `expense_update` / `expense_delete` thin services
-- handler 接続 + `print_expense_detail_from_enriched`
-- `expense_cli` tests 出力不変 gate
+実装仕様: [v4.6.32-expense-write-service-migration-plan.md](specifications/v4.6.32-expense-write-service-migration-plan.md)
 
-**Expense write migration（v4.6.31 結論）:**
+| 項目 | 内容 |
+|---|---|
+| 新規 | `expense_add` / `expense_update` / `expense_delete` services |
+| handler | `print_expense_detail_from_enriched` 接続 |
+| result | add/update → `ExpenseEnrichedPart`、delete → snapshot |
+| gate | `expense_cli` tests 出力不変 |
+
+**Expense write migration Phase:**
 
 | Phase | 内容 |
 |---|---|
-| W-0 | v4.6.31 plan — **完了** |
-| W-1 | CLI 現状維持 |
-| W-2+W-3 | thin services + handler — **v4.6.32 候補** |
+| W-0 | v4.6.31 overview — **完了** |
+| W-1 | v4.6.32 detailed plan — **完了** |
+| W-2+W-3 | implementation — **v4.6.33 候補** |
+| W-H | `RETURNING id` hardening — 任意・低優先 |
 | W-5 | adapter cleanup — 任意 |
-| W-D | repository — v4.7.x defer |
 
 **代替候補:**
 
-- v4.6.32 — SQLite migration runner implementation（parallel track）
+- v4.6.33 — SQLite migration runner implementation（parallel track）
 - v4.7.x — itinerary aggregate / GUI / schema publication
 
 **Parallel track（v4.6.x、独立）:**
 
-- migration runner / orphan detection / FK hardening（[v4.6.1](specifications/v4.6.1-sqlite-fk-orphan-data-hardening-review.md) / [v4.6.2](specifications/v4.6.2-sqlite-migration-strategy-review.md) review 済み、実装未着手）
-  - **NEW backlog（v4.6.31 §15）:** `expenses` / `reservations` / `estimates` の `itinerary_id` は **DB FK なし・app validation 依存**。FK 導入は orphan detection → `user_version` → table rebuild の順で本 track へ課題化。
+- migration runner / orphan detection / FK hardening（[v4.6.1](specifications/v4.6.1-sqlite-fk-orphan-data-hardening-review.md) / [v4.6.2](specifications/v4.6.2-sqlite-migration-strategy-review.md)）
+  - `itinerary_id` DB FK なし — v4.6.31 §15 backlog（write service 化とは別ストリーム）
 
 ## Defer
 
-- repository 層抽出（v4.7.x）
-- Note / Reservation write service 化（Expense 先行後）
-- itinerary aggregate 実装（GUI タイムライン連動）
-- Tauri / GUI 実装
-- `import_expense_v3` 共通化（W-6 以降）
+- repository 層（v4.7.x）
+- `import_expense_v3` 共通化（W-7+）
+- `last_insert_rowid` → `RETURNING`（W-H、W-3 後）
+- Note / Reservation write service 化
+- itinerary aggregate / Tauri / GUI
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)
