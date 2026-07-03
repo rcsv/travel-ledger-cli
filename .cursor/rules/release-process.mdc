@@ -1,0 +1,20 @@
+---
+description: Release and version consistency rules
+alwaysApply: true
+---
+
+# Release/version consistency
+
+For release/version tasks, do not treat the request as a README-only edit.
+
+Required behavior:
+
+- Search the whole repository for old version references before editing.
+- List files containing old version references before making changes.
+- Update only release/version references that are part of the current release state.
+- Preserve historical changelog entries unless they incorrectly claim to be current.
+- Do not implement features.
+- Do not refactor.
+- Do not change runtime behavior.
+- Run the repository's standard checks after changes.
+
