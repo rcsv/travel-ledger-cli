@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.21 planning — expense show service boundary
+v4.6.22 planning — read-only service boundary completion review
 
 ## Latest completed
 
+- v4.6.21 Expense show service boundary — **released**
 - v4.6.20 Reservation show service boundary — **released**
 - v4.6.19 Day show service boundary — **released**
 - v4.6.18 Note show service boundary — **released**
@@ -26,16 +27,16 @@ v4.6.21 planning — expense show service boundary
 
 ## Repository state
 
-- Cargo version: `4.6.20`
-- Latest release: **v4.6.20** — [v4.6.20-notes.md](releases/v4.6.20-notes.md)
-- **v4.6.20 spec:** [v4.6.20-reservation-show-service-boundary.md](specifications/v4.6.20-reservation-show-service-boundary.md)
+- Cargo version: `4.6.21`
+- Latest release: **v4.6.21** — [v4.6.21-notes.md](releases/v4.6.21-notes.md)
+- **v4.6.21 spec:** [v4.6.21-expense-show-service-boundary.md](specifications/v4.6.21-expense-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.21 — `expense show` service boundary**（optional implementation）
+**v4.6.22 — read-only service boundary completion review**（documentation-only）
 
-- show 系 read-only expansion を継続
-- `expense show` は itinerary detail から自然
+- `expense show` までで GUI / Tauri 初号機向け read-only 導線の主要 show/list 系はほぼ揃った
+- 到達点・残件・write command に入る前の整理を review
 
 **Parallel track（v4.6.x、独立）:**
 

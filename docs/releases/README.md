@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.21 | Expense show service boundary | [v4.6.21-notes.md](v4.6.21-notes.md) |
 | v4.6.20 | Reservation show service boundary | [v4.6.20-notes.md](v4.6.20-notes.md) |
 | v4.6.19 | Day show service boundary | [v4.6.19-notes.md](v4.6.19-notes.md) |
 | v4.6.18 | Note show service boundary | [v4.6.18-notes.md](v4.6.18-notes.md) |

@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.20](docs/releases/v4.6.20-notes.md) — Reservation show service boundary。
+**最新:** [v4.6.21](docs/releases/v4.6.21-notes.md) — Expense show service boundary。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.21](docs/releases/v4.6.21-notes.md) | minor | Expense show service boundary (`expense show`) |
 | [v4.6.20](docs/releases/v4.6.20-notes.md) | minor | Reservation show service boundary (`reservation show`) |
 | [v4.6.19](docs/releases/v4.6.19-notes.md) | minor | Day show service boundary (`day show`) |
 | [v4.6.18](docs/releases/v4.6.18-notes.md) | minor | Note show service boundary (`note show`) |
