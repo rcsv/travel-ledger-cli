@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.29](docs/releases/v4.6.29-notes.md) — Itinerary show aggregate migration plan。
+**最新:** [v4.6.30](docs/releases/v4.6.30-notes.md) — Expense write path boundary review。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.30](docs/releases/v4.6.30-notes.md) | docs | Expense write path boundary review |
 | [v4.6.29](docs/releases/v4.6.29-notes.md) | docs | Itinerary show aggregate migration plan |
 | [v4.6.28](docs/releases/v4.6.28-notes.md) | docs | Itinerary show aggregate boundary review |
 | [v4.6.27](docs/releases/v4.6.27-notes.md) | docs | Expense output DTO migration follow-up review |
