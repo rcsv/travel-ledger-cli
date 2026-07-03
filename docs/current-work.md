@@ -67,6 +67,7 @@ v4.6.32 planning — expense write path Phase W-2+W-3 implementation（推奨候
 **Parallel track（v4.6.x、独立）:**
 
 - migration runner / orphan detection / FK hardening（[v4.6.1](specifications/v4.6.1-sqlite-fk-orphan-data-hardening-review.md) / [v4.6.2](specifications/v4.6.2-sqlite-migration-strategy-review.md) review 済み、実装未着手）
+  - **NEW backlog（v4.6.31 §15）:** `expenses` / `reservations` / `estimates` の `itinerary_id` は **DB FK なし・app validation 依存**。FK 導入は orphan detection → `user_version` → table rebuild の順で本 track へ課題化。
 
 ## Defer
 
