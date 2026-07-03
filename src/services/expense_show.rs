@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn service_json_mapper_matches_expense_to_json() {
+    fn service_json_mapper_produces_expected_expense_json() {
         let conn = test_db();
         let trip_id =
             crate::trip::add_trip(&conn, "Shared Trip", "2026-04-26", "2026-04-29", None).unwrap();
@@ -181,12 +181,17 @@ mod tests {
         .unwrap();
 
         let result = show_expense(&conn, id).unwrap();
-        let from_mapper = crate::expense::enriched_expense_to_json(&result.expense);
-        let from_helper = crate::expense::expense_to_json(&conn, &result.expense.expense).unwrap();
-        assert_eq!(
-            serde_json::to_value(&from_mapper).unwrap(),
-            serde_json::to_value(&from_helper).unwrap()
-        );
+        let json = crate::expense::enriched_expense_to_json(&result.expense);
+        assert_eq!(json.id, id);
+        assert_eq!(json.title.as_deref(), Some("Dinner"));
+        assert_eq!(json.amount, 3000);
+        assert_eq!(json.currency, "JPY");
+        assert!(json.shared);
+        assert_eq!(json.paid_by_participant_id, Some(payer_id));
+        assert_eq!(json.paid_by_participant_name.as_deref(), Some("Alice"));
+        assert_eq!(json.beneficiaries.len(), 1);
+        assert_eq!(json.beneficiaries[0].participant_id, beneficiary_id);
+        assert_eq!(json.beneficiaries[0].name, "Bob");
     }
 
     #[test]

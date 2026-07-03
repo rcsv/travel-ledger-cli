@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.33](docs/releases/v4.6.33-notes.md) — Expense write service Phase W-2+W-3 implementation。
+**最新:** [v4.6.34](docs/releases/v4.6.34-notes.md) — Expense write adapter cleanup。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.34](docs/releases/v4.6.34-notes.md) | minor | Expense write adapter cleanup |
 | [v4.6.33](docs/releases/v4.6.33-notes.md) | minor | Expense write service Phase W-2+W-3 |
 | [v4.6.32](docs/releases/v4.6.32-notes.md) | docs | Expense write service migration plan |
 | [v4.6.31](docs/releases/v4.6.31-notes.md) | docs | Expense write path migration plan |

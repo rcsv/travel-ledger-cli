@@ -381,12 +381,6 @@ pub(crate) fn enriched_expense_to_json(part: &ExpenseEnrichedPart) -> ExpenseJso
     }
 }
 
-/// Adapter for write paths and tests; read-only list/show use service enrichment + mapper.
-#[allow(dead_code)]
-pub(crate) fn expense_to_json(conn: &Connection, expense: &Expense) -> Result<ExpenseJson> {
-    Ok(enriched_expense_to_json(&enrich_expense(conn, expense)?))
-}
-
 /// Markdown export 用の Expense 1行
 #[allow(dead_code)]
 pub(crate) fn format_expense_markdown_line(conn: &Connection, exp: &Expense) -> Result<String> {
@@ -1016,22 +1010,6 @@ fn row_to_expense(row: &rusqlite::Row) -> rusqlite::Result<Expense> {
     })
 }
 
-/// Adapter for write paths; read-only list uses `print_expense_list_from_enriched`.
-#[allow(dead_code)]
-pub(crate) fn print_expense_list(
-    conn: &Connection,
-    target: ExpenseListTarget,
-    expenses: &[Expense],
-) -> Result<()> {
-    print_expense_list_from_enriched(
-        target,
-        &expenses
-            .iter()
-            .map(|e| enrich_expense(conn, e))
-            .collect::<Result<Vec<_>>>()?,
-    )
-}
-
 pub(crate) fn print_expense_list_from_enriched(
     target: ExpenseListTarget,
     expenses: &[ExpenseEnrichedPart],
@@ -1066,11 +1044,6 @@ pub(crate) fn print_expense_list_from_enriched(
         );
     }
     Ok(())
-}
-
-#[allow(dead_code)] // write path adapter; W-5 cleanup — tests / expense_to_json compat
-pub(crate) fn print_expense_detail(conn: &Connection, expense: &Expense) -> Result<()> {
-    print_expense_detail_from_enriched(&enrich_expense(conn, expense)?)
 }
 
 pub(crate) fn print_expense_detail_from_enriched(part: &ExpenseEnrichedPart) -> Result<()> {
@@ -1232,7 +1205,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enriched_expense_to_json_matches_expense_to_json() {
+    fn test_enriched_expense_to_json_shared_fields() {
         let conn = test_db();
         let (itinerary_id, payer, beneficiary) = setup_itinerary_with_participants(&conn);
         let id = add_expense(
@@ -1255,10 +1228,13 @@ mod tests {
         let enriched = enrich_expense(&conn, &expense).unwrap();
         assert!(enriched.shared);
         assert_eq!(enriched.beneficiaries.len(), 1);
-        assert_eq!(
-            serde_json::to_value(enriched_expense_to_json(&enriched)).unwrap(),
-            serde_json::to_value(expense_to_json(&conn, &expense).unwrap()).unwrap()
-        );
+        let json = enriched_expense_to_json(&enriched);
+        assert_eq!(json.id, id);
+        assert_eq!(json.amount, 4000);
+        assert_eq!(json.currency, "JPY");
+        assert!(json.shared);
+        assert_eq!(json.beneficiaries.len(), 1);
+        assert_eq!(json.beneficiaries[0].participant_id, beneficiary);
     }
 
     #[test]
@@ -1576,7 +1552,7 @@ mod tests {
         let expenses = list_expenses_for_itinerary(&conn, itinerary_id).unwrap();
         let json_expenses: Vec<ExpenseJson> = expenses
             .iter()
-            .map(|e| expense_to_json(&conn, e).unwrap())
+            .map(|e| enriched_expense_to_json(&enrich_expense(&conn, e).unwrap()))
             .collect();
         let json = serde_json::to_string_pretty(&ExpenseListJson {
             trip_id: None,

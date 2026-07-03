@@ -19,6 +19,7 @@ Caglla CLI のドキュメント索引です。GitHub トップの [README.md](.
 | ドキュメント | 内容 |
 |---|---|
 | [long-term-version-strategy.md](long-term-version-strategy.md) | Caglla.Travel メジャーバージョン戦略（v1 Planning Foundation 〜 v9 Platform）— 設計判断用参考 |
+| [future-roadmap-planning-memo.md](future-roadmap-planning-memo.md) | v4.6.x 完了後の将来方向性（Travel Data Ledger / Proposal / Calendar / 避けたい方向）— **現行 v4.6.x 作業とは別軸** |
 
 ## Specifications
 

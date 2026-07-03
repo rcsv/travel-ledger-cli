@@ -76,6 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.6.34-expense-write-adapter-cleanup.md](v4.6.34-expense-write-adapter-cleanup.md) | v4.6.34 Expense write adapter cleanup（**released**） |
 | [v4.6.33-expense-write-service-phase-w2-w3.md](v4.6.33-expense-write-service-phase-w2-w3.md) | v4.6.33 Expense write service Phase W-2+W-3（**released**） |
 | [v4.6.32-expense-write-service-migration-plan.md](v4.6.32-expense-write-service-migration-plan.md) | v4.6.32 Expense write service migration plan（**released**） |
 | [v4.6.31-expense-write-path-migration-plan.md](v4.6.31-expense-write-path-migration-plan.md) | v4.6.31 Expense write path migration plan（**released**） |
