@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.17 — checklist show service boundary（implementation complete, release pending）
+v4.6.18 planning — note show or day show service boundary
 
 ## Latest completed
 
+- v4.6.17 Checklist show service boundary — **released**
 - v4.6.16 Read-only service boundary follow-up review — **released**
 - v4.6.15 Checklist list service boundary — **released**
 - v4.6.14 Expense list service boundary — **released**
@@ -23,20 +24,15 @@ v4.6.17 — checklist show service boundary（implementation complete, release p
 ## Repository state
 
 - Cargo version: `4.6.17`
-- Latest release: **v4.6.16** — [v4.6.16-notes.md](releases/v4.6.16-notes.md)
+- Latest release: **v4.6.17** — [v4.6.17-notes.md](releases/v4.6.17-notes.md)
 - **v4.6.17 spec:** [v4.6.17-checklist-show-service-boundary.md](specifications/v4.6.17-checklist-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.17 release**（optional formal release）
+**v4.6.18 — `note show` or `day show` service boundary**（optional implementation）
 
-- `checklist show` service boundary 実装済み
-- `make check` PASS 確認後に release
-
-**v4.6.18 候補:**
-
-- `note show` service boundary
-- `day show` service boundary
+- show 系 read-only expansion を継続
+- `note show` は itinerary detail から自然、`day show` は day detail 入口として自然
 
 **Parallel track（v4.6.x、独立）:**
 
