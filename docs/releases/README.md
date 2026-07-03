@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.27 | Expense output DTO migration follow-up review | [v4.6.27-notes.md](v4.6.27-notes.md) |
 | v4.6.26 | Expense output DTO migration Phase 2+3 | [v4.6.26-notes.md](v4.6.26-notes.md) |
 | v4.6.25 | Expense output DTO migration plan | [v4.6.25-notes.md](v4.6.25-notes.md) |
 | v4.6.24 | Expense DTO context ownership review | [v4.6.24-notes.md](v4.6.24-notes.md) |

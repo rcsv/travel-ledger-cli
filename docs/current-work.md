@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.27 planning — expense output DTO migration follow-up review
+v4.6.28 planning — itinerary show aggregate boundary review（推奨候補）
 
 ## Latest completed
 
+- v4.6.27 Expense output DTO migration follow-up review — **released**
 - v4.6.26 Expense output DTO migration Phase 2+3 — **released**
 - v4.6.25 Expense output DTO migration plan — **released**
 - v4.6.24 Expense DTO context ownership review — **released**
@@ -32,34 +33,30 @@ v4.6.27 planning — expense output DTO migration follow-up review
 
 ## Repository state
 
-- Cargo version: `4.6.26`
-- Latest release: **v4.6.26** — [v4.6.26-notes.md](releases/v4.6.26-notes.md)
-- **v4.6.26 spec:** [v4.6.26-expense-output-dto-migration-phase-2-3.md](specifications/v4.6.26-expense-output-dto-migration-phase-2-3.md)
-- Implementation: `bed654a` — enriched expense output context for read-only services
+- Cargo version: `4.6.27`
+- Latest release: **v4.6.27** — [v4.6.27-notes.md](releases/v4.6.27-notes.md)
+- **v4.6.27 spec:** [v4.6.27-expense-output-dto-migration-follow-up-review.md](specifications/v4.6.27-expense-output-dto-migration-follow-up-review.md)
 
 ## Next action
 
-**v4.6.27 — expense output DTO migration follow-up review**（推奨、documentation-first）
+**v4.6.28 — itinerary show aggregate boundary review**（推奨、documentation-first）
 
-- adapter 残置（`expense_to_json` / `print_expense_*`）の整理方針
-- write path と read-only path の責務確認
-- Phase 4（adapter 縮小）着手前の確認
+- Reservations handler-side fetch の aggregate 方針整理
+- expense migration track は v4.6.27 で一区切り
 
 **代替候補:**
 
-- v4.6.27 — itinerary show aggregate boundary review
-- v4.6.27 — SQLite migration runner implementation（parallel track）
+- v4.6.28 — expense write path boundary review
+- v4.6.28 — SQLite migration runner implementation（parallel track）
 - v4.7.0 — Trip Proposal Envelope / Travel Ledger schema publication planning
 
-**Migration status（v4.6.25 plan）:**
+**Expense migration 状態（v4.6.27 結論）:**
 
-| Phase | 内容 | 状態 |
-|---|---|---|
-| 1 | migration plan | v4.6.25 ✓ |
-| 2 | service enriched parts | **v4.6.26 ✓** |
-| 3 | CLI ExpenseJson mapper | **v4.6.26 ✓** |
-| 4 | `expense_to_json` adapter 化 | v4.6.27+ 候補 |
-| 5 | GUI / Tauri | v4.7.x 以降 |
+| 項目 | 状態 |
+|---|---|
+| read-only list/show | service enriched parts ✓ |
+| adapter 残置 | write path（add/update）+ tests — **妥当** |
+| Phase 4 | **部分達成** — cleanup は write 連動まで defer |
 
 **Parallel track（v4.6.x、独立）:**
 
@@ -67,7 +64,8 @@ v4.6.27 planning — expense output DTO migration follow-up review
 
 ## Defer
 
-- Tauri / GUI 実装（Phase 5 まで defer）
+- adapter 削除 / Phase 4 cleanup（write path まで defer）
+- Tauri / GUI 実装
 - write command の service 化（Tier 3+）
 - `trip delete` / `import` / `duplicate` / `receipt assign`
 

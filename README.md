@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.26](docs/releases/v4.6.26-notes.md) — Expense output DTO migration Phase 2+3。
+**最新:** [v4.6.27](docs/releases/v4.6.27-notes.md) — Expense output DTO migration follow-up review。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.27](docs/releases/v4.6.27-notes.md) | docs | Expense output DTO migration follow-up review |
 | [v4.6.26](docs/releases/v4.6.26-notes.md) | minor | Expense output DTO migration Phase 2+3 |
 | [v4.6.25](docs/releases/v4.6.25-notes.md) | docs | Expense output DTO migration plan |
 | [v4.6.24](docs/releases/v4.6.24-notes.md) | docs | Expense DTO context ownership review |
