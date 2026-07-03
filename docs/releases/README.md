@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.23 | Read-only helper context review | [v4.6.23-notes.md](v4.6.23-notes.md) |
 | v4.6.22 | Read-only service boundary completion review | [v4.6.22-notes.md](v4.6.22-notes.md) |
 | v4.6.21 | Expense show service boundary | [v4.6.21-notes.md](v4.6.21-notes.md) |
 | v4.6.20 | Reservation show service boundary | [v4.6.20-notes.md](v4.6.20-notes.md) |
