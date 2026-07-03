@@ -608,20 +608,25 @@ fn main() -> Result<()> {
                 start_at,
                 end_at,
             } => {
-                let id = crate::reservation::add_reservation(
+                let result = crate::services::reservation_add::add_reservation(
                     &conn,
-                    itinerary,
-                    &reservation_type,
-                    &provider,
-                    confirmation.as_deref(),
-                    site_url.as_deref(),
-                    remark.as_deref(),
-                    start_at.as_deref(),
-                    end_at.as_deref(),
+                    crate::services::reservation_add::ReservationAddParams {
+                        itinerary,
+                        reservation_type,
+                        provider,
+                        confirmation,
+                        site_url,
+                        remark,
+                        start_at,
+                        end_at,
+                    },
                 )?;
-                println!("Reservation を追加しました (ID: {id})");
-                let reservation = crate::reservation::get_reservation(&conn, id)?;
-                crate::reservation::print_reservation_detail(&conn, &reservation);
+                println!("Reservation を追加しました (ID: {})", result.id);
+                crate::reservation::print_reservation_detail_with_context(
+                    &result.reservation,
+                    result.day_number,
+                    result.itinerary_title.as_deref(),
+                );
             }
             ReservationAction::List {
                 trip,
@@ -677,51 +682,38 @@ fn main() -> Result<()> {
                 clear_start_at,
                 clear_end_at,
             } => {
-                let confirmation_update = if clear_confirmation {
-                    Some(None)
-                } else {
-                    confirmation.as_ref().map(|value| Some(value.as_str()))
-                };
-                let site_url_update = if clear_site_url {
-                    Some(None)
-                } else {
-                    site_url.as_ref().map(|value| Some(value.as_str()))
-                };
-                let remark_update = if clear_remark {
-                    Some(None)
-                } else {
-                    remark.as_ref().map(|value| Some(value.as_str()))
-                };
-                let start_at_update = if clear_start_at {
-                    Some(None)
-                } else {
-                    start_at.as_ref().map(|value| Some(value.as_str()))
-                };
-                let end_at_update = if clear_end_at {
-                    Some(None)
-                } else {
-                    end_at.as_ref().map(|value| Some(value.as_str()))
-                };
-                crate::reservation::update_reservation(
+                let result = crate::services::reservation_update::update_reservation(
                     &conn,
-                    id,
-                    reservation_type.as_deref(),
-                    provider.as_deref(),
-                    confirmation_update,
-                    site_url_update,
-                    remark_update,
-                    start_at_update,
-                    end_at_update,
+                    crate::services::reservation_update::ReservationUpdateParams {
+                        id,
+                        reservation_type,
+                        provider,
+                        confirmation,
+                        site_url,
+                        remark,
+                        start_at,
+                        end_at,
+                        clear_confirmation,
+                        clear_site_url,
+                        clear_remark,
+                        clear_start_at,
+                        clear_end_at,
+                    },
                 )?;
-                println!("Reservation を更新しました (ID: {id})");
-                let reservation = crate::reservation::get_reservation(&conn, id)?;
-                crate::reservation::print_reservation_detail(&conn, &reservation);
+                println!("Reservation を更新しました (ID: {})", result.reservation.id);
+                crate::reservation::print_reservation_detail_with_context(
+                    &result.reservation,
+                    result.day_number,
+                    result.itinerary_title.as_deref(),
+                );
             }
             ReservationAction::Delete { id } => {
-                let reservation = crate::reservation::get_reservation(&conn, id)?;
-                crate::reservation::delete_reservation(&conn, id)?;
-                println!("Reservation を削除しました (ID: {id})");
-                println!("  Provider: {}", reservation.provider_name);
+                let result = crate::services::reservation_delete::delete_reservation(
+                    &conn,
+                    crate::services::reservation_delete::ReservationDeleteParams { id },
+                )?;
+                println!("Reservation を削除しました (ID: {})", result.id);
+                println!("  Provider: {}", result.provider_name);
             }
         },
         Command::Receipt { action } => match action {

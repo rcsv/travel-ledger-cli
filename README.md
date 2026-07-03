@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.40](docs/releases/v4.6.40-notes.md) — Reservation write service migration plan。
+**最新:** [v4.6.41](docs/releases/v4.6.41-notes.md) — Reservation write service Phase R-2+R-3 implementation。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.41](docs/releases/v4.6.41-notes.md) | minor | Reservation write service Phase R-2+R-3 |
 | [v4.6.40](docs/releases/v4.6.40-notes.md) | docs | Reservation write service migration plan |
 | [v4.6.39](docs/releases/v4.6.39-notes.md) | docs | Reservation write path boundary review |
 | [v4.6.38](docs/releases/v4.6.38-notes.md) | docs | Note write service Phase N-5 closeout |

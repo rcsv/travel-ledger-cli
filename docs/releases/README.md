@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.41 | Reservation write service Phase R-2+R-3 | [v4.6.41-notes.md](v4.6.41-notes.md) |
 | v4.6.40 | Reservation write service migration plan | [v4.6.40-notes.md](v4.6.40-notes.md) |
 | v4.6.39 | Reservation write path boundary review | [v4.6.39-notes.md](v4.6.39-notes.md) |
 | v4.6.38 | Note write service Phase N-5 docs-only closeout | [v4.6.38-notes.md](v4.6.38-notes.md) |

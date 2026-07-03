@@ -431,14 +431,25 @@ pub(crate) fn print_reservation_list(
     }
 }
 
+/// Legacy adapter — write path uses `_with_context` via services (R-5 removal planned).
+#[allow(dead_code)]
 pub(crate) fn print_reservation_detail(conn: &Connection, reservation: &Reservation) {
-    let itinerary = crate::itinerary::get_itinerary_item(conn, reservation.itinerary_id)
+    let (day_number, itinerary_title) =
+        load_reservation_display_context(conn, reservation.itinerary_id);
+    print_reservation_detail_with_context(reservation, day_number, itinerary_title.as_deref());
+}
+
+/// Loads Day / Itinerary display context for human reservation detail (read show + write add/update).
+pub(crate) fn load_reservation_display_context(
+    conn: &Connection,
+    itinerary_id: i64,
+) -> (Option<i64>, Option<String>) {
+    let itinerary = crate::itinerary::get_itinerary_item(conn, itinerary_id)
         .ok()
         .map(|item| (item.day, item.title));
-    let (day_number, itinerary_title) = itinerary
+    itinerary
         .map(|(day, title)| (Some(day), Some(title)))
-        .unwrap_or((None, None));
-    print_reservation_detail_with_context(reservation, day_number, itinerary_title.as_deref());
+        .unwrap_or((None, None))
 }
 
 pub(crate) fn print_reservation_detail_with_context(

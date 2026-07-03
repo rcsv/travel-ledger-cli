@@ -14,13 +14,8 @@ pub struct ReservationShowServiceResult {
 pub fn show_reservation(conn: &Connection, id: i64) -> Result<ReservationShowServiceResult> {
     let reservation = crate::reservation::get_reservation(conn, id)?;
 
-    let itinerary = crate::itinerary::get_itinerary_item(conn, reservation.itinerary_id)
-        .ok()
-        .map(|item| (item.day, item.title));
-
-    let (day_number, itinerary_title) = itinerary
-        .map(|(day, title)| (Some(day), Some(title)))
-        .unwrap_or((None, None));
+    let (day_number, itinerary_title) =
+        crate::reservation::load_reservation_display_context(conn, reservation.itinerary_id);
 
     Ok(ReservationShowServiceResult {
         reservation,
