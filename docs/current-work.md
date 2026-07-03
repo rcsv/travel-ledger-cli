@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.22 planning — read-only service boundary completion review
+v4.6.23 planning — read-only helper context review（推奨候補）
 
 ## Latest completed
 
+- v4.6.22 Read-only service boundary completion review — **released**
 - v4.6.21 Expense show service boundary — **released**
 - v4.6.20 Reservation show service boundary — **released**
 - v4.6.19 Day show service boundary — **released**
@@ -27,20 +28,27 @@ v4.6.22 planning — read-only service boundary completion review
 
 ## Repository state
 
-- Cargo version: `4.6.21`
-- Latest release: **v4.6.21** — [v4.6.21-notes.md](releases/v4.6.21-notes.md)
-- **v4.6.21 spec:** [v4.6.21-expense-show-service-boundary.md](specifications/v4.6.21-expense-show-service-boundary.md)
+- Cargo version: `4.6.22`
+- Latest release: **v4.6.22** — [v4.6.22-notes.md](releases/v4.6.22-notes.md)
+- **v4.6.22 spec:** [v4.6.22-read-only-service-boundary-completion-review.md](specifications/v4.6.22-read-only-service-boundary-completion-review.md)
 
 ## Next action
 
-**v4.6.22 — read-only service boundary completion review**（documentation-only）
+**v4.6.23 — read-only helper context review**（推奨、documentation-first）
 
-- `expense show` までで GUI / Tauri 初号機向け read-only 導線の主要 show/list 系はほぼ揃った
-- 到達点・残件・write command に入る前の整理を review
+- `expense_to_json` 等、CLI/helper 残存 DB context の整理方針
+- itinerary show Reservations aggregate 境界も同 review で扱える
+- write command / Tauri 実装の前に判断
+
+**代替候補:**
+
+- v4.6.23 — itinerary show aggregate boundary review
+- v4.6.23 — SQLite migration runner implementation（parallel track）
+- v4.7.0 — Trip Proposal Envelope / Travel Ledger schema publication planning
 
 **Parallel track（v4.6.x、独立）:**
 
-- migration runner / orphan detection（[v4.6.2 review](specifications/v4.6.2-sqlite-migration-strategy-review.md) 順序）
+- migration runner / orphan detection / FK hardening（[v4.6.1](specifications/v4.6.1-sqlite-fk-orphan-data-hardening-review.md) / [v4.6.2](specifications/v4.6.2-sqlite-migration-strategy-review.md) review 済み、実装未着手）
 
 ## Defer
 
