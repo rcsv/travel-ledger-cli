@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.29 planning — itinerary show aggregate migration plan（推奨候補）
+v4.6.30 planning — expense write path boundary review（推奨候補）
 
 ## Latest completed
 
+- v4.6.29 Itinerary show aggregate migration plan — **released**
 - v4.6.28 Itinerary show aggregate boundary review — **released**
 - v4.6.27 Expense output DTO migration follow-up review — **released**
 - v4.6.26 Expense output DTO migration Phase 2+3 — **released**
@@ -34,31 +35,37 @@ v4.6.29 planning — itinerary show aggregate migration plan（推奨候補）
 
 ## Repository state
 
-- Cargo version: `4.6.28`
-- Latest release: **v4.6.28** — [v4.6.28-notes.md](releases/v4.6.28-notes.md)
-- **v4.6.28 spec:** [v4.6.28-itinerary-show-aggregate-boundary-review.md](specifications/v4.6.28-itinerary-show-aggregate-boundary-review.md)
+- Cargo version: `4.6.29`
+- Latest release: **v4.6.29** — [v4.6.29-notes.md](releases/v4.6.29-notes.md)
+- **v4.6.29 plan:** [v4.6.29-itinerary-show-aggregate-migration-plan.md](specifications/v4.6.29-itinerary-show-aggregate-migration-plan.md)
+- **v4.6.28 review:** [v4.6.28-itinerary-show-aggregate-boundary-review.md](specifications/v4.6.28-itinerary-show-aggregate-boundary-review.md)
 
 ## Next action
 
-**v4.6.29 — itinerary show aggregate migration plan**（推奨、documentation-first）
+**v4.6.30 — expense write path boundary review**（推奨）
 
-- Option B（Reservations を service result に）を第一候補
-- 既存 `itinerary show --json` は `ItineraryItem` のみ維持
-- Notes / Expenses の全面 inclusion は慎重に defer
+**Itinerary aggregate migration（v4.6.29 結論）:**
+
+| Phase | 内容 |
+|---|---|
+| 0 | v4.6.29 plan — **完了** |
+| 1 | CLI 現状維持（Option A） |
+| 2 | GUI 初号機は個別 service compose |
+| 3 | Option C / D — UX 確定後 |
+| 4 | CLI human 内部寄せ（任意） |
+
+| 方針 | 内容 |
+|---|---|
+| Option A | 短期維持 |
+| Option B | **慎重** — reservations だけ show result に混ぜない |
+| Option C / D | 中期有力候補 |
+| JSON | `ItineraryItem` のみ — **不変** |
 
 **代替候補:**
 
-- v4.6.29 — expense write path boundary review
-- v4.6.29 — SQLite migration runner implementation（parallel track）
+- v4.6.30 — SQLite migration runner implementation（parallel track）
 - v4.7.0 — Trip Proposal Envelope / Travel Ledger schema publication planning
-
-**Itinerary show aggregate（v4.6.28 結論）:**
-
-| 項目 | 状態 |
-|---|---|
-| itinerary 本体 | service 化済み |
-| Reservations human | handler 追加取得 — **許容** |
-| JSON | `ItineraryItem` のみ — **不変** |
+- v4.7.x — itinerary aggregate Phase 2〜3（GUI 着手後）
 
 **Parallel track（v4.6.x、独立）:**
 
@@ -66,8 +73,8 @@ v4.6.29 planning — itinerary show aggregate migration plan（推奨候補）
 
 ## Defer
 
-- itinerary aggregate 実装（migration plan 後）
-- expense adapter cleanup / write path（v4.6.27 defer 継続）
+- itinerary aggregate 実装（Phase 2+、GUI タイムライン連動）
+- expense adapter cleanup / write path（v4.6.30 候補）
 - Tauri / GUI 実装
 - write command の service 化（Tier 3+）
 
