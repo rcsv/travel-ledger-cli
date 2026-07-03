@@ -113,12 +113,13 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.36](docs/releases/v4.6.36-notes.md) — Note write service migration plan。
+**最新:** [v4.6.37](docs/releases/v4.6.37-notes.md) — Note write service Phase N-2+N-3 implementation。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.6.37](docs/releases/v4.6.37-notes.md) | minor | Note write service Phase N-2+N-3 |
 | [v4.6.36](docs/releases/v4.6.36-notes.md) | docs | Note write service migration plan |
 | [v4.6.35](docs/releases/v4.6.35-notes.md) | docs | Note write path boundary review |
 | [v4.6.34](docs/releases/v4.6.34-notes.md) | minor | Expense write adapter cleanup |

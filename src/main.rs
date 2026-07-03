@@ -331,11 +331,18 @@ fn main() -> Result<()> {
                 title,
                 body,
             } => {
-                let owner = crate::note::resolve_note_owner_for_add(&conn, trip, day, itinerary)?;
-                let id = crate::note::add_note(&conn, owner, title.as_deref(), &body)?;
-                println!("Note を追加しました (ID: {id})");
-                let note = crate::note::get_note(&conn, id)?;
-                crate::note::print_note_detail(&note);
+                let result = crate::services::note_add::add_note(
+                    &conn,
+                    crate::services::note_add::NoteAddParams {
+                        trip,
+                        day,
+                        itinerary,
+                        title,
+                        body,
+                    },
+                )?;
+                println!("Note を追加しました (ID: {})", result.id);
+                crate::note::print_note_detail(&result.note);
             }
             NoteAction::List {
                 trip,
@@ -363,16 +370,20 @@ fn main() -> Result<()> {
                 }
             }
             NoteAction::Update { id, title, body } => {
-                crate::note::update_note(&conn, id, title.as_deref(), body.as_deref())?;
-                println!("Note を更新しました (ID: {id})");
-                let note = crate::note::get_note(&conn, id)?;
-                crate::note::print_note_detail(&note);
+                let result = crate::services::note_update::update_note(
+                    &conn,
+                    crate::services::note_update::NoteUpdateParams { id, title, body },
+                )?;
+                println!("Note を更新しました (ID: {})", result.note.id);
+                crate::note::print_note_detail(&result.note);
             }
             NoteAction::Delete { id } => {
-                let note = crate::note::get_note(&conn, id)?;
-                crate::note::delete_note(&conn, id)?;
-                println!("Note を削除しました (ID: {id})");
-                println!("  Title: {}", note.title.as_deref().unwrap_or("-"));
+                let result = crate::services::note_delete::delete_note(
+                    &conn,
+                    crate::services::note_delete::NoteDeleteParams { id },
+                )?;
+                println!("Note を削除しました (ID: {})", result.id);
+                println!("  Title: {}", result.title.as_deref().unwrap_or("-"));
             }
         },
         Command::Expense { action } => match action {
