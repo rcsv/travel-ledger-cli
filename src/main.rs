@@ -436,13 +436,14 @@ fn main() -> Result<()> {
                 }
             }
             ExpenseAction::Show { id, json } => {
-                let expense = crate::expense::get_expense(&conn, id)?;
+                let result = crate::services::expense_show::show_expense(&conn, id)?;
                 if json {
                     crate::output::json::print_json(&crate::expense::expense_to_json(
-                        &conn, &expense,
+                        &conn,
+                        &result.expense,
                     )?)?;
                 } else {
-                    crate::expense::print_expense_detail(&conn, &expense)?;
+                    crate::expense::print_expense_detail(&conn, &result.expense)?;
                 }
             }
             ExpenseAction::Update {
