@@ -8,6 +8,8 @@ Caglla.Travel（CLI / 将来 Web）の **メジャーバージョンごとの到
 - **実装指示ではない** — スケジュール・スコープの確約でもない
 - リポジトリの **パッチリリース**（v1.14.0、v1.16.0 等の documentation-only release）とは **別軸** の「製品メジャー版」想定
 
+**v4.6.x 完了後の方向性（2026 ブレインストーミング）:** [future-roadmap-planning-memo.md](future-roadmap-planning-memo.md) — Travel Data Ledger / Proposal Envelope / Calendar ICS / 避けたい方向。本書の v5–v8 メジャー版イメージと **整合は v4.6.x 完了後に取り直す**。
+
 関連: [Travel Ledger Responsibilities](specifications/travel-ledger-responsibilities.md) / [Summary Implementation Plan](specifications/summary-implementation-plan.md) / [Reservation Implementation Plan](specifications/reservation-implementation-plan.md) / [data-model.md](data-model.md)
 
 ---
