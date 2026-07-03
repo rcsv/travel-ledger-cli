@@ -647,11 +647,15 @@ fn main() -> Result<()> {
                 }
             }
             ReservationAction::Show { id, json } => {
-                let reservation = crate::reservation::get_reservation(&conn, id)?;
+                let result = crate::services::reservation_show::show_reservation(&conn, id)?;
                 if json {
-                    crate::output::json::print_json(&reservation)?;
+                    crate::output::json::print_json(&result.reservation)?;
                 } else {
-                    crate::reservation::print_reservation_detail(&conn, &reservation);
+                    crate::reservation::print_reservation_detail_with_context(
+                        &result.reservation,
+                        result.day_number,
+                        result.itinerary_title.as_deref(),
+                    );
                 }
             }
             ReservationAction::Update {
