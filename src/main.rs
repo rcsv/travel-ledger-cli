@@ -229,11 +229,11 @@ fn main() -> Result<()> {
                 }
             }
             ChecklistAction::Show { id, json } => {
-                let item = crate::checklist::get_checklist_item(&conn, id)?;
+                let result = crate::services::checklist_show::show_checklist(&conn, id)?;
                 if json {
-                    crate::output::json::print_json(&item)?;
+                    crate::output::json::print_json(&result.item)?;
                 } else {
-                    crate::checklist::print_checklist_detail(&item);
+                    crate::checklist::print_checklist_detail(&result.item);
                 }
             }
             ChecklistAction::Update {

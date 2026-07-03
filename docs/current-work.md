@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.6.17 planning — checklist show service boundary
+v4.6.17 — checklist show service boundary（implementation complete, release pending）
 
 ## Latest completed
 
@@ -22,16 +22,21 @@ v4.6.17 planning — checklist show service boundary
 
 ## Repository state
 
-- Cargo version: `4.6.16`
+- Cargo version: `4.6.17`
 - Latest release: **v4.6.16** — [v4.6.16-notes.md](releases/v4.6.16-notes.md)
-- **v4.6.16 review:** [v4.6.16-read-only-service-boundary-follow-up-review.md](specifications/v4.6.16-read-only-service-boundary-follow-up-review.md)
+- **v4.6.17 spec:** [v4.6.17-checklist-show-service-boundary.md](specifications/v4.6.17-checklist-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.17 — `checklist show` service boundary**（optional implementation）
+**v4.6.17 release**（optional formal release）
 
-- [v4.6.16 follow-up review](specifications/v4.6.16-read-only-service-boundary-follow-up-review.md) 推奨に従い show 系へ移行
-- `checklist list` が直前に service 化済みで自然な次候補
+- `checklist show` service boundary 実装済み
+- `make check` PASS 確認後に release
+
+**v4.6.18 候補:**
+
+- `note show` service boundary
+- `day show` service boundary
 
 **Parallel track（v4.6.x、独立）:**
 

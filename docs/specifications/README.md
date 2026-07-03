@@ -76,6 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.6.17-checklist-show-service-boundary.md](v4.6.17-checklist-show-service-boundary.md) | v4.6.17 Checklist show service boundary（**draft**） |
 | [v4.6.16-read-only-service-boundary-follow-up-review.md](v4.6.16-read-only-service-boundary-follow-up-review.md) | v4.6.16 Read-only service boundary follow-up review（**released**） |
 | [v4.6.15-checklist-list-service-boundary.md](v4.6.15-checklist-list-service-boundary.md) | v4.6.15 Checklist list service boundary（**released**） |
 | [v4.6.14-expense-list-service-boundary.md](v4.6.14-expense-list-service-boundary.md) | v4.6.14 Expense list service boundary（**released**） |

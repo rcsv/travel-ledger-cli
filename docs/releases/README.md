@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.17 | Checklist show service boundary | [v4.6.17-notes.md](v4.6.17-notes.md) |
 | v4.6.16 | Read-only service boundary follow-up review | [v4.6.16-notes.md](v4.6.16-notes.md) |
 | v4.6.15 | Checklist list service boundary | [v4.6.15-notes.md](v4.6.15-notes.md) |
 | v4.6.14 | Expense list service boundary | [v4.6.14-notes.md](v4.6.14-notes.md) |
