@@ -388,27 +388,23 @@ fn main() -> Result<()> {
                 shared_with,
                 expense_date,
             } => {
-                let shared = crate::expense::parse_expense_shared_options_for_add(
+                let result = crate::services::expense_add::add_expense(
                     &conn,
-                    itinerary,
-                    paid_by_participant.as_deref(),
-                    &beneficiary,
-                    shared_with.as_deref(),
+                    crate::services::expense_add::ExpenseAddParams {
+                        itinerary,
+                        amount,
+                        currency,
+                        title,
+                        note,
+                        paid_by_name,
+                        paid_by_participant,
+                        beneficiary,
+                        shared_with,
+                        expense_date,
+                    },
                 )?;
-                let id = crate::expense::add_expense(
-                    &conn,
-                    itinerary,
-                    &amount,
-                    &currency,
-                    title.as_deref(),
-                    note.as_deref(),
-                    paid_by_name.as_deref(),
-                    expense_date.as_deref(),
-                    &shared,
-                )?;
-                println!("Expense を追加しました (ID: {id})");
-                let expense = crate::expense::get_expense(&conn, id)?;
-                crate::expense::print_expense_detail(&conn, &expense)?;
+                println!("Expense を追加しました (ID: {})", result.id);
+                crate::expense::print_expense_detail_from_enriched(&result.expense)?;
             }
             ExpenseAction::List {
                 trip,
@@ -462,38 +458,32 @@ fn main() -> Result<()> {
                 expense_date,
                 note,
             } => {
-                let expense = crate::expense::get_expense(&conn, id)?;
-                let shared = crate::expense::parse_expense_shared_options_for_update(
+                let result = crate::services::expense_update::update_expense(
                     &conn,
-                    expense.itinerary_id,
-                    paid_by_participant.as_deref(),
-                    &beneficiary,
-                    shared_with.as_deref(),
-                    clear_paid_by,
-                    clear_beneficiaries,
-                )?;
-                crate::expense::update_expense(
-                    &conn,
-                    id,
-                    title.as_deref(),
-                    amount.as_deref(),
-                    currency.as_deref(),
-                    paid_by_name.as_deref(),
-                    expense_date.as_deref(),
-                    note.as_deref(),
-                    &shared,
+                    crate::services::expense_update::ExpenseUpdateParams {
+                        id,
+                        title,
+                        amount,
+                        currency,
+                        paid_by_name,
+                        paid_by_participant,
+                        beneficiary,
+                        shared_with,
+                        clear_paid_by,
+                        clear_beneficiaries,
+                        expense_date,
+                        note,
+                    },
                 )?;
                 println!("Expense を更新しました (ID: {id})");
-                let expense = crate::expense::get_expense(&conn, id)?;
-                crate::expense::print_expense_detail(&conn, &expense)?;
+                crate::expense::print_expense_detail_from_enriched(&result.expense)?;
             }
             ExpenseAction::Delete { id } => {
-                let expense = crate::expense::get_expense(&conn, id)?;
-                crate::expense::delete_expense(&conn, id)?;
-                println!("Expense を削除しました (ID: {id})");
+                let result = crate::services::expense_delete::delete_expense(&conn, id)?;
+                println!("Expense を削除しました (ID: {})", result.id);
                 println!(
                     "  Amount: {}",
-                    crate::expense::format_amount_display(expense.amount, &expense.currency)
+                    crate::expense::format_amount_display(result.amount, &result.currency)
                 );
             }
         },

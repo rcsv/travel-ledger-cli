@@ -1068,6 +1068,7 @@ pub(crate) fn print_expense_list_from_enriched(
     Ok(())
 }
 
+#[allow(dead_code)] // write path adapter; W-5 cleanup — tests / expense_to_json compat
 pub(crate) fn print_expense_detail(conn: &Connection, expense: &Expense) -> Result<()> {
     print_expense_detail_from_enriched(&enrich_expense(conn, expense)?)
 }
