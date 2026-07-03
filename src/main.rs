@@ -337,11 +337,11 @@ fn main() -> Result<()> {
                 }
             }
             NoteAction::Show { id, json } => {
-                let note = crate::note::get_note(&conn, id)?;
+                let result = crate::services::note_show::show_note(&conn, id)?;
                 if json {
-                    crate::output::json::print_json(&note)?;
+                    crate::output::json::print_json(&result.note)?;
                 } else {
-                    crate::note::print_note_detail(&note);
+                    crate::note::print_note_detail(&result.note);
                 }
             }
             NoteAction::Update { id, title, body } => {
