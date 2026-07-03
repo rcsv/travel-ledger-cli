@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.6.38 | Note write service Phase N-5 docs-only closeout | [v4.6.38-notes.md](v4.6.38-notes.md) |
 | v4.6.37 | Note write service Phase N-2+N-3 | [v4.6.37-notes.md](v4.6.37-notes.md) |
 | v4.6.36 | Note write service migration plan | [v4.6.36-notes.md](v4.6.36-notes.md) |
 | v4.6.35 | Note write path boundary review | [v4.6.35-notes.md](v4.6.35-notes.md) |
