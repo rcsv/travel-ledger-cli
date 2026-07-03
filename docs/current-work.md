@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.18 — note show service boundary（implementation complete, release pending）
+v4.6.19 planning — day show service boundary
 
 ## Latest completed
 
+- v4.6.18 Note show service boundary — **released**
 - v4.6.17 Checklist show service boundary — **released**
 - v4.6.16 Read-only service boundary follow-up review — **released**
 - v4.6.15 Checklist list service boundary — **released**
@@ -24,20 +25,15 @@ v4.6.18 — note show service boundary（implementation complete, release pendin
 ## Repository state
 
 - Cargo version: `4.6.18`
-- Latest release: **v4.6.17** — [v4.6.17-notes.md](releases/v4.6.17-notes.md)
+- Latest release: **v4.6.18** — [v4.6.18-notes.md](releases/v4.6.18-notes.md)
 - **v4.6.18 spec:** [v4.6.18-note-show-service-boundary.md](specifications/v4.6.18-note-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.18 release**（optional formal release）
+**v4.6.19 — `day show` service boundary**（optional implementation）
 
-- `note show` service boundary 実装済み
-- `make check` PASS 確認後に release
-
-**v4.6.19 候補:**
-
-- `day show` service boundary
-- `reservation show` service boundary
+- show 系 read-only expansion を継続
+- `day show` は day detail 入口として自然（`DayShowJson` wrapper は CLI 層に残す想定）
 
 **Parallel track（v4.6.x、独立）:**
 
