@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.6.20 planning — reservation show or expense show service boundary
+v4.6.21 planning — expense show service boundary
 
 ## Latest completed
 
+- v4.6.20 Reservation show service boundary — **released**
 - v4.6.19 Day show service boundary — **released**
 - v4.6.18 Note show service boundary — **released**
 - v4.6.17 Checklist show service boundary — **released**
@@ -25,16 +26,16 @@ v4.6.20 planning — reservation show or expense show service boundary
 
 ## Repository state
 
-- Cargo version: `4.6.19`
-- Latest release: **v4.6.19** — [v4.6.19-notes.md](releases/v4.6.19-notes.md)
-- **v4.6.19 spec:** [v4.6.19-day-show-service-boundary.md](specifications/v4.6.19-day-show-service-boundary.md)
+- Cargo version: `4.6.20`
+- Latest release: **v4.6.20** — [v4.6.20-notes.md](releases/v4.6.20-notes.md)
+- **v4.6.20 spec:** [v4.6.20-reservation-show-service-boundary.md](specifications/v4.6.20-reservation-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.20 — `reservation show` or `expense show` service boundary**（optional implementation）
+**v4.6.21 — `expense show` service boundary**（optional implementation）
 
 - show 系 read-only expansion を継続
-- `reservation show` / `expense show` は itinerary detail から自然
+- `expense show` は itinerary detail から自然
 
 **Parallel track（v4.6.x、独立）:**
 
