@@ -279,7 +279,25 @@ fn main() -> Result<()> {
                 day_number,
                 json,
             } => {
-                crate::day::run_day_show(&conn, trip_id, day_number, json)?;
+                let result = crate::services::day_show::show_day(&conn, trip_id, day_number)?;
+                if json {
+                    crate::day::print_day_show_json(
+                        trip_id,
+                        &result.trip,
+                        day_number,
+                        &result.date,
+                        &result.day,
+                        &result.itineraries,
+                    )?;
+                } else {
+                    crate::day::print_day_show_display(
+                        &result.trip,
+                        &result.day,
+                        day_number,
+                        &result.date,
+                        &result.itineraries,
+                    );
+                }
             }
             DayAction::Update {
                 trip_id,

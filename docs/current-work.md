@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.6.19 planning — day show service boundary
+v4.6.19 — day show service boundary（implementation complete, release pending）
 
 ## Latest completed
 
@@ -24,16 +24,21 @@ v4.6.19 planning — day show service boundary
 
 ## Repository state
 
-- Cargo version: `4.6.18`
+- Cargo version: `4.6.19`
 - Latest release: **v4.6.18** — [v4.6.18-notes.md](releases/v4.6.18-notes.md)
-- **v4.6.18 spec:** [v4.6.18-note-show-service-boundary.md](specifications/v4.6.18-note-show-service-boundary.md)
+- **v4.6.19 spec:** [v4.6.19-day-show-service-boundary.md](specifications/v4.6.19-day-show-service-boundary.md)
 
 ## Next action
 
-**v4.6.19 — `day show` service boundary**（optional implementation）
+**v4.6.19 release**（optional formal release）
 
-- show 系 read-only expansion を継続
-- `day show` は day detail 入口として自然（`DayShowJson` wrapper は CLI 層に残す想定）
+- `day show` service boundary 実装済み
+- `make check` PASS 確認後に release
+
+**v4.6.20 候補:**
+
+- `reservation show` service boundary
+- `expense show` service boundary
 
 **Parallel track（v4.6.x、独立）:**
 

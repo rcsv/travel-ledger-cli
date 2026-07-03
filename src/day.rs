@@ -190,31 +190,35 @@ pub(crate) fn print_day_list_display(trip: &Trip, days: &[Day]) -> Result<()> {
     Ok(())
 }
 
-/// Day 詳細（配下 Itinerary 含む）を表示する
-pub(crate) fn run_day_show(
-    conn: &Connection,
+/// Day 詳細を JSON 出力する（CLI layer）
+pub(crate) fn print_day_show_json(
     trip_id: i64,
+    trip: &Trip,
     day_number: i64,
-    json: bool,
+    date: &str,
+    day: &Day,
+    items: &[ItineraryItem],
 ) -> Result<()> {
-    let trip = crate::trip::get_trip(conn, trip_id)?;
-    let day = find_day_by_trip_and_day_number(conn, trip_id, day_number)?;
-    let date = day_date_for_trip(&trip, day_number)?;
-    let items = crate::itinerary::list_itinerary_items_for_day(conn, trip_id, day_number)?;
-    if json {
-        crate::output::json::print_json(&DayShowJson {
-            trip_id,
-            trip_name: trip.name,
-            day_number,
-            date,
-            day_id: day.id,
-            summary: day.summary.clone(),
-            itineraries: items,
-        })?;
-    } else {
-        print_day_show(&trip, &day, day_number, &date, &items);
-    }
-    Ok(())
+    crate::output::json::print_json(&DayShowJson {
+        trip_id,
+        trip_name: trip.name.clone(),
+        day_number,
+        date: date.to_string(),
+        day_id: day.id,
+        summary: day.summary.clone(),
+        itineraries: items.to_vec(),
+    })
+}
+
+/// Day 詳細を人間向けに表示する（CLI layer）
+pub(crate) fn print_day_show_display(
+    trip: &Trip,
+    day: &Day,
+    day_number: i64,
+    date: &str,
+    items: &[ItineraryItem],
+) {
+    print_day_show(trip, day, day_number, date, items);
 }
 
 /// Day の summary を DB に設定する（import 用）
@@ -268,7 +272,7 @@ pub(crate) fn run_day_update(
     let date = day_date_for_trip(&trip, day_number)?;
     let items = crate::itinerary::list_itinerary_items_for_day(conn, trip_id, day_number)?;
     println!("Day {day_number} を更新しました");
-    print_day_show(&trip, &day, day_number, &date, &items);
+    print_day_show_display(&trip, &day, day_number, &date, &items);
     Ok(())
 }
 
@@ -548,7 +552,7 @@ mod tests {
     fn test_run_day_show_rejects_invalid_day_number() {
         let conn = test_db();
         let trip_id = add_trip(&conn, "Range Trip", "2026-04-26", "2026-04-29", None).unwrap();
-        assert!(run_day_show(&conn, trip_id, 99, false).is_err());
+        assert!(crate::services::day_show::show_day(&conn, trip_id, 99).is_err());
     }
 
     fn set_day_metadata(

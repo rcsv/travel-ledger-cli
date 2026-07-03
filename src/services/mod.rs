@@ -3,6 +3,7 @@
 pub mod checklist_list;
 pub mod checklist_show;
 pub mod day_list;
+pub mod day_show;
 pub mod expense_list;
 pub mod itinerary_list;
 pub mod itinerary_show;
