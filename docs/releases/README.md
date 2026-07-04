@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.4 | Materialize gate concept / validation rules | [v4.7.4-notes.md](v4.7.4-notes.md) |
 | v4.7.3 | Proposal Fragment concept specification | [v4.7.3-notes.md](v4.7.3-notes.md) |
 | v4.7.2 | Trip Proposal Envelope concept specification | [v4.7.2-notes.md](v4.7.2-notes.md) |
 | v4.7.1 | Public README / schema docs outline | [v4.7.1-notes.md](v4.7.1-notes.md) |

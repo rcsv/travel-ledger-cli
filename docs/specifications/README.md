@@ -76,7 +76,8 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
-| [v4.7.3-proposal-fragment-concept-spec.md](v4.7.3-proposal-fragment-concept-spec.md) | v4.7.3 Proposal Fragment concept specification |
+| [v4.7.4-materialize-gate-concept-validation-rules.md](v4.7.4-materialize-gate-concept-validation-rules.md) | v4.7.4 Materialize gate concept / validation rules |
+| [v4.7.3-proposal-fragment-concept-spec.md](v4.7.3-proposal-fragment-concept-spec.md) | v4.7.3 Proposal Fragment concept specification（**released**） |
 | [v4.7.2-trip-proposal-envelope-concept-spec.md](v4.7.2-trip-proposal-envelope-concept-spec.md) | v4.7.2 Trip Proposal Envelope concept specification（**released**） |
 | [v4.7.1-public-readme-schema-docs-outline.md](v4.7.1-public-readme-schema-docs-outline.md) | v4.7.1 Public README / schema docs outline（**released**） |
 | [v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md](v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md) | v4.7.0 Schema-publication / Travel Ledger public direction concept review（**released**） |
