@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.1 | Public README / schema docs outline | [v4.7.1-notes.md](v4.7.1-notes.md) |
 | v4.7.0 | Schema-publication / Travel Ledger public direction concept review | [v4.7.0-notes.md](v4.7.0-notes.md) |
 | v4.6.43 | Release workflow asset upload follow-up | [v4.6.43-notes.md](v4.6.43-notes.md) |
 | v4.6.42 | Reservation write service Phase R-5 adapter cleanup | [v4.6.42-notes.md](v4.6.42-notes.md) |

@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.1 planning — public README / schema docs outline
+v4.7.1 — public README / schema docs outline（準備完了、リリース待ち）
 
 ## Latest completed
 
@@ -11,27 +11,26 @@ v4.7.1 planning — public README / schema docs outline
 
 ## Repository state
 
-- Cargo version: `4.7.0`
+- Cargo version: `4.7.1`
 - Latest release: **v4.7.0** — [v4.7.0-notes.md](releases/v4.7.0-notes.md)
-- **v4.7.0 spec:** [v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md](specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md)
+- **v4.7.1 spec:** [v4.7.1-public-readme-schema-docs-outline.md](specifications/v4.7.1-public-readme-schema-docs-outline.md)
+- **Public docs:** [public/README.md](public/README.md)
 
 ## v4.7.x 新章
 
 ```text
 v4.7.0  public direction concept review — 完了
-v4.7.1  public README / schema docs outline — 推奨次
-v4.7.2  Trip Proposal Envelope concept spec
+v4.7.1  public README / schema docs outline — 準備完了
+v4.7.2  Trip Proposal Envelope concept spec — 推奨次
 v4.7.3  Proposal Fragment concept spec
 v4.7.4  materialize gate concept
 ```
 
 ## Next action
 
-**推奨:** v4.7.1 — public README / schema docs outline
+**推奨:** v4.7.1 正式リリース（release commit → tag → workflow）
 
-- `docs/public/` 骨格
-- schema v3（歴史）と schema v8（canonical）の説明
-- `future-roadmap-planning-memo.md` cross-reference 更新
+**その後:** v4.7.2 — Trip Proposal Envelope concept spec
 
 **Parallel track:** migration runner / FK hardening
 

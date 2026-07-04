@@ -13,7 +13,9 @@ v4.6.x 完了（existing CLI cleanup / service boundary / DTO migration / read-o
 
 **直近の大前提:** v4.6.x を中断・混在させない。現行作業の正本は [current-work.md](current-work.md)。
 
-関連: [long-term-version-strategy.md](long-term-version-strategy.md)（製品メジャー版の到達イメージ）/ [planning-design-principles.md](specifications/planning-design-principles.md) / [travel-ledger-responsibilities.md](specifications/travel-ledger-responsibilities.md) / [v4.0.0 Travel Book Concept Design](specifications/v4.0.0-travel-book-concept-design.md)
+関連: [long-term-version-strategy.md](long-term-version-strategy.md)（製品メジャー版の到達イメージ）/ [planning-design-principles.md](specifications/planning-design-principles.md) / [travel-ledger-responsibilities.md](specifications/travel-ledger-responsibilities.md) / [v4.0.0 Travel Book Concept Design](specifications/v4.0.0-travel-book-concept-design.md) / **[public docs（外向き入口）](public/README.md)**
+
+**v4.7.x 注記（2026）:** 現行の優先トラックは **schema-publication**（[public/README.md](public/README.md)、[v4.7.0 concept review](specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md)）です。下記「v4.7.x = Participant stream」は旧案 — Participant 拡張は schema-publication 後に再優先度付け。
 
 ---
 

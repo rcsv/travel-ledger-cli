@@ -21,6 +21,19 @@ Caglla CLI のドキュメント索引です。GitHub トップの [README.md](.
 | [long-term-version-strategy.md](long-term-version-strategy.md) | Caglla.Travel メジャーバージョン戦略（v1 Planning Foundation 〜 v9 Platform）— 設計判断用参考 |
 | [future-roadmap-planning-memo.md](future-roadmap-planning-memo.md) | v4.6.x 完了後の将来方向性（Travel Data Ledger / Proposal / Calendar / 避けたい方向）— **現行 v4.6.x 作業とは別軸** |
 
+## Public documentation
+
+Travel Ledger の **外向き入口**（schema v8 / 公開方向 / Proposal 概要）:
+
+| ドキュメント | 内容 |
+|---|---|
+| [public/README.md](public/README.md) | 公開ドキュメントの入口・読み順・責務 |
+| [public/travel-ledger.md](public/travel-ledger.md) | Travel Ledger / CLI / future GUI |
+| [public/schema.md](public/schema.md) | schema v8（canonical）と schema v3+（歴史） |
+| [public/proposals.md](public/proposals.md) | Proposal / materialize 概要（v4.7.2+ で詳細化） |
+
+関連: [v4.7.0 concept review](specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md) / [v4.7.1 public docs outline](specifications/v4.7.1-public-readme-schema-docs-outline.md)
+
 ## Specifications
 
 内部モデル・設計仕様は [specifications/](specifications/) にあります。

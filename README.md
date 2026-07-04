@@ -96,6 +96,7 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 | [docs/development.md](docs/development.md) | 開発・CI・サンプルデータ |
 | [docs/github-workflow.md](docs/github-workflow.md) | Issue / Milestone / Project による開発運用 |
 | [docs/specifications/](docs/specifications/) | 内部モデル・設計仕様 |
+| [docs/public/](docs/public/) | **Travel Ledger 外向きドキュメント（schema v8 / 公開方向）** |
 | [docs/releases/](docs/releases/) | リリースノート |
 
 索引: [docs/README.md](docs/README.md)
