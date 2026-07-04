@@ -2,7 +2,8 @@
 
 AI、旅行業者、ブログ、手入力などから来る **まだ採用していない旅行案** の扱いです。
 
-v4.7.2 で **Trip Proposal Envelope** の概念を整理しました。詳細は [v4.7.2 concept spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md) を参照してください。
+- [v4.7.2](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md) — **Trip Proposal Envelope**（旅行全体の未採用案）
+- [v4.7.3](../specifications/v4.7.3-proposal-fragment-concept-spec.md) — **Proposal Fragment**（既存 Trip への部分提案）
 
 ---
 
@@ -10,110 +11,120 @@ v4.7.2 で **Trip Proposal Envelope** の概念を整理しました。詳細は
 
 ```text
 schema v8 Trip = 採用済みの正式データ（実日付を持つ）
-Proposal       = 候補案（日付未定可）— Trip の外側
-Materialize    = 人間が採用したときだけ正式 Trip へ変換する gate
+Proposal       = 候補案 — Trip の外側
+Materialize    = 人間が採用したときだけ正式 Trip へ変換・反映する gate
 ```
 
-日付未定の提案を schema v8 Trip に無理に入れない。
+採用前の提案を schema v8 Trip に無理に入れない。
+
+---
+
+## Two proposal types
+
+| Type | Scope | 既存 Trip |
+|---|---|---|
+| **Trip Proposal Envelope** | 旅行全体の未採用案 | なくても成立 |
+| **Proposal Fragment** | 既存 Trip / Day / Itinerary への部分提案 | **関係が本質** |
+
+Fragment は「小さい Trip」ではない。既存計画に差し込む **候補パーツ** です。
 
 ---
 
 ## Trip Proposal Envelope
 
-**Trip Proposal Envelope** は、正式 Trip に変換される前の **未採用案を包む概念コンテナ** です（schema v8 の外側）。
+正式 Trip に変換される前の **旅行全体の未採用案**（schema v8 の外側）。
 
 ```text
 Trip Proposal Envelope
-  ├─ metadata        — いつ・誰が・いつまで有効か
-  ├─ proposal        — タイトル・目的地・日程方針・候補行程
-  └─ materialize hints — 採用前に人が決めること・警告
+  ├─ metadata
+  ├─ proposal        — title, destination, date_policy, 候補行程
+  └─ materialize hints
 ```
 
-| 観点 | Trip Proposal Envelope | schema v8 Trip |
-|---|---|---|
-| 状態 | 未採用 | 採用済み |
-| 日付 | 未定 / 候補可 | 実日付必須 |
-| trip export | 対象外 | 正本 |
-
-**なぜ Trip ではないか:** 採用前の案は古くなりうるし、複数案を並べて比較する必要がある。正式 Trip と混ぜると export / validate-export の意味が曖昧になる。
+詳細: [v4.7.2 spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
 
 ---
 
-## date_policy（日付方針）
+## Proposal Fragment
 
-Proposal は日付未定を許容します。
+**既存 Trip** に対する部分提案（schema v8 の外側、採用前は正式データではない）。
 
 ```text
-fixed_dates     — 日付は書いてあるが、まだ未採用
-flexible_dates  — 候補はあるが確定していない
-undated         — 日付未定の旅行案
+Proposal Fragment
+  ├─ metadata
+  ├─ target          — trip / day / itinerary / unresolved
+  ├─ fragment        — intent, candidate content, placement hints
+  └─ adoption hints  — conflicts, warnings, required decisions
 ```
 
-materialize して schema v8 Trip にする時点では、人間が **実日付を確定** する前提です（詳細は v4.7.4）。
+### target（差し込み先）
 
----
+```text
+trip-level       — Trip 全体への提案
+day-level        — 特定 Day への提案
+itinerary-level  — 特定 Itinerary への提案
+unresolved       — どこに入れるか未確定（許容）
+```
 
-## Concepts
+### intent（概念）
 
-| Concept | One-line description |
-|---|---|
-| **Trip Proposal** | Whole-trip suggestion before adoption |
-| **Trip Proposal Envelope** | Container for one unadopted whole-trip proposal |
-| **Proposal Fragment** | Partial suggestion for an existing Trip / Day (v4.7.3) |
-| **Materialize** | Adoption gate: Proposal → schema v8 Trip with confirmed dates (v4.7.4) |
+```text
+add              — 新しい候補を追加
+enrich           — 既存要素に情報を補足
+replace_candidate — 代替候補を提示
+reorder_hint     — 並び・時間帯の見直し
+warning          — 既存計画への注意喚起
+```
+
+採用されると **既存** schema v8 Trip の正式要素へ反映（gate は v4.7.4）。
+
+詳細: [v4.7.3 spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
 
 ---
 
 ## Flow (target)
 
 ```text
-AI / provider / manual draft
-  → Trip Proposal Envelope (outside schema v8)
-  → human review / compare
-  → materialize (explicit adoption)
-  → schema v8 Trip in local ledger
-  → export / Travel Book / future Calendar / GUI
+Whole-trip idea:
+  AI / provider → Trip Proposal Envelope → review → materialize → new schema v8 Trip
+
+Partial idea:
+  AI / provider → Proposal Fragment → review target/conflicts → adopt → merge into existing Trip
 ```
 
 ---
 
 ## Expiry
 
-```text
-valid_until present     → use as soft expiry
-valid_until absent      → default treat as created_at + 1 year (warning)
-no_expiration: true     → no default expiry
-expired                 → warning, not hard import block
-```
+Trip Proposal も Fragment も同一方針:
 
-期限切れは「古い可能性があります」という warning のみ。Proposal を自動破棄したり import 禁止にはしません。
+```text
+valid_until present     → soft expiry
+valid_until absent      → default created_at + 1 year (warning)
+no_expiration: true     → no default expiry
+expired                 → warning only — no auto-delete or import block
+```
 
 ---
 
 ## Specification roadmap
 
 ```text
-v4.7.2  Trip Proposal Envelope concept spec — 完了
-v4.7.3  Proposal Fragment concept spec
-v4.7.4  materialize gate concept / validation rules
+v4.7.2  Trip Proposal Envelope — 完了
+v4.7.3  Proposal Fragment — 完了
+v4.7.4  materialize gate / validation rules
 ```
 
 ---
 
-## What is out of scope (still)
+## Out of scope (still)
 
 ```text
-Proposal Envelope JSON schema
-proposal import / list / show commands
-materialize command
+JSON schemas for Envelope / Fragment
+proposal / fragment import commands
+materialize / apply commands
 GUI for proposal review
 ```
-
----
-
-## Broader roadmap
-
-Longer-term ideas live in [future-roadmap-planning-memo.md](../future-roadmap-planning-memo.md). That memo is **planning only**, not a commitment.
 
 ---
 
@@ -122,5 +133,5 @@ Longer-term ideas live in [future-roadmap-planning-memo.md](../future-roadmap-pl
 - [Public README](README.md)
 - [Travel Ledger](travel-ledger.md)
 - [Schema overview](schema.md)
+- [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
-- [v4.7.0 concept review](../specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md)
