@@ -431,14 +431,6 @@ pub(crate) fn print_reservation_list(
     }
 }
 
-/// Legacy adapter — write path uses `_with_context` via services (R-5 removal planned).
-#[allow(dead_code)]
-pub(crate) fn print_reservation_detail(conn: &Connection, reservation: &Reservation) {
-    let (day_number, itinerary_title) =
-        load_reservation_display_context(conn, reservation.itinerary_id);
-    print_reservation_detail_with_context(reservation, day_number, itinerary_title.as_deref());
-}
-
 /// Loads Day / Itinerary display context for human reservation detail (read show + write add/update).
 pub(crate) fn load_reservation_display_context(
     conn: &Connection,
