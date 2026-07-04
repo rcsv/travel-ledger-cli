@@ -185,12 +185,16 @@ Travel Ledger 用の JSON を生成してください。
 | 確認済み事実のリスト | schema v8 に載せてよい境界 |
 | 未確認事項のリスト | missing_fields の種 |
 | v4.7.2〜v4.7.4 概念 spec への参照 | Envelope / Fragment / gate |
+| [examples/](examples/) schema v8 JSON | 採用済み Trip の参照実例 |
+| [examples-non-normative/](examples-non-normative/) | Envelope / Fragment 概念例 |
 
 ---
 
 ## 関連
 
 - [Public examples](examples.md)
+- [schema v8 JSON files](examples/)
+- [Non-normative examples](examples-non-normative/)
 - [Proposals outline](proposals.md)
 - [Schema overview](schema.md)
-- [v4.7.5 spec](../specifications/v4.7.5-public-examples-ai-json-generation-guide.md)
+- [v4.7.6 spec](../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md)

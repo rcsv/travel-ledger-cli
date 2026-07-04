@@ -8,11 +8,14 @@ Travel Ledger を **外部に説明するための入口** です。実装の詳
 | [schema.md](schema.md) | schema v8（canonical）と schema v3+（歴史） |
 | [proposals.md](proposals.md) | Envelope / Fragment / adoption gate 概要 |
 | [examples.md](examples.md) | 最小例・gate 前後・validate-export の読み方 |
+| [examples/](examples/) | **schema v8 Trip JSON files**（validate-export 対象） |
+| [examples-non-normative/](examples-non-normative/) | Proposal / Fragment 概念例（non-normative） |
 | [ai-json-generation-guide.md](ai-json-generation-guide.md) | 生成 AI 向け JSON 作法・プロンプト例 |
 
 関連:
 
 - [v4.7.0 concept review](../specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md) — 新章の方向性
+- [v4.7.6 Public JSON examples spec](../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md) — public JSON files + post-review
 - [v4.7.5 Public examples / AI guide spec](../specifications/v4.7.5-public-examples-ai-json-generation-guide.md) — 公開例・AI 生成作法正本
 - [v4.7.4 Materialize gate spec](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md) — 採用 gate / validation 正本
 - [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md) — Fragment 概念正本
@@ -87,9 +90,11 @@ AI / provider（将来）
 2. travel-ledger.md             — 何を解決するか
 3. schema.md                    — v8 / v3+ の用語
 4. proposals.md                 — Envelope / Fragment / gate 概要
-5. examples.md                  — 最小例・validate-export
-6. ai-json-generation-guide.md  — 生成 AI 向け作法（provider 向け）
-7. export-schema.md             — フィールドレベル（実装者向け）
+5. examples/                  — schema v8 JSON files（見れば分かる）
+6. examples.md                — narrative・validate-export 読み方
+7. examples-non-normative/      — Proposal / Fragment 概念例
+8. ai-json-generation-guide.md  — 生成 AI 向け作法（provider 向け）
+9. export-schema.md             — フィールドレベル（実装者向け）
 ```
 
 ---
@@ -103,6 +108,7 @@ AI / provider（将来）
 | v4.7.2 | Trip Proposal Envelope concept spec — **完了** |
 | v4.7.3 | Proposal Fragment concept spec — **完了** |
 | v4.7.4 | materialize gate / validation rules — **完了** |
-| **v4.7.5** | **public examples / AI JSON generation guide** |
+| v4.7.5 | public examples / AI JSON generation guide — **完了** |
+| **v4.7.6** | **public JSON examples / concept stream post-review** |
 
-実装・schema 変更は v4.7.5 の scope 外です。
+実装・schema 変更は v4.7.6 の scope 外です。

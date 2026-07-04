@@ -12,10 +12,10 @@
       "summary": "中部国際空港から那覇へ移動し、レンタカーを受け取って首里城を観光。夕方に瀬底島へ入り、買い出し後にヒルトン瀬底へチェックインする移動中心の日。",
       "itineraries": [
         {
-          "title": "出発、せっちゃんやっちゃんピックアップ",
+          "title": "出発、同行者ピックアップ",
           "start_time": "06:00",
           "sort_order": 1,
-          "location": "粟根家",
+          "location": "自宅（example）",
           "category": "transport",
           "expenses": []
         },
@@ -46,7 +46,7 @@
               "amount": 13000,
               "currency": "JPY",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 旅費 / 領収書: R-007 / 備考: 予約番号 : 655098, 含 予約料 ¥1,000",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-007 / 備考: 予約番号 : EXAMPLE-PARKING-001, 含 予約料 ¥1,000",
               "sort_order": 0
             }
           ],
@@ -62,7 +62,7 @@
             {
               "reservation_type": "parking",
               "provider_name": "セントレア P1 G Parking",
-              "confirmation_code": "655098",
+              "confirmation_code": "EXAMPLE-PARKING-001",
               "remark": "出発日の駐車場予約"
             }
           ]
@@ -86,7 +86,7 @@
               "amount": 4940,
               "currency": "JPY",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 食費 / 領収書: R-025",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-025",
               "sort_order": 0
             },
             {
@@ -94,7 +94,7 @@
               "amount": 400,
               "currency": "JPY",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 食費 / 領収書: R-020 / 備考: ジャスミン茶、おーいお茶",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-020 / 備考: ジャスミン茶、おーいお茶",
               "sort_order": 0
             }
           ]
@@ -140,7 +140,7 @@
               "amount": 9040,
               "currency": "JPY",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 食費 / 領収書: R-003 / 備考: 一人1000円程度",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-003 / 備考: 一人1000円程度",
               "sort_order": 0
             }
           ]
@@ -196,25 +196,25 @@
               "amount": 1760,
               "currency": "JPY",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 旅費 / 領収書: R-012 / 備考: 大人:¥400, 子供: ¥160",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-012 / 備考: 大人:¥400, 子供: ¥160",
               "sort_order": 0
             },
             {
               "title": "御城印、ロルバーンメモ帳",
               "amount": 3405,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 個別：知弘 / 領収書: R-002",
+              "note": "費用区分: 個別：Alex / 領収書: SAMPLE-RECEIPT-002",
               "sort_order": 0
             },
             {
               "title": "アイスクリーム",
               "amount": 600,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 個別：知弘 / 領収書: R-026",
+              "note": "費用区分: 個別：Alex / 領収書: SAMPLE-RECEIPT-026",
               "sort_order": 0
             }
           ]
@@ -244,16 +244,16 @@
               "amount": 15371,
               "currency": "JPY",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 食費 / 領収書: R-016",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-016",
               "sort_order": 0
             },
             {
               "title": "休息時間とか",
               "amount": 2110,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 個別：知弘",
+              "note": "費用区分: 個別：Alex",
               "sort_order": 0
             }
           ]
@@ -310,7 +310,7 @@
               "amount": 2110,
               "currency": "JPY",
               "expense_date": "2026-04-26",
-              "note": "費用区分: 食費 / 領収書: R-004 / 備考: 塩、しょうゆなど",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-004 / 備考: 塩、しょうゆなど",
               "sort_order": 0
             }
           ]
@@ -340,7 +340,7 @@
               "amount": 1253,
               "currency": "JPY",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 食費 / 領収書: R-008 / 備考: ファミリーマート 本部山川もある",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-008 / 備考: ファミリーマート 本部山川もある",
               "sort_order": 0
             }
           ]
@@ -404,16 +404,16 @@
               "amount": 3040,
               "currency": "JPY",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 旅費 / 領収書: R-015 / 備考: 大人:¥760, 子供: 無料",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-015 / 備考: 大人:¥760, 子供: 無料",
               "sort_order": 0
             },
             {
               "title": "ツノガエルくじ",
               "amount": 1000,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 個別：知弘 / 領収書: R-014",
+              "note": "費用区分: 個別：Alex / 領収書: SAMPLE-RECEIPT-014",
               "sort_order": 0
             }
           ]
@@ -429,7 +429,7 @@
               "amount": 7600,
               "currency": "JPY",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 食費 / 領収書: R-010 / 備考: カレー中心。",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-010 / 備考: カレー中心。",
               "sort_order": 0
             },
             {
@@ -437,7 +437,7 @@
               "amount": 600,
               "currency": "JPY",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 食費 / 領収書: R-011 / 備考: もちもちドーナツを追加",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-011 / 備考: もちもちドーナツを追加",
               "sort_order": 0
             }
           ]
@@ -452,7 +452,7 @@
               "amount": 1500,
               "currency": "JPY",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 旅費 / 領収書: R-027 / 備考: 遊覧車１回券 ¥300x5 子供も一律",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-027 / 備考: 遊覧車１回券 ¥300x5 子供も一律",
               "sort_order": 0
             }
           ]
@@ -476,9 +476,9 @@
               "title": "お土産",
               "amount": 2780,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 個別：知弘 / 領収書: R-032",
+              "note": "費用区分: 個別：Alex / 領収書: SAMPLE-RECEIPT-032",
               "sort_order": 0
             }
           ]
@@ -494,9 +494,9 @@
               "title": "スタバ",
               "amount": 7160,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 個別：知弘 / 領収書: R-006 / 備考: 3人ぐらい1000円の飲み物",
+              "note": "費用区分: 個別：Alex / 領収書: SAMPLE-RECEIPT-006 / 備考: 3人ぐらい1000円の飲み物",
               "sort_order": 0
             }
           ]
@@ -512,7 +512,7 @@
               "amount": 24375,
               "currency": "JPY",
               "expense_date": "2026-04-27",
-              "note": "費用区分: 食費 / 領収書: R-019",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-019",
               "sort_order": 0
             }
           ],
@@ -550,7 +550,7 @@
               "amount": 6270,
               "currency": "JPY",
               "expense_date": "2026-04-28",
-              "note": "費用区分: 旅費 / 領収書: R-018",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-018",
               "sort_order": 0
             }
           ],
@@ -596,9 +596,9 @@
               "title": "焼きそば",
               "amount": 1000,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-28",
-              "note": "費用区分: 個別:知弘 / 備考: ジュースもろもろ",
+              "note": "費用区分: 個別:Alex / 備考: ジュースもろもろ",
               "sort_order": 0
             }
           ]
@@ -613,7 +613,7 @@
               "amount": 1300,
               "currency": "JPY",
               "expense_date": "2026-04-28",
-              "note": "費用区分: 旅費 / 領収書: R-034 / 備考: 子供:100円、大人:300円",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-034 / 備考: 子供:100円、大人:300円",
               "sort_order": 0
             }
           ]
@@ -629,7 +629,7 @@
               "amount": 9440,
               "currency": "JPY",
               "expense_date": "2026-04-28",
-              "note": "費用区分: 食費 / 領収書: R-013",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-013",
               "sort_order": 0
             }
           ]
@@ -653,9 +653,9 @@
               "title": "ビーチセット",
               "amount": 4500,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-28",
-              "note": "費用区分: 個別:知弘 / 備考: ビーチセット",
+              "note": "費用区分: 個別:Alex / 備考: ビーチセット",
               "sort_order": 0
             }
           ]
@@ -677,7 +677,7 @@
               "amount": 16500,
               "currency": "JPY",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 食費 / 領収書: R-001 / 備考: 予約受付なし",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-001 / 備考: 予約受付なし",
               "sort_order": 0
             }
           ]
@@ -692,36 +692,36 @@
               "title": "土産屋さん",
               "amount": 3700,
               "currency": "JPY",
-              "paid_by_name": "節子",
+              "paid_by_name": "Jordan",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別：節子 / 領収書: R-005",
+              "note": "費用区分: 個別：Jordan / 領収書: SAMPLE-RECEIPT-005",
               "sort_order": 0
             },
             {
               "title": "土産屋さん",
               "amount": 8380,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-021 / 備考: マスコットクジラ、フェイスマスク、ポストカード",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-021 / 備考: マスコットクジラ、フェイスマスク、ポストカード",
               "sort_order": 0
             },
             {
               "title": "SAGAWA BOX",
               "amount": 3200,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-001",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-001",
               "sort_order": 0
             },
             {
               "title": "宅配便",
               "amount": 286,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-001",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-001",
               "sort_order": 0
             }
           ]
@@ -745,9 +745,9 @@
               "title": "お土産",
               "amount": 6707,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-032 / 備考: 安納芋の紅芋タルト",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-032 / 備考: 安納芋の紅芋タルト",
               "sort_order": 0
             }
           ]
@@ -779,7 +779,7 @@
               "amount": 6760,
               "currency": "JPY",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 食費 / 領収書: R-035 / 備考: 一人5000円相当",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-035 / 備考: 一人5000円相当",
               "sort_order": 0
             }
           ]
@@ -803,7 +803,7 @@
               "amount": 5447,
               "currency": "JPY",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 旅費 / 領収書: R-030 / 備考: レギュラー 182円/L、29.93L",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-030 / 備考: レギュラー 182円/L、29.93L",
               "sort_order": 0
             }
           ]
@@ -836,9 +836,9 @@
               "title": "おみやげ",
               "amount": 782,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-017 / 備考: 沖縄そば、さんぴん茶（飲んじゃった）",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-017 / 備考: 沖縄そば、さんぴん茶（飲んじゃった）",
               "sort_order": 0
             }
           ]
@@ -862,9 +862,9 @@
               "title": "ラングドシャ",
               "amount": 2160,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-029 / 備考: 会社のお土産",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-029 / 備考: 会社のお土産",
               "sort_order": 0
             }
           ]
@@ -880,14 +880,14 @@
               "amount": 8052,
               "currency": "JPY",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 食費 / 領収書: R-028 / 備考: じいじばあば席",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-028 / 備考: 祖父母席（example）席",
               "sort_order": 0
             },
             {
               "amount": 5115,
               "currency": "JPY",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 食費 / 領収書: R-031 / 備考: ともひろ、るみ席",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-031 / 備考: Sam、Riley席",
               "sort_order": 0
             }
           ]
@@ -911,36 +911,36 @@
               "title": "ホノルルクッキー",
               "amount": 3900,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-024",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-024",
               "sort_order": 0
             },
             {
               "title": "化粧品",
               "amount": 31800,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-022",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-022",
               "sort_order": 0
             },
             {
               "title": "COACH のバッグ",
               "amount": 37500,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-023",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-023",
               "sort_order": 0
             },
             {
               "title": "ジュース買い足し",
               "amount": 445,
               "currency": "JPY",
-              "paid_by_name": "知弘",
+              "paid_by_name": "Alex",
               "expense_date": "2026-04-29",
-              "note": "費用区分: 個別:知弘 / 領収書: R-009",
+              "note": "費用区分: 個別:Alex / 領収書: SAMPLE-RECEIPT-009",
               "sort_order": 0
             }
           ]
@@ -992,7 +992,7 @@
           ]
         },
         {
-          "title": "やっちゃんせっちゃんおろす",
+          "title": "同行者をおろす",
           "note": "有料道路:700円ぐらい？",
           "start_time": "23:10",
           "sort_order": 20,
@@ -1101,7 +1101,7 @@
       },
       "amount": 4860,
       "currency": "JPY",
-      "memo": "美ら海水族館ショップ: ぬいぐるみ、キーホルダー",
+      "memo": "美ら海水族館ショップ: ぬいぐRiley、キーホルダー",
       "status": "unreviewed",
       "trashed": false
     },

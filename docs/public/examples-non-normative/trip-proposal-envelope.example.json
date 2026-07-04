@@ -1,0 +1,47 @@
+{
+  "_disclaimer": "NON-NORMATIVE conceptual example — NOT schema v8 Trip — NOT for trip validate-export — JSON schema not finalized",
+  "metadata": {
+    "proposal_id": "prop-2026-okinawa-draft-01",
+    "created_at": "2026-03-01T09:00:00Z",
+    "source": "ai",
+    "provider": "example-model"
+  },
+  "proposal": {
+    "title": "Okinawa family trip (draft)",
+    "destination": "Okinawa, Japan",
+    "date_policy": "flexible_dates",
+    "candidate_date_ranges": [
+      { "label": "Golden Week option", "start": "2026-04-29", "end": "2026-05-03", "confirmed": false },
+      { "label": "Late April option", "start": "2026-04-26", "end": "2026-04-29", "confirmed": false }
+    ],
+    "candidate_days": [
+      {
+        "label": "Day 1",
+        "summary": "Arrival — Naha or north base (undecided)",
+        "date": null
+      },
+      {
+        "label": "Day 2",
+        "summary": "North Okinawa sightseeing — Churaumi or beach (compare options)",
+        "date": null
+      }
+    ],
+    "notes": "Dates not confirmed. Compare hotel availability before materialize."
+  },
+  "materialize_hints": {
+    "required_decisions": [
+      "Confirm start_date and end_date",
+      "Choose north vs south base",
+      "Adopt or reject each candidate day"
+    ],
+    "missing_fields": [
+      "confirmed flight times",
+      "hotel booking reference",
+      "rental car confirmation"
+    ],
+    "assumptions": [
+      "Family of five including two seniors — prefer shorter drives"
+    ],
+    "warnings": []
+  }
+}

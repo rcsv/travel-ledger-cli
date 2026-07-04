@@ -2,24 +2,22 @@
 
 ## Current phase
 
-v4.7.6 planning — next proposal / public schema follow-up selection
+v4.7.6 release preparation — public JSON examples / concept stream post-review
 
 ## Latest completed
 
 - v4.7.5 Public examples / AI JSON generation guide — **released**
 - v4.7.4 Materialize gate concept / validation rules — **released**
-- v4.7.3 Proposal Fragment concept specification — **released**
-- v4.7.2 Trip Proposal Envelope concept specification — **released**
-- v4.7.1 Public README / schema docs outline — **released**
-- v4.7.0 Schema-publication / Travel Ledger public direction concept review — **released**
+- v4.7.2〜v4.7.3 Trip Proposal Envelope / Proposal Fragment — **released**
+- v4.7.0〜v4.7.1 public direction / docs outline — **released**
 - v4.6.x stream — **完了**
 
 ## Repository state
 
-- Cargo version: `4.7.5`
+- Cargo version: `4.7.6`
 - Latest release: **v4.7.5** — [v4.7.5-notes.md](releases/v4.7.5-notes.md)
-- **v4.7.5 spec:** [v4.7.5-public-examples-ai-json-generation-guide.md](specifications/v4.7.5-public-examples-ai-json-generation-guide.md)
-- **Public docs:** [public/examples.md](public/examples.md) · [public/ai-json-generation-guide.md](public/ai-json-generation-guide.md)
+- **v4.7.6 spec:** [v4.7.6-public-json-examples-concept-stream-post-review.md](specifications/v4.7.6-public-json-examples-concept-stream-post-review.md)
+- **Public JSON:** [public/examples/](public/examples/) · [public/examples-non-normative/](public/examples-non-normative/)
 
 ## v4.7.x 新章
 
@@ -30,22 +28,25 @@ v4.7.2  Trip Proposal Envelope concept spec — 完了
 v4.7.3  Proposal Fragment concept spec — 完了
 v4.7.4  materialize gate / validation rules — 完了
 v4.7.5  public examples / AI JSON generation guide — 完了
+v4.7.6  public JSON examples / concept stream post-review — 準備完了（リリース待ち）
 ```
 
-v4.7.x concept + authoring 章（Envelope / Fragment / gate / examples / AI guide）は v4.7.5 で **実用入口が揃った**。
+v4.7.x concept + authoring + **見える JSON** が v4.7.6 で揃った。
 
 ## Next action
 
-**v4.7.6 — テーマ未確定。** 候補のみ（確定実装には入らない）:
+**v4.7.6 正式リリース** — release commit → tag → workflow → follow-up commit。
+
+次マイルストーン（v4.7.7 以降）は **未確定**。候補のみ:
 
 ```text
 Proposal implementation planning
-public JSON example files（schema 確定後）
-v4.7.x concept stream post-review
+export-schema v8 doc alignment
+public examples CI validate-export check
 migration runner / FK hardening
 ```
 
-次マイルストーンは相談のうえ決定。v4.7.6 では Proposal / Fragment / materialize の実装には入らない。
+v4.7.7 では Proposal / Fragment / materialize の実装には入らない。
 
 ## Defer
 

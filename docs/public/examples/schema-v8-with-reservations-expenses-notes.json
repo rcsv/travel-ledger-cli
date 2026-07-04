@@ -1,0 +1,149 @@
+{
+  "schema_version": 8,
+  "generator": "travel-ledger-cli",
+  "generator_version": "4.7.6",
+  "exported_at": "2026-04-01T12:00:00Z",
+  "trip": {
+    "id": 1,
+    "name": "Weekend city break (adopted)",
+    "start_date": "2026-05-15",
+    "end_date": "2026-05-17",
+    "summary": "Confirmed weekend trip with hotel, museum visit, and recorded expenses.",
+    "created_at": "2026-04-10 10:00:00",
+    "updated_at": "2026-04-20 18:30:00"
+  },
+  "days": [
+    {
+      "day_number": 1,
+      "summary": "Arrival and hotel check-in",
+      "itineraries": [
+        {
+          "title": "Train to city center",
+          "start_time": "14:00",
+          "sort_order": 1,
+          "category": "transport",
+          "expenses": [
+            {
+              "amount": 1200,
+              "currency": "JPY",
+              "expense_date": "2026-05-15",
+              "note": "Confirmed fare — receipt on file",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "title": "Hotel check-in",
+          "start_time": "15:30",
+          "sort_order": 2,
+          "location": "Example Hotel",
+          "category": "hotel",
+          "estimates": [
+            {
+              "title": "Hotel (2 nights)",
+              "amount": 28000,
+              "currency": "JPY",
+              "sort_order": 0
+            }
+          ],
+          "reservations": [
+            {
+              "reservation_type": "hotel",
+              "provider_name": "Example Hotel",
+              "confirmation_code": "HTL-2026-0515",
+              "remark": "Non-smoking twin — confirmed booking"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "day_number": 2,
+      "summary": "Museum and dinner",
+      "itineraries": [
+        {
+          "title": "City museum visit",
+          "start_time": "10:00",
+          "sort_order": 1,
+          "category": "activity",
+          "expenses": [
+            {
+              "title": "Admission",
+              "amount": 800,
+              "currency": "JPY",
+              "expense_date": "2026-05-16",
+              "sort_order": 0
+            }
+          ],
+          "reservations": [
+            {
+              "reservation_type": "activity",
+              "provider_name": "City Museum timed entry",
+              "confirmation_code": "MUS-8842"
+            }
+          ]
+        },
+        {
+          "title": "Dinner reservation",
+          "start_time": "19:00",
+          "sort_order": 2,
+          "category": "restaurant",
+          "reservations": [
+            {
+              "reservation_type": "restaurant",
+              "provider_name": "Example Bistro",
+              "remark": "Table for two — confirmed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "day_number": 3,
+      "summary": "Checkout and return",
+      "itineraries": [
+        {
+          "title": "Return train",
+          "start_time": "11:00",
+          "sort_order": 1,
+          "category": "transport"
+        }
+      ]
+    }
+  ],
+  "checklist_items": [],
+  "notes": [
+    {
+      "owner_type": "trip",
+      "body": "All reservations and amounts in this file were confirmed before export."
+    },
+    {
+      "owner_type": "day",
+      "day_number": 2,
+      "body": "Museum tickets are timed — arrive 15 minutes early."
+    },
+    {
+      "owner_type": "itinerary",
+      "itinerary_key": {
+        "day_number": 2,
+        "sort_order": 2,
+        "start_time": "19:00",
+        "title": "Dinner reservation"
+      },
+      "body": "Restaurant confirmed by phone; no dress code."
+    }
+  ],
+  "participants": [
+    {
+      "name": "Alex",
+      "sort_order": 0,
+      "is_self": true
+    },
+    {
+      "name": "Jordan",
+      "sort_order": 1,
+      "is_self": false
+    }
+  ],
+  "receipts": []
+}

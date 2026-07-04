@@ -331,7 +331,7 @@ expense add --itinerary 12 --amount 980 --currency JPY --paid-by-name 太郎
 | **`--shared-with all`** | `--beneficiary` と **同時指定不可** |
 | **payer 省略** | 許可 — payer unknown |
 | **beneficiary 省略** | 許可 — personal |
-| **human output** | 従来 + optional `Paid by: 知弘 (shared: 知弘, 節子)` 一行（#33 で詳細） |
+| **human output** | 従来 + optional `Paid by: Alex (shared: Alex, Jordan)` 一行（#33 で詳細） |
 
 ### `expense update`
 
@@ -382,13 +382,13 @@ no participants registered for this trip
   "itinerary_id": 12,
   "amount": 4000,
   "currency": "JPY",
-  "paid_by_name": "知弘",
+  "paid_by_name": "Alex",
   "paid_by_participant_id": 3,
-  "paid_by_participant_name": "知弘",
+  "paid_by_participant_name": "Alex",
   "shared": true,
   "beneficiaries": [
-    { "participant_id": 3, "name": "知弘", "sort_order": 0 },
-    { "participant_id": 4, "name": "節子", "sort_order": 1 }
+    { "participant_id": 3, "name": "Alex", "sort_order": 0 },
+    { "participant_id": 4, "name": "Jordan", "sort_order": 1 }
   ]
 }
 ```
@@ -418,11 +418,11 @@ TRIP_EXPORT_SCHEMA_VERSION = 5
 
 ```json
 {
-  "paid_by_name": "知弘",
-  "paid_by_participant_ref": "知弘",
+  "paid_by_name": "Alex",
+  "paid_by_participant_ref": "Alex",
   "beneficiaries": [
-    { "participant_ref": "知弘", "sort_order": 0 },
-    { "participant_ref": "節子", "sort_order": 1 }
+    { "participant_ref": "Alex", "sort_order": 0 },
+    { "participant_ref": "Jordan", "sort_order": 1 }
   ]
 }
 ```
@@ -519,14 +519,14 @@ v4 側 Expense に ref なし → payer/beneficiary 差分は **検出しない*
 | 項目 | 方針 |
 |---|---|
 | **payer** | `paid_by_participant_id` 解決名、なければ `paid_by_name` |
-| **shared** | beneficiaries あり → `Shared: 知弘, 節子` |
+| **shared** | beneficiaries あり → `Shared: Alex, Jordan` |
 | **personal** | beneficiaries なし → shared 行 **省略** |
 | **Trip 集計セクション** | **v3.0.0 では追加しない**（v3.x / v5 Travel Book） |
 
 例:
 
 ```markdown
-- ¥4,000 昼食 — Paid by: 知弘 · Shared: 知弘, 節子
+- ¥4,000 昼食 — Paid by: Alex · Shared: Alex, Jordan
 ```
 
 ---

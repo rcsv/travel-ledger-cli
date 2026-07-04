@@ -215,7 +215,7 @@ Reservation と Expense は独立。同一 Itinerary に両方存在しうる。
 | パターン | v1.x の扱い |
 |---|---|
 | **単独旅行** | `paid_by_name` 省略可。全 Expense が「その人の支出」 |
-| **グループ旅行** | `paid_by_name` で立替者を **文字列記録**（canonical: 知弘 / 節子） |
+| **グループ旅行** | `paid_by_name` で立替者を **文字列記録**（canonical: Alex / Jordan） |
 | **割り勘・精算** | **未実装** — 記録のみ、誰の負担かはモデル化しない |
 
 ### 将来拡張との境界

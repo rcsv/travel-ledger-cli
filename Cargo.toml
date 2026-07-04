@@ -1,9 +1,9 @@
 [package]
 name = "travel-ledger-cli"
-version = "4.7.5"
+version = "4.7.6"
 edition = "2021"
 description = "A local SQLite-based travel planning CLI."
-authors = ["Tomohiro Awane"]
+authors = ["Someone"]
 repository = "https://github.com/rcsv/travel-ledger-cli"
 readme = "README.md"
 license = "MIT"

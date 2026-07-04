@@ -68,7 +68,7 @@ Trip → Day → Itinerary
 | Note / Summary 本文 | 参加者名を書けるが **構造化データではない** |
 | Checklist | Trip 配下だが **同行者エンティティではない** |
 
-canonical sample（`okinawa_sesoko_2026`）では `paid_by_name` に「知弘」「節子」等が記録されているが、**Participant としての正本は存在しない**。
+canonical sample（`okinawa_sesoko_2026`）では `paid_by_name` に「Alex」「Jordan」等が記録されているが、**Participant としての正本は存在しない**。
 
 ### v2 の位置づけ
 
@@ -493,8 +493,8 @@ Participant ごとの権限
   "schema_version": 4,
   "trip": { "name": "沖縄旅行", "start_date": "...", "end_date": "..." },
   "participants": [
-    { "name": "知弘", "sort_order": 0, "is_self": true },
-    { "name": "節子", "sort_order": 1, "is_self": false }
+    { "name": "Alex", "sort_order": 0, "is_self": true },
+    { "name": "Jordan", "sort_order": 1, "is_self": false }
   ],
   "days": [ ],
   "checklist_items": [ ],
@@ -521,7 +521,7 @@ Participant を Expense より **先に** 作成し、v3 以降の ref 解決に
 **本フェーズでは CLI を実装しない。** 将来コマンド体系のたたき台:
 
 ```bash
-participant add    --trip <trip_id> --name "知弘"
+participant add    --trip <trip_id> --name "Alex"
 participant list   --trip <trip_id>
 participant show   <participant_id>
 participant update <participant_id> --name "..."

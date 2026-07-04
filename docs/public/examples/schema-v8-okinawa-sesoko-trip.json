@@ -1,0 +1,139 @@
+{
+  "schema_version": 8,
+  "generator": "travel-ledger-cli",
+  "generator_version": "4.7.6",
+  "exported_at": "2026-04-01T12:00:00Z",
+  "trip": {
+    "name": "沖縄 瀬底 4日間",
+    "start_date": "2026-04-26",
+    "end_date": "2026-04-29",
+    "summary": "高齢者2名を含む5名で、沖縄本島北部・瀬底島を拠点に過ごす4日間の家族旅行。レンタカーで美ら海水族館、古宇利島、伊江島、万座毛を巡り、最終日は那覇空港へ戻る。",
+    "id": 1,
+    "created_at": "2026-03-01 09:00:00",
+    "updated_at": "2026-04-01 12:00:00"
+  },
+  "days": [
+    {
+      "day_number": 1,
+      "summary": "中部国際空港から那覇へ移動し、レンタカーを受け取って首里城を観光。夕方に瀬底島へ入り、買い出し後にヒルトン瀬底へチェックインする移動中心の日。",
+      "itineraries": [
+        {
+          "title": "出発、同行者2名をピックアップ",
+          "start_time": "06:00",
+          "sort_order": 1,
+          "location": "同行者宅（example）",
+          "category": "transport",
+          "expenses": []
+        },
+        {
+          "title": "高速道路 東浦→セントレア",
+          "start_time": "06:30",
+          "sort_order": 2,
+          "location": "東浦→セントレア",
+          "category": "transport",
+          "expenses": [
+            {
+              "amount": 630,
+              "currency": "JPY",
+              "expense_date": "2026-04-26",
+              "note": "費用区分: 旅費 / 領収書: なし / 備考: 東浦→知多半島道路→セントレア",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "title": "P1 G Parking",
+          "start_time": "06:50",
+          "sort_order": 3,
+          "location": "セントレア駐車場",
+          "category": "transport",
+          "expenses": [
+            {
+              "amount": 13000,
+              "currency": "JPY",
+              "expense_date": "2026-04-26",
+              "note": "費用区分: 旅費 / 領収書: SAMPLE-RECEIPT-007 / 備考: 予約番号 : EXAMPLE-PARKING-001, 含 予約料 ¥1,000",
+              "sort_order": 0
+            }
+          ],
+          "estimates": [
+            {
+              "title": "駐車場（出発）",
+              "amount": 13000,
+              "currency": "JPY",
+              "sort_order": 0
+            }
+          ],
+          "reservations": [
+            {
+              "reservation_type": "parking",
+              "provider_name": "セントレア P1 G Parking",
+              "confirmation_code": "EXAMPLE-PARKING-001",
+              "remark": "出発日の駐車場予約"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "day_number": 2,
+      "summary": "朝から美ら海水族館を楽しみ、カフェ オーシャンブルーやドリームセンターを回る。午後は古宇利島・ハナサキマルシェ方面に立ち寄り、夜はホテルで夕食。",
+      "itineraries": [
+        {
+          "title": "出発",
+          "start_time": "07:00",
+          "sort_order": 1,
+          "location": "ヒルトン瀬底",
+          "category": "transport",
+          "expenses": []
+        }
+      ]
+    },
+    {
+      "day_number": 3,
+      "summary": "フェリーで伊江島へ渡り、リリー園やハイビスカス園を訪れる。午後は瀬底へ戻り、買い出しと海水浴でゆっくり過ごす日。",
+      "itineraries": [
+        {
+          "title": "朝食",
+          "start_time": "07:30",
+          "sort_order": 1,
+          "location": "ヒルトン瀬底",
+          "category": "restaurant",
+          "expenses": []
+        }
+      ]
+    },
+    {
+      "day_number": 4,
+      "summary": "朝食後にチェックアウトし、御菓子御殿・万座毛・ウミカジテラスを経由して那覇空港へ向かう。レンタカー返却後、空港で夕食と買い物を済ませて中部国際空港へ戻る。",
+      "itineraries": [
+        {
+          "title": "朝食",
+          "start_time": "07:30",
+          "sort_order": 1,
+          "location": "AMAHAJI",
+          "category": "restaurant",
+          "expenses": [
+            {
+              "amount": 16500,
+              "currency": "JPY",
+              "expense_date": "2026-04-29",
+              "note": "費用区分: 食費 / 領収書: SAMPLE-RECEIPT-001 / 備考: 予約受付なし",
+              "sort_order": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "checklist_items": [],
+  "notes": [
+    {
+      "owner_type": "day",
+      "day_number": 1,
+      "body": "朝が早いため、セントレア到着後の朝食と休憩を確保する。沖縄到着後はレンタカー受け取りに時間がかかる可能性あり。"
+    }
+  ],
+  "participants": [],
+  "receipts": []
+}

@@ -353,11 +353,11 @@ v4 との差分: `schema_version: 5` + Expense オブジェクト内の optional
   "title": "昼食",
   "amount": 4000,
   "currency": "JPY",
-  "paid_by_name": "知弘",
-  "paid_by_participant_ref": "知弘",
+  "paid_by_name": "Alex",
+  "paid_by_participant_ref": "Alex",
   "beneficiaries": [
-    { "participant_ref": "知弘", "sort_order": 0 },
-    { "participant_ref": "節子", "sort_order": 1 }
+    { "participant_ref": "Alex", "sort_order": 0 },
+    { "participant_ref": "Jordan", "sort_order": 1 }
   ],
   "expense_date": null,
   "note": null,
@@ -372,8 +372,8 @@ v4 との差分: `schema_version: 5` + Expense オブジェクト内の optional
 **確定: 文字列 = `participants[].name` と完全一致（trim 後）。**
 
 ```json
-"paid_by_participant_ref": "知弘"
-"beneficiaries": [ { "participant_ref": "節子" } ]
+"paid_by_participant_ref": "Alex"
+"beneficiaries": [ { "participant_ref": "Jordan" } ]
 ```
 
 | 論点 | 方針 |

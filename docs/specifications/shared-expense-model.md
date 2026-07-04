@@ -70,7 +70,7 @@ Trip
 | export v4 `participants[]` | import 順序: Participant → Expense の前提が整う |
 | Expense = Transaction Record | [expense-post-implementation-review.md](expense-post-implementation-review.md) の v1 判定を **維持** |
 
-canonical sample（`okinawa_sesoko_2026`）では `paid_by_name` に「知弘」「節子」等が記録されている。**Participant 行との自動リンクは v2 では行わない**。
+canonical sample（`okinawa_sesoko_2026`）では `paid_by_name` に「Alex」「Jordan」等が記録されている。**Participant 行との自動リンクは v2 では行わない**。
 
 ### v1 / v2 での「誰が払ったか」の限界
 
@@ -236,7 +236,7 @@ v3.0.0 のユーザー価値:
   「誰が何を立て替えたか」「この会計は誰の分か」を Trip 内で構造化して残せる
 
 v3.0.0 が目指さないもの:
-  「節子 → 知弘 ¥1,234 を PayPay で送金済」レベルの清算管理
+  「Jordan → Alex ¥1,234 を PayPay で送金済」レベルの清算管理
 ```
 
 [expense-post-implementation-review.md](expense-post-implementation-review.md) が defer していた Settlement を、**最小の read-only summary** までは v3 Epic 内で再検討してよいが、**Epic #13 補足方針** により automation は後ろに置く。
@@ -256,7 +256,7 @@ v3.0.0 が目指さないもの:
 | 構造化する（v3） | Note / 自由記述に残す |
 |---|---|
 | 立替者（Participant 参照） | 「現金で割った」「レジで別会計」 |
-| shared 対象（beneficiary 列挙） | 「節子が多め出した」（**非均等** — v3.0.0 では構造化不可） |
+| shared 対象（beneficiary 列挙） | 「Jordanが多め出した」（**非均等** — v3.0.0 では構造化不可） |
 | 金額・通貨・店名 | レシート番号の長文、経緯、言い訳 |
 | personal vs shared の **事実** | 割り勘の **交渉メモ** |
 
@@ -339,7 +339,7 @@ Epic #13 Non-goals を **そのまま v3 Responsibilities の Non-goals** とす
 ### 想定のユーザー価値
 
 ```text
-グループ旅行で「この昼食は全員で割り」「この入場券は知弘の個人」と残せる。
+グループ旅行で「この昼食は全員で割り」「この入場券はAlexの個人」と残せる。
 Participant を登録していれば CLI / export で参照付き記録ができる。
 Participant がなくても、今まで通り amount + paid_by_name だけで使える。
 旅行後の「だいたい誰がいくら出したか」を目視確認しやすい（自動精算は v3.0.0 必須ではない）。
@@ -429,9 +429,9 @@ beneficiary に載せられない **非均等割り**・経緯は Note / Expense
       "expenses": [{
         "amount": "980",
         "currency": "JPY",
-        "paid_by_name": "知弘",
-        "paid_by_participant_ref": "知弘",
-        "beneficiaries": [ { "participant_ref": "知弘" }, { "participant_ref": "節子" } ]
+        "paid_by_name": "Alex",
+        "paid_by_participant_ref": "Alex",
+        "beneficiaries": [ { "participant_ref": "Alex" }, { "participant_ref": "Jordan" } ]
       }]
     }]
   }]
@@ -452,12 +452,12 @@ expense add --itinerary 12 --amount 1500 --currency JPY
 
 # opt-in: payer
 expense add --itinerary 12 --amount 980 --currency JPY \
-  --paid-by-participant 知弘
+  --paid-by-participant Alex
 
 # opt-in: shared（均等 — beneficiary 列挙）
 expense add --itinerary 12 --amount 4000 --currency JPY \
-  --paid-by-participant 知弘 \
-  --beneficiary 知弘 --beneficiary 節子
+  --paid-by-participant Alex \
+  --beneficiary Alex --beneficiary Jordan
 ```
 
 | 論点 | 方針 |

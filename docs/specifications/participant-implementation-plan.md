@@ -297,7 +297,7 @@ participant delete <participant_id>
 | **`--self`** | 指定時 `is_self = true`。同一 Trip に既に self がある場合は **エラー**（Entity Design 踏襲） |
 | **self 競合時** | メッセージ例: `trip already has a self participant; use participant update --self to change` |
 | **`--replace-self`** | **v2 では導入しない** — add ではエラー、update で移す |
-| **human output** | `Added participant 3: 知弘 (trip 1)`。`--self` 時は `(self)` を付記 |
+| **human output** | `Added participant 3: Alex (trip 1)`。`--self` 時は `(self)` を付記 |
 | **`--json`** | 作成された Participant オブジェクト 1 件 |
 
 ### `participant update`
@@ -379,12 +379,12 @@ trip add では Participant を自動作成しない。
 | **`trip doctor`** | info: `PARTICIPANTS_NOT_RECORDED`（0 件）、`SELF_PARTICIPANT_UNKNOWN`（件数 > 0 かつ self 0 件） |
 | **`trip advisor`** | 上記 issue に `participant add --self` 等の try ヒント（任意） |
 | **Getting Started / README** | 家族旅行例で `participant add --self` を示す |
-| **canonical sample** | #10 完了後の **任意タスク** — 投入時は **self 1 件を含める**（知弘 = self 等） |
+| **canonical sample** | #10 完了後の **任意タスク** — 投入時は **self 1 件を含める**（Alex = self 等） |
 
 ### 将来（A の検討）
 
 ```bash
-trip add "沖縄" --start ... --end ... --self-name "知弘"
+trip add "沖縄" --start ... --end ... --self-name "Alex"
 ```
 
 同一トランザクションで Trip + Day + self Participant を作る。**#10 では必須にしない**。

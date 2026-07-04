@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.6 | Public JSON examples / concept stream post-review | [v4.7.6-notes.md](v4.7.6-notes.md) |
 | v4.7.5 | Public examples / AI JSON generation guide | [v4.7.5-notes.md](v4.7.5-notes.md) |
 | v4.7.4 | Materialize gate concept / validation rules | [v4.7.4-notes.md](v4.7.4-notes.md) |
 | v4.7.3 | Proposal Fragment concept specification | [v4.7.3-notes.md](v4.7.3-notes.md) |

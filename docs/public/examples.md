@@ -2,6 +2,20 @@
 
 Travel Ledger の **最小例と読み方** です。フィールド定義の正本は [export-schema.md](../specifications/export-schema.md)。Proposal 概念は [proposals.md](proposals.md)、AI 向け作法は [ai-json-generation-guide.md](ai-json-generation-guide.md) を参照してください。
 
+## Public JSON files（v4.7.6+）
+
+**見れば分かる** schema v8 Trip の実ファイル:
+
+| ファイル | 内容 |
+|---|---|
+| [examples/schema-v8-minimal-trip.json](examples/schema-v8-minimal-trip.json) | 最小構成 |
+| [examples/schema-v8-okinawa-sesoko-trip.json](examples/schema-v8-okinawa-sesoko-trip.json) | 沖縄瀬底（短縮） |
+| [examples/schema-v8-with-reservations-expenses-notes.json](examples/schema-v8-with-reservations-expenses-notes.json) | reservations / expenses / notes |
+
+詳細: [examples/README.md](examples/README.md)
+
+**Non-normative**（Proposal / Fragment — validate-export 対象外）: [examples-non-normative/](examples-non-normative/)
+
 ---
 
 ## 三種類の JSON
@@ -16,9 +30,13 @@ Travel Ledger の **最小例と読み方** です。フィールド定義の正
 
 ---
 
-## schema v8 Trip — 最小例（概念）
+## schema v8 Trip — 最小例
 
 **条件:** 実日付確定、採用済み、export 契約に準拠。
+
+**Primary:** [examples/schema-v8-minimal-trip.json](examples/schema-v8-minimal-trip.json) — `trip validate-export` 通過済み。
+
+以下は narrative 用の短縮表記（`trip.id` 等は file 側を参照）:
 
 ```json
 {
@@ -74,6 +92,10 @@ trip validate-export path/to/export.json
 
 **条件:** 旅行全体の未採用案。日付未定可。**schema v8 ではない。**
 
+**Primary:** [examples-non-normative/trip-proposal-envelope.example.json](examples-non-normative/trip-proposal-envelope.example.json)
+
+以下は narrative 用の短縮表記:
+
 ```json
 {
   "_concept": "Trip Proposal Envelope — NOT schema v8, NOT for validate-export",
@@ -116,6 +138,10 @@ trip validate-export path/to/export.json
 ## Proposal Fragment — 概念例
 
 **条件:** 既存 Trip への部分提案。**小さい Trip ではない。**
+
+**Primary:** [examples-non-normative/proposal-fragment.example.json](examples-non-normative/proposal-fragment.example.json)
+
+以下は narrative 用の短縮表記:
 
 ```json
 {
@@ -164,6 +190,8 @@ trip validate-export path/to/export.json
 
 ## Materialize gate — 前後の流れ
 
+**Primary:** [examples-non-normative/materialize-before-after.md](examples-non-normative/materialize-before-after.md)
+
 ```text
 [Before gate]
   Trip Proposal Envelope  ─┐
@@ -209,7 +237,9 @@ Proposal を validate-export に通そうとしない — 型が違う。
 
 ## 関連
 
+- [examples/](examples/) — schema v8 Trip JSON files
+- [examples-non-normative/](examples-non-normative/) — Proposal / Fragment 概念例
 - [AI JSON generation guide](ai-json-generation-guide.md)
 - [Proposals outline](proposals.md)
 - [Schema overview](schema.md)
-- [v4.7.5 spec](../specifications/v4.7.5-public-examples-ai-json-generation-guide.md)
+- [v4.7.6 spec](../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md)
