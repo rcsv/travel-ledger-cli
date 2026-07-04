@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.3 — Proposal Fragment concept spec（準備完了、リリース待ち）
+v4.7.4 planning — materialize gate concept / validation rules
 
 ## Latest completed
 
+- v4.7.3 Proposal Fragment concept specification — **released**
 - v4.7.2 Trip Proposal Envelope concept specification — **released**
 - v4.7.1 Public README / schema docs outline — **released**
 - v4.7.0 Schema-publication / Travel Ledger public direction concept review — **released**
@@ -14,7 +15,7 @@ v4.7.3 — Proposal Fragment concept spec（準備完了、リリース待ち）
 ## Repository state
 
 - Cargo version: `4.7.3`
-- Latest release: **v4.7.2** — [v4.7.2-notes.md](releases/v4.7.2-notes.md)
+- Latest release: **v4.7.3** — [v4.7.3-notes.md](releases/v4.7.3-notes.md)
 - **v4.7.3 spec:** [v4.7.3-proposal-fragment-concept-spec.md](specifications/v4.7.3-proposal-fragment-concept-spec.md)
 - **Public docs:** [public/proposals.md](public/proposals.md)
 
@@ -24,15 +25,13 @@ v4.7.3 — Proposal Fragment concept spec（準備完了、リリース待ち）
 v4.7.0  public direction concept review — 完了
 v4.7.1  public README / schema docs outline — 完了
 v4.7.2  Trip Proposal Envelope concept spec — 完了
-v4.7.3  Proposal Fragment concept spec — 準備完了
-v4.7.4  materialize gate concept — 推奨次
+v4.7.3  Proposal Fragment concept spec — 完了
+v4.7.4  materialize gate concept — 推奨次 / planning
 ```
 
 ## Next action
 
-**推奨:** v4.7.3 正式リリース（release commit → tag → workflow）
-
-**その後:** v4.7.4 — materialize gate concept / validation rules
+**推奨:** v4.7.4 — materialize gate concept / validation rules
 
 **Parallel track:** migration runner / FK hardening
 
