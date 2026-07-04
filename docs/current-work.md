@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.2 planning — Trip Proposal Envelope concept spec
+v4.7.2 — Trip Proposal Envelope concept spec（準備完了、リリース待ち）
 
 ## Latest completed
 
@@ -12,30 +12,33 @@ v4.7.2 planning — Trip Proposal Envelope concept spec
 
 ## Repository state
 
-- Cargo version: `4.7.1`
+- Cargo version: `4.7.2`
 - Latest release: **v4.7.1** — [v4.7.1-notes.md](releases/v4.7.1-notes.md)
-- **v4.7.1 spec:** [v4.7.1-public-readme-schema-docs-outline.md](specifications/v4.7.1-public-readme-schema-docs-outline.md)
-- **Public docs:** [public/README.md](public/README.md)
+- **v4.7.2 spec:** [v4.7.2-trip-proposal-envelope-concept-spec.md](specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
+- **Public docs:** [public/proposals.md](public/proposals.md)
 
 ## v4.7.x 新章
 
 ```text
 v4.7.0  public direction concept review — 完了
 v4.7.1  public README / schema docs outline — 完了
-v4.7.2  Trip Proposal Envelope concept spec — 推奨次 / planning
-v4.7.3  Proposal Fragment concept spec
+v4.7.2  Trip Proposal Envelope concept spec — 準備完了
+v4.7.3  Proposal Fragment concept spec — 推奨次
 v4.7.4  materialize gate concept
 ```
 
 ## Next action
 
-**推奨:** v4.7.2 — Trip Proposal Envelope concept spec
+**推奨:** v4.7.2 正式リリース（release commit → tag → workflow）
+
+**その後:** v4.7.3 — Proposal Fragment concept spec
 
 **Parallel track:** migration runner / FK hardening
 
 ## Defer
 
-- Proposal Envelope 実装
+- Proposal Envelope 実装（import / list / show）
+- materialize command 実装
 - repository split
 - GUI 実装
 

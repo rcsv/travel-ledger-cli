@@ -6,11 +6,12 @@ Travel Ledger を **外部に説明するための入口** です。実装の詳
 |---|---|
 | [travel-ledger.md](travel-ledger.md) | Travel Ledger とは何か / 解決する問題 |
 | [schema.md](schema.md) | schema v8（canonical）と schema v3+（歴史） |
-| [proposals.md](proposals.md) | AI / provider 提案と将来ロードマップ（概要のみ） |
+| [proposals.md](proposals.md) | Trip Proposal Envelope / materialize 概要（v4.7.2 concept spec 参照） |
 
 関連:
 
 - [v4.7.0 concept review](../specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md) — 新章の方向性
+- [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md) — Envelope 概念正本
 - [future-roadmap-planning-memo.md](../future-roadmap-planning-memo.md) — 将来機能のブレインストーミング（非確約）
 - [export-schema.md](../specifications/export-schema.md) — export スキーマ正本（実装者向け）
 
@@ -56,7 +57,7 @@ AI / provider（将来）
 | **Travel Ledger** | データ形式の正典 |
 | **CLI** | 正本の参照実装。予約サイト・SNS ではない |
 | **GUI** | 将来の consumer（v4.6.x で整えた service 層を再利用予定） |
-| **Proposal** | schema v8 の外側の候補案（v4.7.2 以降で詳細化） |
+| **Proposal** | schema v8 の外側の候補案 — [Trip Proposal Envelope](proposals.md)（v4.7.2） |
 
 ---
 
@@ -80,7 +81,7 @@ AI / provider（将来）
 1. 本 README          — 全体像
 2. travel-ledger.md   — 何を解決するか
 3. schema.md          — v8 / v3+ の用語
-4. proposals.md       — 将来の Proposal / materialize（概要）
+4. proposals.md       — Trip Proposal Envelope / materialize 概要
 5. export-schema.md   — フィールドレベル（実装者向け）
 ```
 
@@ -91,9 +92,9 @@ AI / provider（将来）
 | Version | 内容 |
 |---|---|
 | v4.7.0 | public direction concept review — **完了** |
-| **v4.7.1** | **public docs outline（本ディレクトリ）** |
-| v4.7.2 | Trip Proposal Envelope concept spec |
+| v4.7.1 | public docs outline — **完了** |
+| **v4.7.2** | **Trip Proposal Envelope concept spec** |
 | v4.7.3 | Proposal Fragment concept spec |
 | v4.7.4 | materialize gate concept |
 
-実装・schema 変更は v4.7.1 の scope 外です。
+実装・schema 変更は v4.7.2 の scope 外です。
