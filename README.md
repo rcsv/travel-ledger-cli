@@ -120,12 +120,17 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.0](docs/releases/v4.7.0-notes.md) — Schema-publication / Travel Ledger public direction concept review。
+**最新:** [v4.7.5](docs/releases/v4.7.5-notes.md) — Public examples / AI JSON generation guide（documentation-only）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.5](docs/releases/v4.7.5-notes.md) | docs | Public examples / AI JSON generation guide |
+| [v4.7.4](docs/releases/v4.7.4-notes.md) | docs | Materialize gate / validation rules |
+| [v4.7.3](docs/releases/v4.7.3-notes.md) | docs | Proposal Fragment concept specification |
+| [v4.7.2](docs/releases/v4.7.2-notes.md) | docs | Trip Proposal Envelope concept specification |
+| [v4.7.1](docs/releases/v4.7.1-notes.md) | docs | Public README / schema docs outline |
 | [v4.7.0](docs/releases/v4.7.0-notes.md) | docs | Travel Ledger public direction concept review |
 | [v4.6.43](docs/releases/v4.6.43-notes.md) | docs | Release workflow asset upload follow-up |
 | [v4.6.42](docs/releases/v4.6.42-notes.md) | minor | Reservation write service Phase R-5 adapter cleanup |

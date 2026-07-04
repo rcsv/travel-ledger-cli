@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.5 planning — next public schema / proposal follow-up selection
+v4.7.5 release preparation — public examples / AI JSON generation guide
 
 ## Latest completed
 
@@ -15,10 +15,10 @@ v4.7.5 planning — next public schema / proposal follow-up selection
 
 ## Repository state
 
-- Cargo version: `4.7.4`
+- Cargo version: `4.7.5`
 - Latest release: **v4.7.4** — [v4.7.4-notes.md](releases/v4.7.4-notes.md)
-- **v4.7.4 spec:** [v4.7.4-materialize-gate-concept-validation-rules.md](specifications/v4.7.4-materialize-gate-concept-validation-rules.md)
-- **Public docs:** [public/proposals.md](public/proposals.md)
+- **v4.7.5 spec:** [v4.7.5-public-examples-ai-json-generation-guide.md](specifications/v4.7.5-public-examples-ai-json-generation-guide.md)
+- **Public docs:** [public/examples.md](public/examples.md) · [public/ai-json-generation-guide.md](public/ai-json-generation-guide.md)
 
 ## v4.7.x 新章
 
@@ -28,21 +28,22 @@ v4.7.1  public README / schema docs outline — 完了
 v4.7.2  Trip Proposal Envelope concept spec — 完了
 v4.7.3  Proposal Fragment concept spec — 完了
 v4.7.4  materialize gate / validation rules — 完了
+v4.7.5  public examples / AI JSON generation guide — 準備完了（リリース待ち）
 ```
 
-v4.7.x concept spec ストリーム（Envelope / Fragment / gate）は v4.7.4 で **一区切り**。
+v4.7.x concept + authoring 章（Envelope / Fragment / gate / examples / AI guide）は v4.7.5 で **実用入口が揃った**。
 
 ## Next action
 
-**v4.7.5 — テーマ未確定。** 候補のみ（確定実装には入らない）:
+**v4.7.5 正式リリース** — release commit → tag → workflow → assets 確認 → follow-up commit。
+
+次マイルストーン（v4.7.6 以降）は **未確定**。候補のみ（確定実装には入らない）:
 
 ```text
-public examples + validate-export narrative
 Proposal implementation planning
+public JSON example files（schema 確定後）
 v4.7.x concept stream post-review
 ```
-
-次マイルストーンは相談のうえ決定。
 
 **Parallel track:** migration runner / FK hardening
 

@@ -117,7 +117,10 @@ expired → warning only — not auto-delete or import block
 v4.7.2  Trip Proposal Envelope — 完了
 v4.7.3  Proposal Fragment — 完了
 v4.7.4  materialize gate / validation rules — 完了
+v4.7.5  public examples / AI JSON generation guide — 完了
 ```
+
+Authoring 例と生成 AI 向け作法: [examples.md](examples.md) · [ai-json-generation-guide.md](ai-json-generation-guide.md)
 
 ---
 
@@ -134,6 +137,8 @@ GUI for proposal review
 
 ## Related
 
+- [Examples](examples.md) — 最小例・validate-export
+- [AI JSON generation guide](ai-json-generation-guide.md) — 生成 AI 向け作法
 - [Public README](README.md)
 - [Travel Ledger](travel-ledger.md)
 - [Schema overview](schema.md)
