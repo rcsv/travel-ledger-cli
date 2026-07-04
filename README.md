@@ -111,14 +111,21 @@ caglla db use --clear           # config の path を削除（既定 ./caglla.db
 
 ## Releases
 
+Related documents for contributors and AI assistants:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development and release rules
+- [docs/current-work.md](docs/current-work.md) — active planning state
+- [tools/release/README.md](tools/release/README.md) — release procedure
+
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.6.43](docs/releases/v4.6.43-notes.md) — Release workflow asset upload follow-up。
+**最新:** [v4.7.0](docs/releases/v4.7.0-notes.md) — Schema-publication / Travel Ledger public direction concept review。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.0](docs/releases/v4.7.0-notes.md) | docs | Travel Ledger public direction concept review |
 | [v4.6.43](docs/releases/v4.6.43-notes.md) | docs | Release workflow asset upload follow-up |
 | [v4.6.42](docs/releases/v4.6.42-notes.md) | minor | Reservation write service Phase R-5 adapter cleanup |
 | [v4.6.41](docs/releases/v4.6.41-notes.md) | minor | Reservation write service Phase R-2+R-3 |

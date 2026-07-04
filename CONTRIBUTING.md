@@ -131,6 +131,8 @@ samples/okinawa_sesoko_2026/expected-export-md.md  # colophon Version only
 
 Release procedure details: [tools/release/README.md](tools/release/README.md) and the latest release-workflow follow-up spec under `docs/specifications/`.
 
+For Travel Ledger public direction and schema-publication planning, see `docs/specifications/v4.7.0-*` and [docs/current-work.md](docs/current-work.md).
+
 After a formal release, a separate follow-up commit may update `docs/current-work.md` to mark the version as released and note the next planning phase.
 
 Do not assume release permission from planning, review, or documentation work.
