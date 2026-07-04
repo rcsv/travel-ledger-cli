@@ -160,12 +160,13 @@ tools/release/release.sh v4.1.2 "Okinawa Travel Book sample enrichment"
 主な処理:
 
 ```text
-1. GitHub Release が自動作成されるのを待つ
-2. 既に Release があれば title / notes を更新
-3. Release が存在しなければ gh release create で作成
-4. 3OS assets が揃うまで待つ
-5. 最終的な release 情報を JSON で表示
+1. GitHub Release が自動作成されるのを待つ（任意）
+2. 3OS assets が揃うまで待つ
+3. assets 揃い後に title / notes を更新（または Release が無ければ create）
+4. 最終的な release 情報を JSON で表示
 ```
+
+v4.6.43 以降、`release.sh` は **assets 待機を title/notes 編集より先** に実行する。Release workflow 実行中の `gh release edit` は macOS asset 欠落などの race を招く可能性があるため、workflow 完了後の編集を推奨する（詳細: [v4.6.43 spec](../../docs/specifications/v4.6.43-release-workflow-asset-upload-follow-up.md)）。
 
 期待する assets:
 
@@ -255,7 +256,9 @@ Release title が意図した名前になっている
 * `create-tag.sh` は working tree に変更がない場合は失敗する。
 * 既に local / remote tag が存在する場合は失敗する。
 * `release.sh` は tag が push 済みであることを前提とする。
-* GitHub Actions が Release を自動作成する場合、`release.sh` は既存 Release を編集する。
+* `release.sh` は **3 OS assets が揃ってから** title / notes を編集する（v4.6.43+）。
+* Release workflow 実行中の `gh release edit` は避ける。完了後に `release.sh` または `gh release edit` を使う。
+* macOS asset だけ欠けた場合はローカル `cargo build --release` + `gh release upload` で recovery 可能（v4.6.43 spec 参照）。
 * 通常は `full-release.sh` を使い、version / title の手入力は1回に留める。
 
 

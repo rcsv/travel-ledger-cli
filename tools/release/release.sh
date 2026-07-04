@@ -64,25 +64,25 @@ while [ "$elapsed" -le "$WAIT_RELEASE_SECONDS" ]; do
 done
 
 if [ "$release_exists" -eq 1 ]; then
-  info "GitHub Release already exists. Editing title and notes."
-  gh release edit "$VERSION" \
-    --repo "$REPO" \
-    --title "$RELEASE_TITLE" \
-    --notes-file "$NOTES_FILE"
+  info "GitHub Release exists; waiting for assets before editing title/notes"
 else
-  info "GitHub Release was not auto-created. Creating it manually."
-  gh release create "$VERSION" \
-    --repo "$REPO" \
-    --verify-tag \
-    --title "$RELEASE_TITLE" \
-    --notes-file "$NOTES_FILE"
+  info "GitHub Release not found yet; waiting for workflow to create it and upload assets"
 fi
 
 info "Waiting for expected assets"
 
 elapsed=0
+missing=""
 
 while [ "$elapsed" -le "$WAIT_ASSETS_SECONDS" ]; do
+  if ! gh release view "$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+    info "Release not visible yet; waiting for workflow"
+    sleep 15
+    elapsed=$((elapsed + 15))
+    continue
+  fi
+
+  release_exists=1
   missing=""
 
   for asset in $(expected_asset_names "$VERSION"); do
@@ -103,6 +103,21 @@ done
 
 if [ -n "${missing:-}" ]; then
   die "Some expected assets are still missing:$missing"
+fi
+
+if [ "$release_exists" -eq 1 ]; then
+  info "Editing GitHub Release title and notes (after assets are ready)"
+  gh release edit "$VERSION" \
+    --repo "$REPO" \
+    --title "$RELEASE_TITLE" \
+    --notes-file "$NOTES_FILE"
+else
+  info "GitHub Release was not auto-created. Creating it manually."
+  gh release create "$VERSION" \
+    --repo "$REPO" \
+    --verify-tag \
+    --title "$RELEASE_TITLE" \
+    --notes-file "$NOTES_FILE"
 fi
 
 info "Final release view"

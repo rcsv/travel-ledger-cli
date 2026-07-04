@@ -31,7 +31,7 @@ Examples of out-of-scope changes include:
 * renaming files, modules, functions, or commands without explicit instruction
 * changing output formats unexpectedly
 * updating golden files without an intentional output change
-* changing Cargo versions during documentation-only work
+* changing Cargo versions during documentation-only planning (without an explicit release instruction)
 * modifying release notes or roadmap files for unrelated versions
 
 If the requested work is unclear, make the smallest reasonable interpretation and state any assumptions in the completion report.
@@ -81,7 +81,9 @@ docs/current-work.md
 
 When behavior changes, update the relevant documentation.
 
-When the change is documentation-only, do not modify source code, golden files, or Cargo versions unless explicitly instructed.
+When the change is documentation-only, do not modify source code or golden files unless explicitly instructed.
+
+Documentation-only **planning** work should not bump `Cargo.toml` / `Cargo.lock`. An **explicit release** may bump the package version and Okinawa colophon per the repository release checklist.
 
 Documentation-only changes should be limited to the requested documents and related indexes.
 
@@ -124,7 +126,12 @@ README.md
 docs/current-work.md
 docs/releases/README.md
 docs/specifications/README.md
+samples/okinawa_sesoko_2026/expected-export-md.md  # colophon Version only
 ```
+
+Release procedure details: [tools/release/README.md](tools/release/README.md) and the latest release-workflow follow-up spec under `docs/specifications/`.
+
+After a formal release, a separate follow-up commit may update `docs/current-work.md` to mark the version as released and note the next planning phase.
 
 Do not assume release permission from planning, review, or documentation work.
 
@@ -137,7 +144,7 @@ AI coding assistants must follow these rules:
 * Prefer documenting concerns over making unsolicited fixes.
 * Do not perform unrelated refactoring.
 * Do not update golden files unless the output change is intentional.
-* Do not modify Cargo versions during documentation-only work.
+* Do not modify Cargo versions during documentation-only planning without an explicit release instruction.
 * Do not create tags, releases, or release commits unless explicitly instructed.
 * Report changed files, checks run, and any skipped checks.
 * State assumptions clearly.
