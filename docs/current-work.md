@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.12 released — v4.7.13 planning
+v4.7.13 released — v4.7.14 planning
 
 ## Latest completed
 
+- v4.7.13 Proposal storage strategy planning (P-4) — **released**
 - v4.7.12 Public examples validation guard — **released**
 - v4.7.11 Proposal Fragment file validation (P-3) — **released**
 - v4.7.10 Proposal Envelope show / inspect (P-2) — **released**
@@ -16,8 +17,8 @@ v4.7.12 released — v4.7.13 planning
 
 ## Repository state
 
-- Cargo version: `4.7.12`
-- Latest release: **v4.7.12** — [v4.7.12-notes.md](releases/v4.7.12-notes.md)
+- Cargo version: `4.7.13`
+- Latest release: **v4.7.13** — [v4.7.13-notes.md](releases/v4.7.13-notes.md)
 - **Proposal CLI:** `proposal validate` · `proposal show` · `proposal inspect` · `fragment validate`
 - **Examples guard:** `tests/public_examples_validation_guard.rs`（`make check` 配下）
 
@@ -29,28 +30,27 @@ P-1  Envelope file validation — v4.7.9 完了
 P-2  Envelope show / inspect — v4.7.10 完了
 P-3  Fragment file validation — v4.7.11 完了
 guard Public examples validation guard — v4.7.12 完了
-P-4  storage strategy — 後続
+P-4  storage strategy planning — v4.7.13 完了
 P-5  materialize / apply planning — 後続
 P-6  materialize / apply implementation — 後続
 ```
 
 ## Next action
 
-**v4.7.13 — テーマ未確定。** 候補のみ:
+**v4.7.14 — テーマ未確定。** 候補のみ:
 
 ```text
-P-4 Proposal storage strategy（planning）
-export-schema / itinerary-model doc polish
-migration runner / FK hardening
+P-5 materialize / apply planning spec
+P-3 残 fragment show / inspect（file-only）
+P-4b file inbox + manifest（optional、DB 前）
 ```
 
 次マイルストーンは相談のうえ決定。
 
 ## Defer
 
+- DB storage / import / list 実装（P-5 後に再評価）
 - materialize / apply（P-6）
-- fragment show / inspect
-- proposal import / list / DB storage（P-4 本体）
 - GUI 実装
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

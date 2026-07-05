@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.13 | Proposal storage strategy planning | [v4.7.13-notes.md](v4.7.13-notes.md) |
 | v4.7.12 | Public examples validation guard | [v4.7.12-notes.md](v4.7.12-notes.md) |
 | v4.7.11 | Proposal Fragment file validation | [v4.7.11-notes.md](v4.7.11-notes.md) |
 | v4.7.10 | Proposal Envelope show / inspect | [v4.7.10-notes.md](v4.7.10-notes.md) |

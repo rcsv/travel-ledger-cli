@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.12](docs/releases/v4.7.12-notes.md) — Public examples validation guard（リリース準備中）。
+**最新:** [v4.7.13](docs/releases/v4.7.13-notes.md) — Proposal storage strategy planning（P-4、リリース準備中）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.13](docs/releases/v4.7.13-notes.md) | docs | Proposal storage strategy planning |
 | [v4.7.12](docs/releases/v4.7.12-notes.md) | minor | Public examples validation guard |
 | [v4.7.11](docs/releases/v4.7.11-notes.md) | minor | Proposal Fragment file validation |
 | [v4.7.10](docs/releases/v4.7.10-notes.md) | minor | Proposal Envelope show / inspect |
