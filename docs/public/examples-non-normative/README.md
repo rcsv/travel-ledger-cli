@@ -37,6 +37,7 @@ schema v8 Trip の public examples（validate-export 対象）は [examples/](..
 
 ```text
 本ディレクトリの JSON → trip validate-export に通さない
+Envelope → proposal validate（v4.7.9+）
 gate 通過後に生成された schema v8 Trip → validate-export 対象
 ```
 

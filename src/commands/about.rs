@@ -15,6 +15,7 @@ Features
   - Notes, expenses, estimates, reservations, and participants
   - Checklist management and auto-generation (checklist-generate)
   - JSON export/import, validate-export, diff, and Markdown export (export-md)
+  - Trip Proposal Envelope file validation (proposal validate)
   - Trip / Day summaries (--summary)
 
 Data model
@@ -43,6 +44,7 @@ Main commands
   Itinerary   itinerary add/list/show/update/delete/timeline
   Checklist   checklist ... / trip checklist-generate
   Export      trip export/import/validate-export/diff/export-md
+  Proposal    proposal validate (Envelope file — not trip validate-export)
   Diagnostics trip doctor / trip advisor
 
 Documentation: https://github.com/rcsv/travel-ledger-cli

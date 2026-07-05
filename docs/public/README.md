@@ -113,6 +113,7 @@ AI / provider（将来）
 | v4.7.5 | public examples / AI JSON generation guide — **完了** |
 | v4.7.6 | public JSON examples / concept stream post-review — **完了** |
 | v4.7.7 | public schema post-review — **完了** |
-| **v4.7.8** | **Proposal implementation planning** |
+| v4.7.8 | Proposal implementation planning — **完了** |
+| **v4.7.9** | **Proposal Envelope file validation (P-1)** |
 
 実装・schema 変更は v4.7.8 の scope 外です（planning のみ）。

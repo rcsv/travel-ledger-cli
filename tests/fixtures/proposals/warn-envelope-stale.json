@@ -1,0 +1,14 @@
+{
+  "metadata": {
+    "created_at": "2024-01-01T00:00:00Z",
+    "valid_until": "2024-06-01T00:00:00Z",
+    "source": "ai",
+    "provider": "fixture-model"
+  },
+  "proposal": {
+    "title": "Stale proposal",
+    "destination": "Somewhere",
+    "date_policy": "undated",
+    "notes": "Past valid_until — should warn but pass."
+  }
+}

@@ -13,6 +13,7 @@ mod money;
 mod note;
 mod output;
 mod participant;
+mod proposal;
 mod receipt;
 mod reservation;
 mod services;
@@ -24,7 +25,7 @@ use anyhow::{bail, Result};
 use clap::{CommandFactory, Parser};
 use cli::{
     ChecklistAction, Cli, Command, DayAction, EstimateAction, ExpenseAction, ItineraryAction,
-    NoteAction, ParticipantAction, ReceiptAction, ReservationAction, TripAction,
+    NoteAction, ParticipantAction, ProposalAction, ReceiptAction, ReservationAction, TripAction,
 };
 
 fn main() -> Result<()> {
@@ -46,6 +47,13 @@ fn main() -> Result<()> {
 
     if commands::db::run_before_open_db(&command, &resolved)? {
         return Ok(());
+    }
+
+    if let Command::Proposal {
+        action: ProposalAction::Validate { file, json },
+    } = command
+    {
+        return crate::proposal::run_proposal_validate(&file, json);
     }
 
     let db_path = resolved.path.to_string_lossy().into_owned();
@@ -958,6 +966,7 @@ fn main() -> Result<()> {
                 println!("  Name: {}", participant.name);
             }
         },
+        Command::Proposal { .. } => unreachable!("proposal commands handled before DB open"),
         Command::Trip { action } => match action {
             TripAction::Add {
                 name,

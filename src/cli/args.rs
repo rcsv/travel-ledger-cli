@@ -79,6 +79,11 @@ pub enum Command {
         #[command(subcommand)]
         action: ParticipantAction,
     },
+    /// Trip Proposal Envelope（未採用案）の file 検証
+    Proposal {
+        #[command(subcommand)]
+        action: ProposalAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -983,5 +988,17 @@ pub enum ParticipantAction {
     Delete {
         /// Participant ID
         id: i64,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ProposalAction {
+    /// Trip Proposal Envelope JSON ファイルを検証する（schema v8 Trip とは別責務）
+    Validate {
+        /// 検証する JSON ファイル
+        file: String,
+        /// JSON 形式で出力
+        #[arg(long)]
+        json: bool,
     },
 }

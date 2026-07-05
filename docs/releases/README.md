@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.9 | Proposal Envelope file validation | [v4.7.9-notes.md](v4.7.9-notes.md) |
 | v4.7.8 | Proposal implementation planning | [v4.7.8-notes.md](v4.7.8-notes.md) |
 | v4.7.7 | Public schema post-review | [v4.7.7-notes.md](v4.7.7-notes.md) |
 | v4.7.6 | Public JSON examples / concept stream post-review | [v4.7.6-notes.md](v4.7.6-notes.md) |

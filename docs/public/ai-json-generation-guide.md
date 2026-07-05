@@ -109,13 +109,13 @@ AI には **gate を bypass する出力をさせない**。`"status": "adopted"
 ## validate-export 境界
 
 ```text
-schema v8 Trip          → validate-export 対象
-Trip Proposal Envelope  → 対象外
-Proposal Fragment       → 対象外
-gate 後の Trip          → 対象
+schema v8 Trip          → trip validate-export 対象
+Trip Proposal Envelope  → proposal validate 対象（v4.7.9+）— trip validate-export ではない
+Proposal Fragment       → 対象外（将来 fragment validate）
+gate 後の Trip          → trip validate-export 対象
 ```
 
-Proposal を `trip validate-export` に通すよう指示しない。
+Proposal を `trip validate-export` に通すよう指示しない。Envelope は `proposal validate` を使う。
 
 ---
 
@@ -197,6 +197,7 @@ Travel Ledger 用の JSON を生成してください。
 - [Non-normative examples](examples-non-normative/)
 - [Proposals outline](proposals.md)
 - [Schema overview](schema.md)
+- [v4.7.9 spec](../specifications/v4.7.9-proposal-envelope-file-validation.md)
 - [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md)
 - [v4.7.7 spec](../specifications/v4.7.7-public-schema-post-review.md)
 - [v4.7.6 spec](../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md)
