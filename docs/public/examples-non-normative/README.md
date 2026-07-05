@@ -48,4 +48,5 @@ gate 通過後に生成された schema v8 Trip → validate-export 対象
 - [ai-json-generation-guide.md](../ai-json-generation-guide.md)
 - [v4.7.2 Envelope spec](../../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
 - [v4.7.3 Fragment spec](../../specifications/v4.7.3-proposal-fragment-concept-spec.md)
+- [v4.7.8 Implementation planning spec](../../specifications/v4.7.8-proposal-implementation-planning.md)
 - [v4.7.4 Materialize gate spec](../../specifications/v4.7.4-materialize-gate-concept-validation-rules.md)

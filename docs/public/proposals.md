@@ -120,7 +120,10 @@ v4.7.4  materialize gate / validation rules — 完了
 v4.7.5  public examples / AI JSON generation guide — 完了
 v4.7.6  public JSON examples / concept stream post-review — 完了
 v4.7.7  public schema post-review — 完了
+v4.7.8  Proposal implementation planning — 進行中
 ```
+
+Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md)
 
 Authoring 例: [examples/](examples/) · [examples-non-normative/](examples-non-normative/) · [examples.md](examples.md) · [ai-json-generation-guide.md](ai-json-generation-guide.md)
 
@@ -129,9 +132,10 @@ Authoring 例: [examples/](examples/) · [examples-non-normative/](examples-non-
 ## Out of scope (still)
 
 ```text
-materialize / apply commands
-proposal / fragment import commands
-JSON schemas
+materialize / apply commands（P-6 以降の実装候補）
+proposal / fragment validate / show / inspect 実装（P-1〜P-3 候補）
+proposal / fragment import / list（P-4+ 候補）
+JSON schemas 確定
 GUI for proposal review
 ```
 
@@ -146,6 +150,7 @@ GUI for proposal review
 - [Public README](README.md)
 - [Travel Ledger](travel-ledger.md)
 - [Schema overview](schema.md)
+- [v4.7.8 Implementation planning spec](../specifications/v4.7.8-proposal-implementation-planning.md)
 - [v4.7.4 Materialize gate spec](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md)
 - [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)

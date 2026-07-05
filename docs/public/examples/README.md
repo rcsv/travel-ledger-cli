@@ -75,5 +75,6 @@ Proposal / Fragment を validate-export に通さない — 型が異なる。
 - [examples.md](../examples.md) — narrative と概念図
 - [ai-json-generation-guide.md](../ai-json-generation-guide.md) — 生成 AI 向け作法
 - [proposals.md](../proposals.md) — Envelope / Fragment / gate
+- [v4.7.8 spec](../../specifications/v4.7.8-proposal-implementation-planning.md)
 - [v4.7.7 spec](../../specifications/v4.7.7-public-schema-post-review.md)
 - [v4.7.6 spec](../../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md)

@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.8 planning — Proposal implementation planning candidate
+v4.7.8 release preparation — Proposal implementation planning
 
 ## Latest completed
 
@@ -15,9 +15,10 @@ v4.7.8 planning — Proposal implementation planning candidate
 
 ## Repository state
 
-- Cargo version: `4.7.7`
-- Latest release: **v4.7.7** — [v4.7.7-notes.md](releases/v4.7.7-notes.md)
-- **v4.7.7 spec:** [v4.7.7-public-schema-post-review.md](specifications/v4.7.7-public-schema-post-review.md)
+- Cargo version: `4.7.8`
+- Latest release (published): **v4.7.7** — [v4.7.7-notes.md](releases/v4.7.7-notes.md)
+- **v4.7.8 spec:** [v4.7.8-proposal-implementation-planning.md](specifications/v4.7.8-proposal-implementation-planning.md)
+- **v4.7.8 notes:** [v4.7.8-notes.md](releases/v4.7.8-notes.md)
 - **Public JSON:** [public/examples/](public/examples/) · [public/examples-non-normative/](public/examples-non-normative/)
 
 ## v4.7.x 新章
@@ -31,27 +32,30 @@ v4.7.4  materialize gate / validation rules — 完了
 v4.7.5  public examples / AI JSON generation guide — 完了
 v4.7.6  public JSON examples / concept stream post-review — 完了
 v4.7.7  public schema post-review — 完了
+v4.7.8  Proposal implementation planning — リリース準備中
 ```
 
-v4.7.7 で public schema / export-schema / examples / AI guide の整合性 post-review 完了。外向き入口は v4.7.0〜v4.7.7 で **揃った**。
+v4.7.8 で Proposal 実装フェーズ（P-0〜P-6）・file-based 優先・command 候補を整理。実装は未着手。
 
 ## Next action
 
-**v4.7.8 — テーマ未確定。** 候補のみ（確定実装には入らない）:
+**v4.7.8 — Proposal implementation planning**（documentation-only、未タグ）
+
+主成果物: [v4.7.8-proposal-implementation-planning.md](specifications/v4.7.8-proposal-implementation-planning.md)
+
+次マイルストーン候補（P-1 実装 — 未確定）:
 
 ```text
-Proposal implementation planning
-export-schema / itinerary-model doc polish
-public examples CI validate-export check
-migration runner / FK hardening
+Proposal Envelope file validation（proposal validate 候補）
 ```
 
-次マイルストーンは相談のうえ決定。v4.7.8 ではいきなり Proposal / Fragment / materialize の実装には入らず、まず **planning** から。
+v4.7.8 では Proposal / Fragment / materialize の **実装には入らない**。
 
 ## Defer
 
-- materialize / apply command 実装
-- Proposal / Fragment import 実装
+- materialize / apply command 実装（P-6）
+- Proposal / Fragment import / list（P-4+）
+- DB migration for proposals
 - repository split
 - GUI 実装
 

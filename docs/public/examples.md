@@ -242,4 +242,5 @@ Proposal を validate-export に通そうとしない — 型が違う。
 - [AI JSON generation guide](ai-json-generation-guide.md)
 - [Proposals outline](proposals.md)
 - [Schema overview](schema.md)
+- [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md)
 - [v4.7.7 spec](../specifications/v4.7.7-public-schema-post-review.md)
