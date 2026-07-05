@@ -49,11 +49,14 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    if let Command::Proposal {
-        action: ProposalAction::Validate { file, json },
-    } = command
-    {
-        return crate::proposal::run_proposal_validate(&file, json);
+    if let Command::Proposal { action } = command {
+        return match action {
+            ProposalAction::Validate { file, json } => {
+                crate::proposal::run_proposal_validate(&file, json)
+            }
+            ProposalAction::Show { file } => crate::proposal::run_proposal_show(&file),
+            ProposalAction::Inspect { file } => crate::proposal::run_proposal_inspect(&file),
+        };
     }
 
     let db_path = resolved.path.to_string_lossy().into_owned();

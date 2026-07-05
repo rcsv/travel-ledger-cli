@@ -1001,4 +1001,14 @@ pub enum ProposalAction {
         #[arg(long)]
         json: bool,
     },
+    /// Trip Proposal Envelope の概要を表示する
+    Show {
+        /// 表示する JSON ファイル
+        file: String,
+    },
+    /// Trip Proposal Envelope の構造と validation 詳細を表示する
+    Inspect {
+        /// 詳細表示する JSON ファイル
+        file: String,
+    },
 }

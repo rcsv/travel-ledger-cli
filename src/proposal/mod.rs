@@ -4,4 +4,4 @@
 
 pub mod envelope;
 
-pub use envelope::run_proposal_validate;
+pub use envelope::{run_proposal_inspect, run_proposal_show, run_proposal_validate};

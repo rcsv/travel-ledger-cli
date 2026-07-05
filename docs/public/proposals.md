@@ -121,7 +121,8 @@ v4.7.5  public examples / AI JSON generation guide — 完了
 v4.7.6  public JSON examples / concept stream post-review — 完了
 v4.7.7  public schema post-review — 完了
 v4.7.8  Proposal implementation planning — 完了
-v4.7.9  Proposal Envelope file validation — 進行中
+v4.7.9  Proposal Envelope file validation — 完了
+v4.7.10 Proposal Envelope show / inspect — 進行中
 ```
 
 Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-1: [v4.7.9 spec](../specifications/v4.7.9-proposal-envelope-file-validation.md)
@@ -131,9 +132,11 @@ Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementat
 ```bash
 caglla proposal validate <envelope.json>
 caglla proposal validate <envelope.json> --json
+caglla proposal show <envelope.json>      # v4.7.10+
+caglla proposal inspect <envelope.json>     # v4.7.10+
 ```
 
-Trip Proposal Envelope file の validation。**`trip validate-export` とは別責務** — schema v8 Trip には使わない。
+Trip Proposal Envelope file の validation / 概要 / 詳細確認。**`trip validate-export` とは別責務** — schema v8 Trip には使わない。
 
 Authoring 例: [examples/](examples/) · [examples-non-normative/](examples-non-normative/) · [examples.md](examples.md) · [ai-json-generation-guide.md](ai-json-generation-guide.md)
 
