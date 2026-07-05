@@ -68,6 +68,17 @@ fn main() -> Result<()> {
         };
     }
 
+    // File-only Trip commands — no DB (avoids migration side effects in parallel CI / guard tests)
+    match &command {
+        Command::Trip {
+            action: TripAction::ValidateExport { file, json },
+        } => return crate::trip::run_trip_validate_export(file, *json),
+        Command::Trip {
+            action: TripAction::Diff { old_file, new_file },
+        } => return crate::io::diff::run_trip_diff(old_file, new_file),
+        _ => {}
+    }
+
     let db_path = resolved.path.to_string_lossy().into_owned();
     let conn = storage::db::open_db_at(&db_path)?;
 
