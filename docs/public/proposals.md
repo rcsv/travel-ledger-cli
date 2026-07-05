@@ -125,10 +125,12 @@ v4.7.9  Proposal Envelope file validation — 完了
 v4.7.10 Proposal Envelope show / inspect — 完了
 v4.7.11 Proposal Fragment file validation — 完了
 v4.7.12 Public examples validation guard — 完了
-v4.7.13 Proposal storage strategy planning — 進行中
+v4.7.13 Proposal storage strategy planning — 完了
+v4.7.14 Public examples guard CI isolation hotfix — 完了
+v4.7.15 Materialize / apply planning — 進行中
 ```
 
-Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-4: [v4.7.13 spec](../specifications/v4.7.13-proposal-storage-strategy-planning.md) · guard: [v4.7.12 spec](../specifications/v4.7.12-public-examples-validation-guard.md)
+Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md) · P-4: [v4.7.13 spec](../specifications/v4.7.13-proposal-storage-strategy-planning.md)
 
 ### CLI（v4.7.9+）
 

@@ -119,5 +119,7 @@ AI / provider（将来）
 | **v4.7.11** | **Proposal Fragment file validation (P-3)** |
 | **v4.7.12** | **Public examples validation guard** |
 | **v4.7.13** | **Proposal storage strategy planning (P-4)** |
+| **v4.7.14** | **Public examples guard CI isolation hotfix** |
+| **v4.7.15** | **Materialize / apply planning (P-5)** |
 
 実装・schema 変更は v4.7.8 の scope 外です（planning のみ）。
