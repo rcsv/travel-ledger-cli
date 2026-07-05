@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "proposal_id": "prop-fixture-materialize-ready",
+    "created_at": "2026-03-01T09:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "proposal": {
+    "title": "Okinawa weekend draft",
+    "destination": "Okinawa, Japan",
+    "date_policy": "fixed_dates",
+    "start_date": "2026-04-26",
+    "end_date": "2026-04-27",
+    "candidate_days": [
+      {
+        "day_number": 1,
+        "summary": "Arrival"
+      },
+      {
+        "day_number": 2,
+        "summary": "Sightseeing"
+      }
+    ],
+    "candidate_itineraries": [
+      {
+        "day_number": 1,
+        "title": "Flight to Naha",
+        "sort_order": 1,
+        "category": "flight"
+      },
+      {
+        "day_number": 2,
+        "title": "Churaumi Aquarium",
+        "sort_order": 1,
+        "category": "activity"
+      }
+    ]
+  },
+  "materialize_hints": {
+    "required_decisions": [],
+    "warnings": []
+  }
+}

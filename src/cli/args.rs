@@ -1016,6 +1016,26 @@ pub enum ProposalAction {
         /// 詳細表示する JSON ファイル
         file: String,
     },
+    /// Trip Proposal Envelope から schema v8 Trip JSON 候補を生成する（file-only）
+    Materialize {
+        /// 対象の Trip Proposal Envelope JSON ファイル
+        file: String,
+        /// Dry-run — DB に書き込まず schema v8 Trip JSON 候補のみ生成
+        #[arg(long)]
+        dry_run: bool,
+        /// 生成した schema v8 Trip JSON 候補の出力先。後続の trip validate-export 等では --output を推奨（省略時は human モードで stdout に混在）
+        #[arg(long)]
+        output: Option<String>,
+        /// 旅行開始日（YYYY-MM-DD）— Envelope 内で未確定のときに指定
+        #[arg(long)]
+        start: Option<String>,
+        /// 旅行終了日（YYYY-MM-DD）— Envelope 内で未確定のときに指定
+        #[arg(long)]
+        end: Option<String>,
+        /// materialize gate report を JSON 出力（Trip JSON 候補そのものではない。候補は --output へ）
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]

@@ -127,10 +127,11 @@ v4.7.11 Proposal Fragment file validation — 完了
 v4.7.12 Public examples validation guard — 完了
 v4.7.13 Proposal storage strategy planning — 完了
 v4.7.14 Public examples guard CI isolation hotfix — 完了
-v4.7.15 Materialize / apply planning — 進行中
+v4.7.15 Materialize / apply planning — 完了
+v4.7.16 Proposal materialize dry-run (P-6a) — 完了
 ```
 
-Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md) · P-4: [v4.7.13 spec](../specifications/v4.7.13-proposal-storage-strategy-planning.md)
+Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md) · P-4: [v4.7.13 spec](../specifications/v4.7.13-proposal-storage-strategy-planning.md)
 
 ### CLI（v4.7.9+）
 
@@ -139,9 +140,12 @@ caglla proposal validate <envelope.json>
 caglla proposal validate <envelope.json> --json
 caglla proposal show <envelope.json>      # v4.7.10+
 caglla proposal inspect <envelope.json>     # v4.7.10+
+caglla proposal materialize <envelope.json> --dry-run [--output trip.json] [--start YYYY-MM-DD] [--end YYYY-MM-DD]  # v4.7.16+
 caglla fragment validate <fragment.json>    # v4.7.11+
 caglla fragment validate <fragment.json> --json
 ```
+
+`proposal materialize --dry-run`: Trip JSON 候補を後続コマンド（`trip validate-export` 等）で扱う場合は **`--output`** を使う。`--json` は gate report のみ（Trip JSON 候補そのものではない）。
 
 Trip Proposal Envelope file の validation / 概要 / 詳細確認。**`trip validate-export` とは別責務** — schema v8 Trip には使わない。
 

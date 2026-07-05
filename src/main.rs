@@ -57,6 +57,21 @@ fn main() -> Result<()> {
             }
             ProposalAction::Show { file } => crate::proposal::run_proposal_show(&file),
             ProposalAction::Inspect { file } => crate::proposal::run_proposal_inspect(&file),
+            ProposalAction::Materialize {
+                file,
+                dry_run,
+                output,
+                start,
+                end,
+                json,
+            } => crate::proposal::run_proposal_materialize(
+                &file,
+                dry_run,
+                output.as_deref(),
+                start.as_deref(),
+                end.as_deref(),
+                json,
+            ),
         };
     }
 

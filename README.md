@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.15](docs/releases/v4.7.15-notes.md) — Materialize / apply planning spec（P-5、リリース準備中）。
+**最新:** [v4.7.16](docs/releases/v4.7.16-notes.md) — Proposal materialize dry-run（P-6a）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.16](docs/releases/v4.7.16-notes.md) | minor | Proposal materialize dry-run (P-6a) |
 | [v4.7.15](docs/releases/v4.7.15-notes.md) | docs | Materialize / apply planning spec |
 | [v4.7.14](docs/releases/v4.7.14-notes.md) | hotfix | Public examples guard CI isolation |
 | [v4.7.13](docs/releases/v4.7.13-notes.md) | docs | Proposal storage strategy planning |
