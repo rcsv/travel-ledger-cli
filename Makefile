@@ -1,5 +1,6 @@
 .PHONY: check test run clean
 
+# check runs cargo test, which includes tests/public_examples_validation_guard.rs (v4.7.12+)
 check:
 	cargo fmt --check
 	cargo clippy -- -D warnings

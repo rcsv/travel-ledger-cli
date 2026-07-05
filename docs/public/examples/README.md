@@ -23,7 +23,7 @@ trip validate-export の対象
 
 ## validate-export
 
-schema v8 Trip examples は **`trip validate-export` の対象** です。
+schema v8 Trip examples は **`trip validate-export` の対象** です。CI では `tests/public_examples_validation_guard.rs` が 3 本すべて PASS することを確認します（v4.7.12+）。
 
 ```bash
 trip validate-export docs/public/examples/schema-v8-minimal-trip.json

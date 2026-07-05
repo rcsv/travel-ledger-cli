@@ -117,5 +117,6 @@ AI / provider（将来）
 | v4.7.9 | Proposal Envelope file validation (P-1) — **完了** |
 | **v4.7.10** | **Proposal Envelope show / inspect (P-2)** |
 | **v4.7.11** | **Proposal Fragment file validation (P-3)** |
+| **v4.7.12** | **Public examples validation guard** |
 
 実装・schema 変更は v4.7.8 の scope 外です（planning のみ）。

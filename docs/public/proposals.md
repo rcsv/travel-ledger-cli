@@ -123,10 +123,11 @@ v4.7.7  public schema post-review — 完了
 v4.7.8  Proposal implementation planning — 完了
 v4.7.9  Proposal Envelope file validation — 完了
 v4.7.10 Proposal Envelope show / inspect — 完了
-v4.7.11 Proposal Fragment file validation — 進行中
+v4.7.11 Proposal Fragment file validation — 完了
+v4.7.12 Public examples validation guard — 進行中
 ```
 
-Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-1: [v4.7.9 spec](../specifications/v4.7.9-proposal-envelope-file-validation.md) · P-3: [v4.7.11 spec](../specifications/v4.7.11-proposal-fragment-file-validation.md)
+Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-1: [v4.7.9 spec](../specifications/v4.7.9-proposal-envelope-file-validation.md) · P-3: [v4.7.11 spec](../specifications/v4.7.11-proposal-fragment-file-validation.md) · guard: [v4.7.12 spec](../specifications/v4.7.12-public-examples-validation-guard.md)
 
 ### CLI（v4.7.9+）
 

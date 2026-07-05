@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.11](docs/releases/v4.7.11-notes.md) — Proposal Fragment file validation（P-3、リリース準備中）。
+**最新:** [v4.7.12](docs/releases/v4.7.12-notes.md) — Public examples validation guard（リリース準備中）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.12](docs/releases/v4.7.12-notes.md) | minor | Public examples validation guard |
 | [v4.7.11](docs/releases/v4.7.11-notes.md) | minor | Proposal Fragment file validation |
 | [v4.7.10](docs/releases/v4.7.10-notes.md) | minor | Proposal Envelope show / inspect |
 | [v4.7.9](docs/releases/v4.7.9-notes.md) | minor | Proposal Envelope file validation |
