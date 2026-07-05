@@ -15,6 +15,7 @@ Travel Ledger を **外部に説明するための入口** です。実装の詳
 関連:
 
 - [v4.7.0 concept review](../specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md) — 新章の方向性
+- [v4.7.7 Public schema post-review spec](../specifications/v4.7.7-public-schema-post-review.md) — export-schema v8 整合
 - [v4.7.6 Public JSON examples spec](../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md) — public JSON files + post-review
 - [v4.7.5 Public examples / AI guide spec](../specifications/v4.7.5-public-examples-ai-json-generation-guide.md) — 公開例・AI 生成作法正本
 - [v4.7.4 Materialize gate spec](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md) — 採用 gate / validation 正本
@@ -109,6 +110,7 @@ AI / provider（将来）
 | v4.7.3 | Proposal Fragment concept spec — **完了** |
 | v4.7.4 | materialize gate / validation rules — **完了** |
 | v4.7.5 | public examples / AI JSON generation guide — **完了** |
-| **v4.7.6** | **public JSON examples / concept stream post-review** |
+| v4.7.6 | public JSON examples / concept stream post-review — **完了** |
+| **v4.7.7** | **public schema post-review** |
 
-実装・schema 変更は v4.7.6 の scope 外です。
+実装・schema 変更は v4.7.7 の scope 外です。

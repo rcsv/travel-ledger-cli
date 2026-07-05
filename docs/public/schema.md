@@ -95,11 +95,19 @@ Import accepts older schema versions with migration logic in the CLI — that is
 
 ---
 
-## Examples (planned)
+## Examples
 
-Canonical narrative sample: Okinawa fixture in `samples/okinawa_sesoko_2026/`.
+Public JSON files（`trip validate-export` 通過済み）:
 
-Dedicated `docs/public/examples/*.json` may be added in a later v4.7.x release. Until then, use export output from the sample trip or [export-schema.md](../specifications/export-schema.md).
+| ファイル | 内容 |
+|---|---|
+| [examples/schema-v8-minimal-trip.json](examples/schema-v8-minimal-trip.json) | 最小構成 |
+| [examples/schema-v8-okinawa-sesoko-trip.json](examples/schema-v8-okinawa-sesoko-trip.json) | 沖縄瀬底（短縮・匿名化） |
+| [examples/schema-v8-with-reservations-expenses-notes.json](examples/schema-v8-with-reservations-expenses-notes.json) | reservations / expenses / notes |
+
+詳細: [examples/README.md](examples/README.md)
+
+**Canonical regression sample**（CI golden — public example とは別）: [samples/okinawa_sesoko_2026/](../samples/okinawa_sesoko_2026/)
 
 ---
 
@@ -109,3 +117,4 @@ Dedicated `docs/public/examples/*.json` may be added in a later v4.7.x release. 
 - [Travel Ledger](travel-ledger.md)
 - [Proposals outline](proposals.md)
 - [v4.7.0 concept review](../specifications/v4.7.0-schema-publication-travel-ledger-public-direction-concept-review.md)
+- [v4.7.7 public schema post-review](../specifications/v4.7.7-public-schema-post-review.md)

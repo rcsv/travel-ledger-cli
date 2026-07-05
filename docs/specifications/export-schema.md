@@ -2,6 +2,8 @@
 
 Caglla CLI の trip export / import JSON 形式。
 
+**外向き入口（Travel Ledger 公開契約）:** [public/schema.md](../public/schema.md) — 現行 canonical は **`schema_version: 8`**。CLI パッケージ version（`Cargo.toml`）とは独立。
+
 **本ドキュメントの範囲:** JSON の **構造・バージョン・検証ルール** のみ。Itinerary / Expense / Note の **意味論・責務** は各モデル仕様を参照してください。
 
 | トピック | 参照 |
@@ -27,7 +29,9 @@ Caglla CLI の trip export / import JSON 形式。
 | `3` | v3 | Note + **nested Expense**（`days[]`） |
 | `4` | v4 | v3 + top-level **`participants[]`**（`is_self` 含む） |
 | `5` | v5 | v4 + Expense **`paid_by_participant_ref`** / **`beneficiaries[]`** — [shared-expense-entity-design.md](shared-expense-entity-design.md) |
-| `6` | v6（**現行 export**） | v5 + nested **`estimates[]`**（Planned Budget）— [estimate-entity-design.md](estimate-entity-design.md) |
+| `6` | v6 | v5 + nested **`estimates[]`**（Planned Budget）— [estimate-entity-design.md](estimate-entity-design.md) |
+| `7` | v7 | v6 + top-level **`receipts[]`**（Receipt Inbox metadata — Trip level） |
+| `8` | v8（**現行 export**） | v7 + Receipt **`trashed_at`**（RFC3339）— [v3.7.0 plan](v3.7.0-receipt-assignment-and-trash-implementation-plan.md) |
 
 Import 時の解釈:
 
@@ -38,8 +42,10 @@ Import 時の解釈:
 - `schema_version: 4` → v4
 - `schema_version: 5` → v5
 - `schema_version: 6` → v6
+- `schema_version: 7` → v7
+- `schema_version: 8` → v8
 
-v1 / v2 / v3 / v4 / v5 export は引き続き import 可能です。現行 CLI の `trip export` は `schema_version: 6` を出力します。
+v1 / v2 / v3 / v4 / v5 / v6 / v7 export は引き続き import 可能です。現行 CLI の `trip export` は **`schema_version: 8`** を出力します。
 
 ## Top-level structure (v6)
 
@@ -298,7 +304,7 @@ v5 は v4 の検証に加え、nested `expenses[]` の Shared Expense ref を検
 
 省略時の意味: `paid_by_participant_ref` / `beneficiaries` なし → **personal expense**（v4 import 互換）。
 
-### v6 追加検証（現行 export）
+### v6 追加検証
 
 v6 は v5 の検証に加え、nested `estimates[]` を検証します。
 
@@ -307,6 +313,30 @@ v6 は v5 の検証に加え、nested `estimates[]` を検証します。
 | `amount` | 必須、非負整数 |
 | `currency` | 必須、非空（ISO 4217 形式） |
 | v5 以前 | Estimate 専用検査は **スキップ**（`estimates` 省略 = 空） |
+
+### v7 追加検証
+
+v7 は v6 の検証に加え、top-level `receipts[]` を検証します。
+
+| ルール | 内容 |
+|---|---|
+| `receipts` | 配列（省略 = 空）。Trip level — Itinerary 配下ではない |
+| `status` | 必須（例: `unreviewed` / `ignored`） |
+| `amount` / `currency` | ペアで指定する場合は両方必須 |
+| v6 以前 | Receipt 専用検査は **スキップ** |
+
+Receipt は **Actual ではない** — Expense 化待ちの未整理候補。詳細: [v3.5.0 Receipt Inbox concept](v3.5.0-receipt-inbox-concept-design.md)。
+
+### v8 追加検証（現行 export）
+
+v8 は v7 の検証に加え、Receipt の Trash フィールドを検証します。
+
+| ルール | 内容 |
+|---|---|
+| `trashed_at` | 指定時は **RFC3339** 形式 |
+| v7 以前 | `receipts` / `trashed_at` 省略可 |
+
+現行 `trip validate-export` は **schema v8** を canonical として警告・検証します。Public JSON examples: [public/examples/](../public/examples/)。
 
 ## trip diff
 
@@ -331,7 +361,7 @@ v1 export（`notes` なし）と v2 export（`notes: []`）を比較しても異
 
 ## 将来バージョン（現 schema に含めないもの）
 
-以下は **v6 時点では export JSON に含めません**（Participant 参加行・Shared Expense **recording** は v4 / v5 で **含む**、Planned Budget **Estimate** は v6 で **含む**）:
+以下は **v8 時点では export JSON に含めません**（Participant / Shared Expense / Estimate / Receipt Inbox は **含む**）:
 
 | 項目 | 備考 |
 |---|---|

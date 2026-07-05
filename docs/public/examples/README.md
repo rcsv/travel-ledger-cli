@@ -57,6 +57,17 @@ Proposal / Fragment を validate-export に通さない — 型が異なる。
 - receipts / checklist は省略（構造説明用）
 - 完全な golden / regression 用データは canonical sample を参照
 
+## public example と canonical sample の境界
+
+| | `docs/public/examples/` | `samples/okinawa_sesoko_2026/` |
+|---|---|---|
+| 目的 | 外向き・読みやすさ | CI golden / regression |
+| 匿名化 | **example 用の架空名・番号** | v4.7.6 以降同方針（Alex / Jordan 等） |
+| validate-export | 3 本 PASS | golden 比較用（trip.id 省略可） |
+| Proposal | **含めない** | **含めない** |
+
+旅行サンプル内の個人名・自宅名・実予約番号らしき値は public example に載せない。`Cargo.toml` の `authors` 等、プロジェクト著作者表記は別扱い。
+
 ---
 
 ## 関連
@@ -64,4 +75,5 @@ Proposal / Fragment を validate-export に通さない — 型が異なる。
 - [examples.md](../examples.md) — narrative と概念図
 - [ai-json-generation-guide.md](../ai-json-generation-guide.md) — 生成 AI 向け作法
 - [proposals.md](../proposals.md) — Envelope / Fragment / gate
+- [v4.7.7 spec](../../specifications/v4.7.7-public-schema-post-review.md)
 - [v4.7.6 spec](../../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md)

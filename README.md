@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.6](docs/releases/v4.7.6-notes.md) — Public JSON examples / concept stream post-review（documentation-only、リリース準備中）。
+**最新:** [v4.7.7](docs/releases/v4.7.7-notes.md) — Public schema post-review（documentation-only、リリース準備中）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.7](docs/releases/v4.7.7-notes.md) | docs | Public schema post-review |
 | [v4.7.6](docs/releases/v4.7.6-notes.md) | docs | Public JSON examples / concept stream post-review |
 | [v4.7.5](docs/releases/v4.7.5-notes.md) | docs | Public examples / AI JSON generation guide |
 | [v4.7.4](docs/releases/v4.7.4-notes.md) | docs | Materialize gate / validation rules |

@@ -36,7 +36,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [foundation-hardening-review.md](foundation-hardening-review.md) | Foundation Hardening Review（v2.0.0 後・v3 前の基盤点検 — documentation-only） |
 | [checklist-design-memo.md](checklist-design-memo.md) | Checklist 設計メモ（自動生成・Provenance — 将来設計参考、v1.x 対象外） |
 | [travel-support-design-memo.md](travel-support-design-memo.md) | Travel Support 設計メモ（旅行支援情報・Destination・注意喚起 — 将来設計参考、v1.x 対象外） |
-| [export-schema.md](export-schema.md) | trip export / import JSON（schema v1–**v7**）。構造定義 — 意味論は itinerary-model 等を参照 |
+| [export-schema.md](export-schema.md) | trip export / import JSON（schema v1–**v8**）。構造定義 — 意味論は itinerary-model 等を参照 |
 | [v3.2.0-db-status-implementation-plan.md](v3.2.0-db-status-implementation-plan.md) | v3.2.0 Database Status Implementation Plan（Phase 1 完了 — PR #58） |
 | [v3.2.0-db-status-post-implementation-review.md](v3.2.0-db-status-post-implementation-review.md) | v3.2.0 Database Status Post-Implementation Review |
 | [v3.2.1-module-layout-implementation-plan.md](v3.2.1-module-layout-implementation-plan.md) | v3.2.1 Module Layout Implementation Plan（Phase 1 完了 — PR #59） |
@@ -76,6 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.7.7-public-schema-post-review.md](v4.7.7-public-schema-post-review.md) | v4.7.7 Public schema post-review |
 | [v4.7.6-public-json-examples-concept-stream-post-review.md](v4.7.6-public-json-examples-concept-stream-post-review.md) | v4.7.6 Public JSON examples / concept stream post-review |
 | [v4.7.5-public-examples-ai-json-generation-guide.md](v4.7.5-public-examples-ai-json-generation-guide.md) | v4.7.5 Public examples / AI JSON generation guide |
 | [v4.7.4-materialize-gate-concept-validation-rules.md](v4.7.4-materialize-gate-concept-validation-rules.md) | v4.7.4 Materialize gate concept / validation rules |

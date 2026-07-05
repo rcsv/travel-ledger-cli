@@ -197,4 +197,5 @@ Travel Ledger 用の JSON を生成してください。
 - [Non-normative examples](examples-non-normative/)
 - [Proposals outline](proposals.md)
 - [Schema overview](schema.md)
+- [v4.7.7 spec](../specifications/v4.7.7-public-schema-post-review.md)
 - [v4.7.6 spec](../specifications/v4.7.6-public-json-examples-concept-stream-post-review.md)

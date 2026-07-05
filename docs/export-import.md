@@ -8,7 +8,7 @@ JSON エクスポート・インポート・検証・比較の手順です。ス
 
 **export / import の対象:** **Trip**、**Itinerary（`itinerary_items` / `days[]`）**、**Checklist**、**Note（schema v2+）**、**Expense（schema v3+）**、**Reservation（schema v3+）**、**Participant（schema v4+）** です。`trip export` → `db reset` → `trip import` でバックアップ／リストアできます。
 
-現行 export は **`schema_version: 7`** です。Import は **v1 / v2 / v3 / v4 / v5 / v6 / v7** に対応します（v3 以前の JSON に `participants` がなくても import 可能）。スキーマ詳細は [specifications/export-schema.md](specifications/export-schema.md) を正としてください。
+現行 export は **`schema_version: 8`** です。Import は **v1 〜 v8** に対応します（v3 以前の JSON に `participants` がなくても import 可能）。公開契約の概要は [public/schema.md](public/schema.md)、フィールド定義の正本は [specifications/export-schema.md](specifications/export-schema.md) を参照してください。
 
 Export JSON には **`schema_version`**、**`generator`**（`caglla-cli`）、**`generator_version`**、**`exported_at`**（RFC3339）が含まれます。旧形式（メタデータ省略）とも後方互換です。
 
@@ -20,13 +20,13 @@ cargo run -- trip export 1
 cargo run -- trip export 1 --output backup.json
 ```
 
-出力例（構造 — **現行 v6**）:
+出力例（構造 — **現行 v8**）:
 
 ```json
 {
-  "schema_version": 6,
-  "generator": "caglla-cli",
-  "generator_version": "3.0.0",
+  "schema_version": 8,
+  "generator": "travel-ledger-cli",
+  "generator_version": "4.7.x",
   "exported_at": "2026-06-07T00:00:00Z",
   "trip": {
     "name": "沖縄旅行",

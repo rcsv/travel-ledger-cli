@@ -119,6 +119,7 @@ v4.7.3  Proposal Fragment — 完了
 v4.7.4  materialize gate / validation rules — 完了
 v4.7.5  public examples / AI JSON generation guide — 完了
 v4.7.6  public JSON examples / concept stream post-review — 完了
+v4.7.7  public schema post-review — 完了
 ```
 
 Authoring 例: [examples/](examples/) · [examples-non-normative/](examples-non-normative/) · [examples.md](examples.md) · [ai-json-generation-guide.md](ai-json-generation-guide.md)
