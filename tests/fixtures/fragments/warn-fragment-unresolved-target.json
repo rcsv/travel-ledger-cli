@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "fragment_id": "frag-unresolved",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "ai",
+    "provider": "test-model"
+  },
+  "target": {
+    "target_type": "unresolved",
+    "unresolved_target_hints": ["Pick day 2 or day 3 lunch slot"]
+  },
+  "fragment": {
+    "intent": "add",
+    "candidate_content": { "title": "Lunch TBD" },
+    "notes": "Target not pinned yet."
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "fragment_id": "frag-no-intent",
+    "created_at": "2026-03-15T14:00:00Z"
+  },
+  "target": {
+    "target_type": "day",
+    "trip_reference": "Example Trip",
+    "day_reference": 1
+  },
+  "fragment": {
+    "candidate_content": { "title": "Missing intent" },
+    "notes": "Intent field omitted."
+  }
+}

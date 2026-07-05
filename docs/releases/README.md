@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.11 | Proposal Fragment file validation | [v4.7.11-notes.md](v4.7.11-notes.md) |
 | v4.7.10 | Proposal Envelope show / inspect | [v4.7.10-notes.md](v4.7.10-notes.md) |
 | v4.7.9 | Proposal Envelope file validation | [v4.7.9-notes.md](v4.7.9-notes.md) |
 | v4.7.8 | Proposal implementation planning | [v4.7.8-notes.md](v4.7.8-notes.md) |

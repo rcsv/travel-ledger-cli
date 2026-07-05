@@ -24,8 +24,9 @@ mod trip;
 use anyhow::{bail, Result};
 use clap::{CommandFactory, Parser};
 use cli::{
-    ChecklistAction, Cli, Command, DayAction, EstimateAction, ExpenseAction, ItineraryAction,
-    NoteAction, ParticipantAction, ProposalAction, ReceiptAction, ReservationAction, TripAction,
+    ChecklistAction, Cli, Command, DayAction, EstimateAction, ExpenseAction, FragmentAction,
+    ItineraryAction, NoteAction, ParticipantAction, ProposalAction, ReceiptAction,
+    ReservationAction, TripAction,
 };
 
 fn main() -> Result<()> {
@@ -56,6 +57,14 @@ fn main() -> Result<()> {
             }
             ProposalAction::Show { file } => crate::proposal::run_proposal_show(&file),
             ProposalAction::Inspect { file } => crate::proposal::run_proposal_inspect(&file),
+        };
+    }
+
+    if let Command::Fragment { action } = command {
+        return match action {
+            FragmentAction::Validate { file, json } => {
+                crate::proposal::run_fragment_validate(&file, json)
+            }
         };
     }
 
@@ -970,6 +979,7 @@ fn main() -> Result<()> {
             }
         },
         Command::Proposal { .. } => unreachable!("proposal commands handled before DB open"),
+        Command::Fragment { .. } => unreachable!("fragment commands handled before DB open"),
         Command::Trip { action } => match action {
             TripAction::Add {
                 name,

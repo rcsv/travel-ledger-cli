@@ -76,6 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.7.11-proposal-fragment-file-validation.md](v4.7.11-proposal-fragment-file-validation.md) | v4.7.11 Proposal Fragment file validation（P-3） |
 | [v4.7.10-proposal-envelope-show-inspect.md](v4.7.10-proposal-envelope-show-inspect.md) | v4.7.10 Proposal Envelope show / inspect（P-2） |
 | [v4.7.9-proposal-envelope-file-validation.md](v4.7.9-proposal-envelope-file-validation.md) | v4.7.9 Proposal Envelope file validation（P-1） |
 | [v4.7.8-proposal-implementation-planning.md](v4.7.8-proposal-implementation-planning.md) | v4.7.8 Proposal implementation planning |

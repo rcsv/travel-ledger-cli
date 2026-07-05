@@ -1,7 +1,9 @@
-//! Trip Proposal Envelope — file validation (P-1).
+//! Trip Proposal Envelope / Proposal Fragment — file validation.
 //!
 //! Separate from schema v8 Trip export validation (`trip validate-export`).
 
 pub mod envelope;
+pub mod fragment;
 
 pub use envelope::{run_proposal_inspect, run_proposal_show, run_proposal_validate};
+pub use fragment::run_fragment_validate;

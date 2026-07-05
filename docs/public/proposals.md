@@ -122,10 +122,11 @@ v4.7.6  public JSON examples / concept stream post-review — 完了
 v4.7.7  public schema post-review — 完了
 v4.7.8  Proposal implementation planning — 完了
 v4.7.9  Proposal Envelope file validation — 完了
-v4.7.10 Proposal Envelope show / inspect — 進行中
+v4.7.10 Proposal Envelope show / inspect — 完了
+v4.7.11 Proposal Fragment file validation — 進行中
 ```
 
-Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-1: [v4.7.9 spec](../specifications/v4.7.9-proposal-envelope-file-validation.md)
+Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-1: [v4.7.9 spec](../specifications/v4.7.9-proposal-envelope-file-validation.md) · P-3: [v4.7.11 spec](../specifications/v4.7.11-proposal-fragment-file-validation.md)
 
 ### CLI（v4.7.9+）
 
@@ -134,9 +135,13 @@ caglla proposal validate <envelope.json>
 caglla proposal validate <envelope.json> --json
 caglla proposal show <envelope.json>      # v4.7.10+
 caglla proposal inspect <envelope.json>     # v4.7.10+
+caglla fragment validate <fragment.json>    # v4.7.11+
+caglla fragment validate <fragment.json> --json
 ```
 
 Trip Proposal Envelope file の validation / 概要 / 詳細確認。**`trip validate-export` とは別責務** — schema v8 Trip には使わない。
+
+Proposal Fragment file の validation。**Envelope とも Trip export とも別責務** — 既存 Trip への部分提案の入口。
 
 Authoring 例: [examples/](examples/) · [examples-non-normative/](examples-non-normative/) · [examples.md](examples.md) · [ai-json-generation-guide.md](ai-json-generation-guide.md)
 
@@ -145,8 +150,7 @@ Authoring 例: [examples/](examples/) · [examples-non-normative/](examples-non-
 ## Out of scope (still)
 
 ```text
-proposal show / inspect（P-2）
-fragment validate（P-3）
+fragment show / inspect
 materialize / apply commands（P-6 以降）
 proposal / fragment import / list（P-4+）
 JSON schemas 確定

@@ -84,6 +84,11 @@ pub enum Command {
         #[command(subcommand)]
         action: ProposalAction,
     },
+    /// Proposal Fragment（既存 Trip への部分提案）の file 検証
+    Fragment {
+        #[command(subcommand)]
+        action: FragmentAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1010,5 +1015,17 @@ pub enum ProposalAction {
     Inspect {
         /// 詳細表示する JSON ファイル
         file: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum FragmentAction {
+    /// Proposal Fragment JSON ファイルを検証する（schema v8 Trip / Envelope とは別責務）
+    Validate {
+        /// 検証する JSON ファイル
+        file: String,
+        /// JSON 形式で出力
+        #[arg(long)]
+        json: bool,
     },
 }

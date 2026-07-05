@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "fragment_id": "frag-test-valid-01",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "ai",
+    "provider": "test-model"
+  },
+  "target": {
+    "target_type": "day",
+    "trip_reference": "Example Trip",
+    "day_reference": 2
+  },
+  "fragment": {
+    "intent": "add",
+    "candidate_content": {
+      "title": "Lunch candidate"
+    },
+    "notes": "Hours not verified."
+  },
+  "adoption_hints": {
+    "missing_fields": ["opening hours"],
+    "conflicts": [],
+    "warnings": []
+  }
+}
