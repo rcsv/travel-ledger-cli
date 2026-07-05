@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.7 release preparation — public schema post-review
+v4.7.8 planning — Proposal implementation planning candidate
 
 ## Latest completed
 
+- v4.7.7 Public schema post-review — **released**
 - v4.7.6 Public JSON examples / concept stream post-review — **released**
 - v4.7.5 Public examples / AI JSON generation guide — **released**
 - v4.7.4 Materialize gate concept / validation rules — **released**
@@ -15,9 +16,8 @@ v4.7.7 release preparation — public schema post-review
 ## Repository state
 
 - Cargo version: `4.7.7`
-- Latest release (published): **v4.7.6** — [v4.7.6-notes.md](releases/v4.7.6-notes.md)
+- Latest release: **v4.7.7** — [v4.7.7-notes.md](releases/v4.7.7-notes.md)
 - **v4.7.7 spec:** [v4.7.7-public-schema-post-review.md](specifications/v4.7.7-public-schema-post-review.md)
-- **v4.7.7 notes:** [v4.7.7-notes.md](releases/v4.7.7-notes.md)
 - **Public JSON:** [public/examples/](public/examples/) · [public/examples-non-normative/](public/examples-non-normative/)
 
 ## v4.7.x 新章
@@ -30,25 +30,23 @@ v4.7.3  Proposal Fragment concept spec — 完了
 v4.7.4  materialize gate / validation rules — 完了
 v4.7.5  public examples / AI JSON generation guide — 完了
 v4.7.6  public JSON examples / concept stream post-review — 完了
-v4.7.7  public schema post-review — リリース準備中
+v4.7.7  public schema post-review — 完了
 ```
 
-v4.7.7 で public schema / export-schema / examples / AI guide の整合性を post-review 済み。Proposal 実装計画へ進む前の棚卸し。
+v4.7.7 で public schema / export-schema / examples / AI guide の整合性 post-review 完了。外向き入口は v4.7.0〜v4.7.7 で **揃った**。
 
 ## Next action
 
-**v4.7.7 — public schema post-review**（documentation-only、未タグ）
-
-主成果物: [v4.7.7-public-schema-post-review.md](specifications/v4.7.7-public-schema-post-review.md)
-
-次マイルストーン候補（未確定）:
+**v4.7.8 — テーマ未確定。** 候補のみ（確定実装には入らない）:
 
 ```text
 Proposal implementation planning
+export-schema / itinerary-model doc polish
+public examples CI validate-export check
 migration runner / FK hardening
 ```
 
-v4.7.7 では Proposal / Fragment / materialize の実装には入らない。
+次マイルストーンは相談のうえ決定。v4.7.8 ではいきなり Proposal / Fragment / materialize の実装には入らず、まず **planning** から。
 
 ## Defer
 
