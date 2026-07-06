@@ -1020,9 +1020,12 @@ pub enum ProposalAction {
     Materialize {
         /// 対象の Trip Proposal Envelope JSON ファイル
         file: String,
-        /// Dry-run — DB に書き込まず schema v8 Trip JSON 候補のみ生成
-        #[arg(long)]
+        /// Dry-run — DB に書き込まず schema v8 Trip JSON 候補のみ生成（--confirm と併用不可）
+        #[arg(long, conflicts_with = "confirm")]
         dry_run: bool,
+        /// 明示的採用 — gate 通過後に新規 Trip として DB に保存（--dry-run と併用不可）
+        #[arg(long, conflicts_with = "dry_run")]
+        confirm: bool,
         /// 生成した schema v8 Trip JSON 候補の出力先。後続の trip validate-export 等では --output を推奨（省略時は human モードで stdout に混在）
         #[arg(long)]
         output: Option<String>,

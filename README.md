@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.16](docs/releases/v4.7.16-notes.md) — Proposal materialize dry-run（P-6a）。
+**最新:** [v4.7.17](docs/releases/v4.7.17-notes.md) — Proposal materialize --confirm（P-6b）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.17](docs/releases/v4.7.17-notes.md) | minor | Proposal materialize --confirm (P-6b) |
 | [v4.7.16](docs/releases/v4.7.16-notes.md) | minor | Proposal materialize dry-run (P-6a) |
 | [v4.7.15](docs/releases/v4.7.15-notes.md) | docs | Materialize / apply planning spec |
 | [v4.7.14](docs/releases/v4.7.14-notes.md) | hotfix | Public examples guard CI isolation |

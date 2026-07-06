@@ -50,29 +50,50 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    if let Command::Proposal { action } = command {
-        return match action {
+    if let Command::Proposal { ref action } = command {
+        match action {
             ProposalAction::Validate { file, json } => {
-                crate::proposal::run_proposal_validate(&file, json)
+                return crate::proposal::run_proposal_validate(file, *json);
             }
-            ProposalAction::Show { file } => crate::proposal::run_proposal_show(&file),
-            ProposalAction::Inspect { file } => crate::proposal::run_proposal_inspect(&file),
+            ProposalAction::Show { file } => return crate::proposal::run_proposal_show(file),
+            ProposalAction::Inspect { file } => return crate::proposal::run_proposal_inspect(file),
             ProposalAction::Materialize {
-                file,
                 dry_run,
+                confirm,
+                file,
                 output,
                 start,
                 end,
                 json,
-            } => crate::proposal::run_proposal_materialize(
-                &file,
-                dry_run,
-                output.as_deref(),
-                start.as_deref(),
-                end.as_deref(),
-                json,
-            ),
-        };
+            } => {
+                if !dry_run && !confirm {
+                    bail!(
+                        "proposal materialize には --dry-run または --confirm のいずれかが必要です"
+                    );
+                }
+                if *dry_run && *confirm {
+                    bail!(
+                        "--dry-run と --confirm は併用できません（dry-run means no side effects）"
+                    );
+                }
+                if *dry_run {
+                    return crate::proposal::run_proposal_materialize(
+                        file,
+                        None,
+                        &crate::proposal::ProposalMaterializeOptions {
+                            dry_run: *dry_run,
+                            confirm: *confirm,
+                            output: output.clone(),
+                            params: crate::proposal::ProposalMaterializeParams {
+                                start_date: start.clone(),
+                                end_date: end.clone(),
+                            },
+                            json: *json,
+                        },
+                    );
+                }
+            }
+        }
     }
 
     if let Command::Fragment { action } = command {
@@ -1004,6 +1025,31 @@ fn main() -> Result<()> {
                 println!("  Name: {}", participant.name);
             }
         },
+        Command::Proposal {
+            action:
+                ProposalAction::Materialize {
+                    file,
+                    dry_run,
+                    confirm,
+                    output,
+                    start,
+                    end,
+                    json,
+                },
+        } => crate::proposal::run_proposal_materialize(
+            &file,
+            Some(&conn),
+            &crate::proposal::ProposalMaterializeOptions {
+                dry_run,
+                confirm,
+                output,
+                params: crate::proposal::ProposalMaterializeParams {
+                    start_date: start,
+                    end_date: end,
+                },
+                json,
+            },
+        )?,
         Command::Proposal { .. } => unreachable!("proposal commands handled before DB open"),
         Command::Fragment { .. } => unreachable!("fragment commands handled before DB open"),
         Command::Trip { action } => match action {

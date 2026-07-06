@@ -8,4 +8,6 @@ pub mod materialize;
 
 pub use envelope::{run_proposal_inspect, run_proposal_show, run_proposal_validate};
 pub use fragment::run_fragment_validate;
-pub use materialize::run_proposal_materialize;
+pub use materialize::{
+    run_proposal_materialize, ProposalMaterializeOptions, ProposalMaterializeParams,
+};

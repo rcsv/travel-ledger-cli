@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -10,11 +11,13 @@ use crate::domain::models::{
 };
 use crate::output::json::print_json;
 use crate::storage::db;
-use crate::trip::analyze_trip_export_json;
+use crate::trip::{
+    analyze_trip_export_json, import_trip_from_json_with_summary, print_trip_import_summary,
+};
 
 use super::envelope::analyze_proposal_envelope_json;
 
-pub const PROPOSAL_MATERIALIZE_REPORT_SCHEMA_VERSION: i32 = 1;
+pub const PROPOSAL_MATERIALIZE_REPORT_SCHEMA_VERSION: i32 = 2;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProposalMaterializeOutputSummary {
@@ -30,6 +33,7 @@ pub struct ProposalMaterializeDryRunReport {
     pub schema_version: i32,
     pub file: String,
     pub dry_run: bool,
+    pub confirm: bool,
     pub valid: bool,
     pub envelope_valid: bool,
     pub trip_export_valid: bool,
@@ -38,14 +42,17 @@ pub struct ProposalMaterializeDryRunReport {
     pub required_decisions: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output: Option<ProposalMaterializeOutputSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trip_id: Option<i64>,
 }
 
 impl ProposalMaterializeDryRunReport {
-    fn new(file: impl Into<String>) -> Self {
+    fn new(file: impl Into<String>, dry_run: bool, confirm: bool) -> Self {
         Self {
             schema_version: PROPOSAL_MATERIALIZE_REPORT_SCHEMA_VERSION,
             file: file.into(),
-            dry_run: true,
+            dry_run,
+            confirm,
             valid: false,
             envelope_valid: false,
             trip_export_valid: false,
@@ -53,6 +60,7 @@ impl ProposalMaterializeDryRunReport {
             warnings: Vec::new(),
             required_decisions: Vec::new(),
             output: None,
+            trip_id: None,
         }
     }
 }
@@ -63,69 +71,108 @@ pub struct ProposalMaterializeParams {
     pub end_date: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProposalMaterializeOptions {
+    pub dry_run: bool,
+    pub confirm: bool,
+    pub output: Option<String>,
+    pub params: ProposalMaterializeParams,
+    pub json: bool,
+}
+
 pub fn run_proposal_materialize(
     path: &str,
-    dry_run: bool,
-    output: Option<&str>,
-    start: Option<&str>,
-    end: Option<&str>,
-    json: bool,
+    conn: Option<&Connection>,
+    options: &ProposalMaterializeOptions,
 ) -> Result<()> {
-    if !dry_run {
-        bail!("v4.7.16 では proposal materialize は --dry-run のみサポートしています（DB 書き込みは未実装）");
+    if !options.dry_run && !options.confirm {
+        bail!("proposal materialize には --dry-run または --confirm のいずれかが必要です");
+    }
+    if options.dry_run && options.confirm {
+        bail!("--dry-run と --confirm は併用できません（dry-run means no side effects）");
+    }
+    if options.confirm && conn.is_none() {
+        bail!("internal error: --confirm requires database connection");
     }
 
-    let params = ProposalMaterializeParams {
-        start_date: start.map(str::to_string),
-        end_date: end.map(str::to_string),
-    };
-    let (report, trip_json) = materialize_proposal_envelope_dry_run(path, &params)?;
+    let (mut report, trip_json) =
+        materialize_proposal_envelope(path, &options.params, options.dry_run, options.confirm)?;
 
-    if json {
-        print_json(&report)?;
+    if !report.valid {
+        if options.json {
+            print_json(&report)?;
+        } else {
+            print_proposal_materialize_report(&report);
+        }
+        anyhow::bail!("proposal materialize に失敗しました");
+    }
+
+    let trip_json = trip_json.expect("valid materialize must produce trip JSON");
+
+    let import_summary = if options.confirm {
+        Some(import_trip_from_json_with_summary(
+            conn.expect("--confirm DB"),
+            &trip_json,
+        )?)
     } else {
-        print_proposal_materialize_report(&report);
+        None
+    };
+
+    if let Some(summary) = &import_summary {
+        report.trip_id = Some(summary.trip_id);
     }
 
-    if report.valid {
-        let trip_json = trip_json.expect("valid dry-run must produce trip JSON");
-        match output {
+    if options.dry_run {
+        match options.output.as_deref() {
             Some(path) => {
                 std::fs::write(path, &trip_json)
                     .with_context(|| format!("ファイル '{path}' への書き込みに失敗しました"))?;
-                if !json {
-                    println!("schema v8 Trip JSON 候補を書き込みました: {path}");
-                }
             }
-            None if !json => println!("{trip_json}"),
-            None => {}
+            None if !options.json && !options.confirm => println!("{trip_json}"),
+            _ => {}
         }
     }
 
-    if !report.valid {
-        anyhow::bail!("proposal materialize --dry-run に失敗しました");
+    if options.json {
+        print_json(&report)?;
+    } else {
+        print_proposal_materialize_report(&report);
+        if let Some(path) = options.output.as_deref() {
+            if options.dry_run {
+                println!("schema v8 Trip JSON 候補を書き込みました: {path}");
+            }
+        }
+        if let Some(summary) = import_summary {
+            println!();
+            println!("Trip を DB に保存しました（proposal materialize --confirm）");
+            print_trip_import_summary(&summary);
+        }
     }
 
     Ok(())
 }
 
-pub fn materialize_proposal_envelope_dry_run(
+pub fn materialize_proposal_envelope(
     path: &str,
     params: &ProposalMaterializeParams,
+    dry_run: bool,
+    confirm: bool,
 ) -> Result<(ProposalMaterializeDryRunReport, Option<String>)> {
     let json = std::fs::read_to_string(path)
         .with_context(|| format!("ファイル '{path}' を読み込めませんでした"))?;
-    Ok(materialize_proposal_envelope_dry_run_json(
-        path, &json, params,
+    Ok(materialize_proposal_envelope_json(
+        path, &json, params, dry_run, confirm,
     ))
 }
 
-pub fn materialize_proposal_envelope_dry_run_json(
+pub fn materialize_proposal_envelope_json(
     path: &str,
     json: &str,
     params: &ProposalMaterializeParams,
+    dry_run: bool,
+    confirm: bool,
 ) -> (ProposalMaterializeDryRunReport, Option<String>) {
-    let mut report = ProposalMaterializeDryRunReport::new(path);
+    let mut report = ProposalMaterializeDryRunReport::new(path, dry_run, confirm);
     let validation = analyze_proposal_envelope_json(path, json);
     report.envelope_valid = validation.valid;
     report.warnings.extend(validation.warnings.clone());
@@ -463,9 +510,15 @@ fn has_adoptable_content(days: &[ExportDayV3]) -> bool {
 }
 
 fn print_proposal_materialize_report(report: &ProposalMaterializeDryRunReport) {
-    println!("Materialize dry-run result:");
+    let title = if report.confirm {
+        "Materialize confirm result:"
+    } else {
+        "Materialize dry-run result:"
+    };
+    println!("{title}");
     println!("  file: {}", report.file);
     println!("  dry_run: {}", report.dry_run);
+    println!("  confirm: {}", report.confirm);
     println!("  valid: {}", report.valid);
     println!("  envelope_valid: {}", report.envelope_valid);
     println!("  trip_export_valid: {}", report.trip_export_valid);
@@ -476,6 +529,10 @@ fn print_proposal_materialize_report(report: &ProposalMaterializeDryRunReport) {
         println!("  end_date: {}", output.end_date);
         println!("  day_count: {}", output.day_count);
         println!("  itinerary_count: {}", output.itinerary_count);
+    }
+
+    if let Some(trip_id) = report.trip_id {
+        println!("  trip_id: {trip_id}");
     }
 
     if !report.required_decisions.is_empty() {
@@ -544,10 +601,12 @@ mod tests {
 
     #[test]
     fn dry_run_generates_valid_trip_export() {
-        let (report, json) = materialize_proposal_envelope_dry_run_json(
+        let (report, json) = materialize_proposal_envelope_json(
             "test.json",
             MATERIALIZE_READY,
             &ProposalMaterializeParams::default(),
+            true,
+            false,
         );
         assert!(report.valid, "errors: {:?}", report.errors);
         assert!(report.envelope_valid);
@@ -573,10 +632,12 @@ mod tests {
             "notes": "Dates TBD"
           }
         }"#;
-        let (report, trip_json) = materialize_proposal_envelope_dry_run_json(
+        let (report, trip_json) = materialize_proposal_envelope_json(
             "test.json",
             json,
             &ProposalMaterializeParams::default(),
+            true,
+            false,
         );
         assert!(!report.valid);
         assert!(trip_json.is_none());
@@ -602,7 +663,8 @@ mod tests {
             start_date: Some("2026-05-01".to_string()),
             end_date: Some("2026-05-01".to_string()),
         };
-        let (report, json) = materialize_proposal_envelope_dry_run_json("test.json", json, &params);
+        let (report, json) =
+            materialize_proposal_envelope_json("test.json", json, &params, true, false);
         assert!(report.valid, "errors: {:?}", report.errors);
         let json = json.expect("trip json");
         let export_report = analyze_trip_export_json("candidate.json", &json);
