@@ -5,10 +5,12 @@ use serde_json::{Map, Value};
 
 use crate::day::{find_day_by_trip_and_day_number, validate_trip_date_range};
 use crate::domain::models::{
-    parse_itinerary_category, ExportDayV3, ExportItineraryV3, ExportNote, ItineraryCategory,
-    ItineraryNoteKey, TripExportV3, TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
+    parse_itinerary_category, ExportDayV3, ExportExpenseV3, ExportItineraryV3, ExportNote,
+    ItineraryCategory, ItineraryNoteKey, TripExportV3, TRIP_EXPORT_GENERATOR,
+    TRIP_EXPORT_SCHEMA_VERSION,
 };
 use crate::itinerary::{parse_time_hhmm, SORT_ORDER_STEP};
+use crate::money::{parse_amount_for_currency, validate_currency_code};
 use crate::output::json::print_json;
 use crate::trip::{analyze_trip_export_json, build_trip_export_v3, get_trip};
 
@@ -42,6 +44,22 @@ pub struct FragmentApplyPreviewSummary {
     pub notes_before: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes_after: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expenses_before: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expenses_after: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expense_preview: Option<FragmentApplyExpensePreview>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyExpensePreview {
+    pub amount: i64,
+    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,6 +142,14 @@ struct ParsedAddItineraryFields {
 struct ParsedAddNoteFields {
     title: Option<String>,
     body: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ParsedAddExpenseFields {
+    title: Option<String>,
+    amount: i64,
+    currency: String,
+    note: Option<String>,
 }
 
 enum ConfirmInsertResult {
@@ -355,6 +381,7 @@ fn fragment_apply_gate_json(
 
     let itineraries_before = count_itineraries(&preview_export);
     let notes_before = count_notes(&preview_export);
+    let expenses_before = count_expenses(&preview_export);
     let mut simulated = preview_export;
     let preview_summary = match simulate_apply_preview(
         &mut simulated,
@@ -363,6 +390,7 @@ fn fragment_apply_gate_json(
         &intent,
         itineraries_before,
         notes_before,
+        expenses_before,
         &mut report,
     ) {
         Ok(summary) => summary,
@@ -455,7 +483,7 @@ fn validate_confirm_scope(
         }
         _ => {
             report.errors.push(format!(
-                "v4.7.23 --confirm は intent add (add_itinerary) または add_note のみサポートしています（現在: intent={intent}, action={}）",
+                "v4.7.23 --confirm は intent add (add_itinerary)、add_note、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
                 preview.action
             ));
             false
@@ -964,6 +992,131 @@ fn count_notes(export: &TripExportV3) -> usize {
     export.notes().len()
 }
 
+fn count_expenses(export: &TripExportV3) -> usize {
+    export
+        .days
+        .iter()
+        .flat_map(|day| day.itineraries.iter())
+        .map(|item| item.expenses.len())
+        .sum()
+}
+
+fn parse_add_expense_fields(
+    fragment: &Map<String, Value>,
+    report: Option<&mut FragmentApplyDryRunReport>,
+) -> Result<ParsedAddExpenseFields, String> {
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    if let Some(report) = report {
+        warn_unsupported_add_expense_candidate_keys(candidate, report);
+    }
+
+    let currency_text = non_empty_string(candidate.get("currency"))
+        .ok_or_else(|| "candidate_content.currency が必要です".to_string())?;
+    let currency = validate_currency_code(&currency_text)
+        .map_err(|error| format!("candidate_content.currency が不正です: {error}"))?;
+
+    let amount = parse_expense_amount_field(candidate.get("amount"), &currency)?;
+
+    let title = non_empty_string(candidate.get("title"))
+        .or_else(|| non_empty_string(candidate.get("description")))
+        .or_else(|| non_empty_string(candidate.get("label")));
+
+    let note = non_empty_string(candidate.get("note"))
+        .or_else(|| non_empty_string(candidate.get("memo")))
+        .or_else(|| non_empty_string(fragment.get("notes")));
+
+    Ok(ParsedAddExpenseFields {
+        title,
+        amount,
+        currency,
+        note,
+    })
+}
+
+fn parse_expense_amount_field(value: Option<&Value>, currency: &str) -> Result<i64, String> {
+    let Some(value) = value else {
+        return Err("candidate_content.amount が必要です".to_string());
+    };
+    match value {
+        Value::Number(number) => {
+            let amount = number
+                .as_i64()
+                .ok_or_else(|| "candidate_content.amount は整数である必要があります".to_string())?;
+            if amount < 0 {
+                return Err("candidate_content.amount は 0 以上である必要があります".to_string());
+            }
+            Ok(amount)
+        }
+        Value::String(text) => parse_amount_for_currency(text, currency)
+            .map_err(|error| format!("candidate_content.amount が不正です: {error}")),
+        _ => Err("candidate_content.amount は数値または文字列である必要があります".to_string()),
+    }
+}
+
+fn warn_unsupported_add_expense_candidate_keys(
+    candidate: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    const SUPPORTED: &[&str] = &[
+        "title",
+        "description",
+        "label",
+        "amount",
+        "currency",
+        "note",
+        "memo",
+    ];
+    for key in candidate.keys() {
+        if SUPPORTED.contains(&key.as_str()) {
+            continue;
+        }
+        push_unique(
+            &mut report.warnings,
+            format!("unsupported_field: candidate_content.{key} は add_expense では未反映です"),
+        );
+    }
+}
+
+fn append_sort_order_for_export_itinerary(itinerary: &ExportItineraryV3) -> i64 {
+    itinerary
+        .expenses
+        .iter()
+        .map(|expense| expense.sort_order)
+        .max()
+        .unwrap_or(0)
+        + 1
+}
+
+fn build_export_expense_from_add_fields(
+    fields: &ParsedAddExpenseFields,
+    sort_order: i64,
+) -> ExportExpenseV3 {
+    ExportExpenseV3 {
+        title: fields.title.clone(),
+        amount: fields.amount,
+        currency: fields.currency.clone(),
+        paid_by_name: None,
+        paid_by_participant_ref: None,
+        beneficiaries: Vec::new(),
+        expense_date: None,
+        note: fields.note.clone(),
+        sort_order,
+    }
+}
+
+fn find_itinerary_mut_in_export_day(
+    day: &mut ExportDayV3,
+    sort_order: i64,
+) -> Option<&mut ExportItineraryV3> {
+    day.itineraries
+        .iter_mut()
+        .find(|item| item.sort_order == sort_order)
+}
+
 fn parse_add_note_fields(
     fragment: &Map<String, Value>,
     report: Option<&mut FragmentApplyDryRunReport>,
@@ -1079,6 +1232,7 @@ fn lookup_itinerary_in_export(
         })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn simulate_apply_preview(
     export: &mut TripExportV3,
     resolved: &ResolvedApplyTarget,
@@ -1086,6 +1240,7 @@ fn simulate_apply_preview(
     intent: &str,
     itineraries_before: usize,
     notes_before: usize,
+    expenses_before: usize,
     report: &mut FragmentApplyDryRunReport,
 ) -> Result<FragmentApplyPreviewSummary, String> {
     let candidate = fragment.get("candidate_content");
@@ -1117,6 +1272,9 @@ fn simulate_apply_preview(
                 itineraries_after,
                 notes_before: None,
                 notes_after: None,
+                expenses_before: None,
+                expenses_after: None,
+                expense_preview: None,
             })
         }
         "add_note" => {
@@ -1132,6 +1290,53 @@ fn simulate_apply_preview(
                 itineraries_after: itineraries_before,
                 notes_before: Some(notes_before),
                 notes_after: Some(notes_before + 1),
+                expenses_before: None,
+                expenses_after: None,
+                expense_preview: None,
+            })
+        }
+        "add_expense" => {
+            if resolved.target_type != "itinerary" {
+                return Err(
+                    "add_expense は itinerary target のみサポートしています（trip / day は未対応）"
+                        .to_string(),
+                );
+            }
+            let day_number = resolved.day_number.ok_or_else(|| {
+                "add_expense の Itinerary target が解決されていません（day）".to_string()
+            })?;
+            let itinerary_sort_order = resolved.itinerary_sort_order.ok_or_else(|| {
+                "add_expense の Itinerary target が解決されていません（sort_order）".to_string()
+            })?;
+            ensure_day_in_range(export, day_number)?;
+            let fields = parse_add_expense_fields(fragment, Some(report))?;
+            let day = find_or_create_day(export, day_number);
+            let itinerary = find_itinerary_mut_in_export_day(day, itinerary_sort_order)
+                .ok_or_else(|| {
+                    format!(
+                        "preview 内に itinerary (day {day_number}, sort_order {itinerary_sort_order}) が見つかりません"
+                    )
+                })?;
+            let expense_sort_order = append_sort_order_for_export_itinerary(itinerary);
+            let export_expense = build_export_expense_from_add_fields(&fields, expense_sort_order);
+            itinerary.expenses.push(export_expense);
+            let expenses_after = count_expenses(export);
+            Ok(FragmentApplyPreviewSummary {
+                intent: intent.to_string(),
+                action: "add_expense".to_string(),
+                candidate_title: fields.title.clone(),
+                itineraries_before,
+                itineraries_after: itineraries_before,
+                notes_before: None,
+                notes_after: None,
+                expenses_before: Some(expenses_before),
+                expenses_after: Some(expenses_after),
+                expense_preview: Some(FragmentApplyExpensePreview {
+                    amount: fields.amount,
+                    currency: fields.currency.clone(),
+                    title: fields.title.clone(),
+                    note: fields.note.clone(),
+                }),
             })
         }
         "enrich" => {
@@ -1163,6 +1368,9 @@ fn simulate_apply_preview(
                 itineraries_after: itineraries_before,
                 notes_before: None,
                 notes_after: None,
+                expenses_before: None,
+                expenses_after: None,
+                expense_preview: None,
             })
         }
         "warning" => Ok(FragmentApplyPreviewSummary {
@@ -1173,6 +1381,9 @@ fn simulate_apply_preview(
             itineraries_after: itineraries_before,
             notes_before: None,
             notes_after: None,
+            expenses_before: None,
+            expenses_after: None,
+            expense_preview: None,
         }),
         "replace_candidate" | "reorder_hint" => {
             report.warnings.push(format!(
@@ -1186,6 +1397,9 @@ fn simulate_apply_preview(
                 itineraries_after: itineraries_before,
                 notes_before: None,
                 notes_after: None,
+                expenses_before: None,
+                expenses_after: None,
+                expense_preview: None,
             })
         }
         other => Err(format!("未対応の intent です: {other}")),
@@ -1274,6 +1488,22 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
         }
         if let Some(notes_after) = preview.notes_after {
             println!("  notes_after: {notes_after}");
+        }
+        if let Some(expenses_before) = preview.expenses_before {
+            println!("  expenses_before: {expenses_before}");
+        }
+        if let Some(expenses_after) = preview.expenses_after {
+            println!("  expenses_after: {expenses_after}");
+        }
+        if let Some(expense_preview) = &preview.expense_preview {
+            println!("  expense_preview.amount: {}", expense_preview.amount);
+            println!("  expense_preview.currency: {}", expense_preview.currency);
+            if let Some(title) = &expense_preview.title {
+                println!("  expense_preview.title: {title}");
+            }
+            if let Some(note) = &expense_preview.note {
+                println!("  expense_preview.note: {note}");
+            }
         }
     }
 

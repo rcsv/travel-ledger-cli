@@ -136,9 +136,10 @@ v4.7.20 P-6 post-implementation review — 実装済み
 v4.7.21 Fragment apply add_itinerary field expansion (P-6e) — 実装済み
 v4.7.22 Fragment apply add_note dry-run (P-6f) — 実装済み
 v4.7.23 Fragment apply add_note --confirm (P-6f) — 実装済み
+v4.7.24 Fragment apply add_expense dry-run (P-6g) — 実装済み
 ```
 
-Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6f confirm: [v4.7.23 spec](../specifications/v4.7.23-fragment-apply-add-note-confirm.md) · P-6f dry-run: [v4.7.22 spec](../specifications/v4.7.22-fragment-apply-add-note-dry-run.md) · P-6e: [v4.7.21 spec](../specifications/v4.7.21-fragment-apply-add-itinerary-field-expansion.md) · P-6 review: [v4.7.20 spec](../specifications/v4.7.20-p6-post-implementation-review.md) · P-6d: [v4.7.19 spec](../specifications/v4.7.19-fragment-apply-confirm.md) · P-6c: [v4.7.18 spec](../specifications/v4.7.18-fragment-apply-dry-run.md) · P-6b: [v4.7.17 spec](../specifications/v4.7.17-proposal-materialize-confirm.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md)
+Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6g dry-run: [v4.7.24 spec](../specifications/v4.7.24-fragment-apply-add-expense-dry-run.md) · P-6f confirm: [v4.7.23 spec](../specifications/v4.7.23-fragment-apply-add-note-confirm.md) · P-6f dry-run: [v4.7.22 spec](../specifications/v4.7.22-fragment-apply-add-note-dry-run.md) · P-6e: [v4.7.21 spec](../specifications/v4.7.21-fragment-apply-add-itinerary-field-expansion.md) · P-6 review: [v4.7.20 spec](../specifications/v4.7.20-p6-post-implementation-review.md) · P-6d: [v4.7.19 spec](../specifications/v4.7.19-fragment-apply-confirm.md) · P-6c: [v4.7.18 spec](../specifications/v4.7.18-fragment-apply-dry-run.md) · P-6b: [v4.7.17 spec](../specifications/v4.7.17-proposal-materialize-confirm.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md)
 
 ### CLI（v4.7.9+）
 
@@ -155,9 +156,9 @@ caglla fragment apply <fragment.json> --dry-run --trip <id> [--output preview.js
 caglla fragment apply <fragment.json> --confirm --trip <id>  # v4.7.19+
 ```
 
-`fragment apply --dry-run`: **apply preview / apply simulation** — **read-only DB access** で既存 Trip を読み取り、Trip / Day / Itinerary は変更しない。preview Trip JSON を `trip diff` 等で扱う場合は **`--output`** を使う。`--json` は gate report のみ。`fragment validate` とは異なり file-only ではない。
+`fragment apply --dry-run`: **apply preview / apply simulation** — **read-only DB access** で既存 Trip を読み取り、Trip / Day / Itinerary / Expense は変更しない。v4.7.24+ で `add_expense`（itinerary target）preview もサポート。preview Trip JSON を `trip diff` 等で扱う場合は **`--output`** を使う。`--json` は gate report のみ。`fragment validate` とは異なり file-only ではない。
 
-`fragment apply --confirm`: gate 通過後に **Day target + add_itinerary のみ** 既存 Day へ itinerary を1件 insert。`--dry-run` と `--confirm` は併用不可（dry-run means no Trip domain data side effects）。
+`fragment apply --confirm`: gate 通過後に **add_itinerary**（day target）および **add_note**（trip/day/itinerary）を DB へ反映。`add_expense --confirm` は未対応。`--dry-run` と `--confirm` は併用不可（dry-run means no Trip domain data side effects）。
 
 `proposal materialize --dry-run` / `--confirm`: Trip JSON 候補または DB 保存。`--dry-run` と `--confirm` は併用不可（dry-run means no side effects）。
 

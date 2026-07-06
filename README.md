@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.23](docs/releases/v4.7.23-notes.md) — P-6f add_note --confirm。
+**最新:** [v4.7.24](docs/releases/v4.7.24-notes.md) — P-6g add_expense dry-run。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.24](docs/releases/v4.7.24-notes.md) | minor | Fragment apply add_expense dry-run (P-6g) |
 | [v4.7.23](docs/releases/v4.7.23-notes.md) | minor | Fragment apply add_note --confirm (P-6f) |
 | [v4.7.22](docs/releases/v4.7.22-notes.md) | minor | Fragment apply add_note dry-run (P-6f) |
 | [v4.7.21](docs/releases/v4.7.21-notes.md) | minor | Fragment apply add_itinerary field expansion (P-6e) |
