@@ -63,6 +63,8 @@ pub struct FragmentApplyDryRunReport {
     pub preview: Option<FragmentApplyPreviewSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inserted_itinerary_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inserted_note_id: Option<i64>,
 }
 
 impl FragmentApplyDryRunReport {
@@ -82,6 +84,7 @@ impl FragmentApplyDryRunReport {
             resolved_target: None,
             preview: None,
             inserted_itinerary_id: None,
+            inserted_note_id: None,
         }
     }
 }
@@ -123,6 +126,11 @@ struct ParsedAddNoteFields {
     body: String,
 }
 
+enum ConfirmInsertResult {
+    Itinerary(i64),
+    Note(i64),
+}
+
 pub fn run_fragment_apply(
     path: &str,
     conn: &Connection,
@@ -148,8 +156,22 @@ pub fn run_fragment_apply(
 
     if options.confirm {
         if report.valid {
-            match execute_confirm_add_itinerary(conn, options.trip_id, &json, &report) {
-                Ok(itinerary_id) => {
+            let preview_action = report
+                .preview
+                .as_ref()
+                .map(|preview| preview.action.as_str())
+                .unwrap_or("");
+            let confirm_result = match preview_action {
+                "add_itinerary" => {
+                    execute_confirm_add_itinerary(conn, options.trip_id, &json, &report)
+                        .map(ConfirmInsertResult::Itinerary)
+                }
+                "add_note" => execute_confirm_add_note(conn, options.trip_id, &json, &report)
+                    .map(ConfirmInsertResult::Note),
+                other => Err(anyhow::anyhow!("未対応の confirm action です: {other}")),
+            };
+            match confirm_result {
+                Ok(ConfirmInsertResult::Itinerary(itinerary_id)) => {
                     report.inserted_itinerary_id = Some(itinerary_id);
                     let item = crate::itinerary::get_itinerary_item(conn, itinerary_id)?;
                     if !options.json {
@@ -160,6 +182,21 @@ pub fn run_fragment_apply(
                         println!("  日目         : {}", item.day);
                         println!("  並び順       : {}", item.sort_order);
                         println!("  タイトル     : {}", item.title);
+                    }
+                }
+                Ok(ConfirmInsertResult::Note(note_id)) => {
+                    report.inserted_note_id = Some(note_id);
+                    let note = crate::note::get_note(conn, note_id)?;
+                    if !options.json {
+                        println!();
+                        println!("Note を DB に追加しました（fragment apply --confirm）");
+                        println!("  note ID      : {note_id}");
+                        println!("  旅行 ID      : {}", options.trip_id);
+                        println!("  owner_type   : {}", note.owner_type.as_str());
+                        if let Some(title) = &note.title {
+                            println!("  タイトル     : {title}");
+                        }
+                        println!("  body         : {}", note.body);
                     }
                 }
                 Err(error) => {
@@ -382,19 +419,6 @@ fn validate_confirm_scope(
     preview: &FragmentApplyPreviewSummary,
     report: &mut FragmentApplyDryRunReport,
 ) -> bool {
-    if resolved.target_type != "day" {
-        report
-            .errors
-            .push("v4.7.19 --confirm は Day target のみサポートしています".to_string());
-        return false;
-    }
-    if intent != "add" || preview.action != "add_itinerary" {
-        report.errors.push(format!(
-            "v4.7.19 --confirm は intent add (add_itinerary) のみサポートしています（現在: intent={intent}, action={}）",
-            preview.action
-        ));
-        return false;
-    }
     if resolved.resolution == "ambiguous" {
         report
             .errors
@@ -407,7 +431,36 @@ fn validate_confirm_scope(
             .push("required decisions が未解決です — DB 更新しません".to_string());
         return false;
     }
-    true
+
+    match (intent, preview.action.as_str()) {
+        ("add", "add_itinerary") => {
+            if resolved.target_type != "day" {
+                report.errors.push(
+                    "v4.7.19 --confirm は Day target + add_itinerary のみサポートしています"
+                        .to_string(),
+                );
+                return false;
+            }
+            true
+        }
+        ("add_note", "add_note") => {
+            if !matches!(resolved.target_type.as_str(), "trip" | "day" | "itinerary") {
+                report.errors.push(format!(
+                    "v4.7.23 --confirm は trip / day / itinerary target + add_note のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            true
+        }
+        _ => {
+            report.errors.push(format!(
+                "v4.7.23 --confirm は intent add (add_itinerary) または add_note のみサポートしています（現在: intent={intent}, action={}）",
+                preview.action
+            ));
+            false
+        }
+    }
 }
 
 fn execute_confirm_add_itinerary(
@@ -446,6 +499,68 @@ fn execute_confirm_add_itinerary(
         fields.location.as_deref(),
         fields.category,
     )
+}
+
+fn execute_confirm_add_note(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let root: Value =
+        serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+    let root_obj = root
+        .as_object()
+        .context("トップレベルが JSON object ではありません")?;
+    let fragment_body = root_obj
+        .get("fragment")
+        .and_then(Value::as_object)
+        .context("fragment object が必要です")?;
+    let target = report
+        .resolved_target
+        .as_ref()
+        .context("target が解決されていません")?;
+    let fields =
+        parse_add_note_fields(fragment_body, None).map_err(|error| anyhow::anyhow!(error))?;
+    let owner = resolve_note_owner_for_apply_target(conn, trip_id, target)?;
+    crate::note::add_note(conn, owner, fields.title.as_deref(), &fields.body)
+}
+
+fn resolve_note_owner_for_apply_target(
+    conn: &Connection,
+    trip_id: i64,
+    target: &FragmentApplyResolvedTarget,
+) -> Result<crate::note::ResolvedNoteOwner> {
+    use crate::note::ResolvedNoteOwner;
+
+    match target.target_type.as_str() {
+        "trip" => Ok(ResolvedNoteOwner::Trip(trip_id)),
+        "day" => {
+            let day_number = target
+                .day_number
+                .context("add_note の Day target が解決されていません")?;
+            let day_id = crate::day::find_day_id_by_trip_and_day_number(conn, trip_id, day_number)?;
+            Ok(ResolvedNoteOwner::Day(day_id))
+        }
+        "itinerary" => {
+            let day_number = target
+                .day_number
+                .context("add_note の Itinerary target が解決されていません（day）")?;
+            let sort_order = target
+                .itinerary_sort_order
+                .context("add_note の Itinerary target が解決されていません（sort_order）")?;
+            let item = crate::itinerary::list_itinerary_items_for_day(conn, trip_id, day_number)?
+                .into_iter()
+                .find(|item| item.sort_order == sort_order)
+                .with_context(|| {
+                    format!(
+                        "itinerary_reference (sort_order {sort_order}) が Day {day_number} に見つかりません"
+                    )
+                })?;
+            Ok(ResolvedNoteOwner::Itinerary(item.id))
+        }
+        other => anyhow::bail!("未対応の target_type です: {other}"),
+    }
 }
 
 fn parse_add_itinerary_fields(
@@ -1166,6 +1281,10 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
         println!("  inserted_itinerary_id: {itinerary_id}");
     }
 
+    if let Some(note_id) = report.inserted_note_id {
+        println!("  inserted_note_id: {note_id}");
+    }
+
     if !report.required_decisions.is_empty() {
         println!("Required decisions:");
         for item in &report.required_decisions {
@@ -1303,6 +1422,45 @@ mod tests {
         assert_eq!(item.duration_minutes, Some(90));
         assert_eq!(item.travel_minutes, Some(20));
         assert_eq!(item.sort_order, preview_item.sort_order);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn confirm_add_note_writes_db() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "trip" },
+          "fragment": {
+            "intent": "add_note",
+            "candidate_content": {
+              "title": "Memo",
+              "body": "Pack rain jacket."
+            }
+          }
+        }"#;
+        let before = crate::note::list_all_notes_for_trip(&conn, trip_id)
+            .unwrap()
+            .len();
+        let options = FragmentApplyOptions {
+            dry_run: false,
+            confirm: true,
+            trip_id,
+            output: None,
+            json: false,
+        };
+        let path = std::env::temp_dir().join(format!(
+            "caglla-fragment-add-note-confirm-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, json).unwrap();
+        run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
+        let after = crate::note::list_all_notes_for_trip(&conn, trip_id)
+            .unwrap()
+            .len();
+        assert_eq!(after, before + 1);
         let _ = std::fs::remove_file(path);
     }
 

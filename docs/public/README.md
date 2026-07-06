@@ -128,5 +128,6 @@ AI / provider（将来）
 | **v4.7.20** | **P-6 post-implementation review** |
 | **v4.7.21** | **Fragment apply add_itinerary field expansion (P-6e)** |
 | **v4.7.22** | **Fragment apply add_note dry-run (P-6f)** |
+| **v4.7.23** | **Fragment apply add_note --confirm (P-6f)** |
 
 実装・schema 変更は v4.7.8 の scope 外です（planning のみ）。

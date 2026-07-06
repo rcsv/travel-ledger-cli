@@ -914,9 +914,148 @@ fn cli_fragment_apply_add_note_required_decisions_invalid_without_db_write() {
 }
 
 #[test]
-fn cli_fragment_apply_add_note_confirm_not_supported() {
+fn cli_fragment_apply_add_note_trip_confirm_inserts_note() {
     let dir = temp_workdir();
     let fragment = fixture_path("apply-add-note-trip-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before_notes = note_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(parsed["confirm"], true);
+    assert_eq!(parsed["preview"]["action"], "add_note");
+    let inserted_id = parsed["inserted_note_id"]
+        .as_i64()
+        .expect("inserted_note_id");
+    assert!(inserted_id > 0);
+
+    assert_eq!(note_count(&dir, "1"), before_notes + 1);
+    let show = run_cli_in(&dir, &["note", "show", &inserted_id.to_string(), "--json"]);
+    assert!(show.status.success());
+    let note: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
+    assert_eq!(note["owner_type"], "trip");
+    assert_eq!(note["body"], "Book JR tickets before departure week.");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_note_day_confirm_inserts_note() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-day-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Note を DB に追加しました"));
+
+    let list = run_cli_in(
+        &dir,
+        &["note", "list", "--trip", "1", "--day", "1", "--json"],
+    );
+    assert!(list.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&list.stdout)).unwrap();
+    assert_eq!(parsed["owner_type"], "day");
+    assert_eq!(parsed["notes"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        parsed["notes"][0]["body"],
+        "Temple opens at 06:00 — arrive early."
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_note_itinerary_confirm_inserts_note() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-itinerary-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    let inserted_id = parsed["inserted_note_id"]
+        .as_i64()
+        .expect("inserted_note_id");
+
+    let show = run_cli_in(&dir, &["note", "show", &inserted_id.to_string(), "--json"]);
+    assert!(show.status.success());
+    let note: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
+    assert_eq!(note["owner_type"], "itinerary");
+    assert_eq!(note["body"], "Photography allowed in outer garden only.");
+
+    let itinerary_list = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(itinerary_list.status.success());
+    let items: Vec<serde_json::Value> =
+        serde_json::from_str(&String::from_utf8_lossy(&itinerary_list.stdout)).unwrap();
+    let itinerary_id = items[0]["id"].as_i64().expect("itinerary id");
+    let list = run_cli_in(
+        &dir,
+        &[
+            "note",
+            "list",
+            "--itinerary",
+            &itinerary_id.to_string(),
+            "--json",
+        ],
+    );
+    assert!(list.status.success());
+    let list_parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&list.stdout)).unwrap();
+    assert_eq!(list_parsed["notes"].as_array().unwrap().len(), 1);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_note_confirm_required_decisions_block_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
     let before_notes = note_count(&dir, "1");
@@ -932,6 +1071,12 @@ fn cli_fragment_apply_add_note_confirm_not_supported() {
         ],
     );
     assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("required decisions"));
     assert_eq!(note_count(&dir, "1"), before_notes);
     let _ = std::fs::remove_dir_all(&dir);
 }
