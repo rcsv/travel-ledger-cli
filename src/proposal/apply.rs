@@ -5,8 +5,10 @@ use serde_json::{Map, Value};
 
 use crate::day::{find_day_by_trip_and_day_number, validate_trip_date_range};
 use crate::domain::models::{
-    ExportDayV3, ExportItineraryV3, TripExportV3, TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
+    parse_itinerary_category, ExportDayV3, ExportItineraryV3, ItineraryCategory, TripExportV3,
+    TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
 };
+use crate::itinerary::{parse_time_hhmm, SORT_ORDER_STEP};
 use crate::output::json::print_json;
 use crate::trip::{analyze_trip_export_json, build_trip_export_v3, get_trip};
 
@@ -98,6 +100,17 @@ struct ResolvedApplyTarget {
     itinerary_sort_order: Option<i64>,
     itinerary_title: Option<String>,
     resolution: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ParsedAddItineraryFields {
+    title: String,
+    note: Option<String>,
+    location: Option<String>,
+    category: Option<ItineraryCategory>,
+    start_time: Option<String>,
+    duration_minutes: Option<i64>,
+    travel_minutes: Option<i64>,
 }
 
 pub fn run_fragment_apply(
@@ -396,29 +409,191 @@ fn execute_confirm_add_itinerary(
         .as_ref()
         .and_then(|target| target.day_number)
         .context("target Day が解決されていません")?;
-    let candidate = fragment_body.get("candidate_content");
-    let title = candidate
-        .and_then(|value| value.as_object())
-        .and_then(|obj| non_empty_string(obj.get("title")))
-        .context("candidate_content.title が必要です")?;
-    let note = non_empty_string(fragment_body.get("notes"));
-    let location = candidate
-        .and_then(|value| value.as_object())
-        .and_then(|obj| non_empty_string(obj.get("location")));
+    let fields =
+        parse_add_itinerary_fields(fragment_body, None).map_err(|error| anyhow::anyhow!(error))?;
 
     crate::itinerary::add_itinerary_item(
         conn,
         trip_id,
         day_number,
-        &title,
-        note.as_deref(),
+        &fields.title,
+        fields.note.as_deref(),
+        fields.start_time.as_deref(),
         None,
-        None,
-        None,
-        None,
-        location.as_deref(),
-        None,
+        fields.duration_minutes,
+        fields.travel_minutes,
+        fields.location.as_deref(),
+        fields.category,
     )
+}
+
+fn parse_add_itinerary_fields(
+    fragment: &Map<String, Value>,
+    report: Option<&mut FragmentApplyDryRunReport>,
+) -> Result<ParsedAddItineraryFields, String> {
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+    let title = non_empty_string(candidate.get("title"))
+        .ok_or_else(|| "candidate_content.title が必要です".to_string())?;
+
+    if let Some(report) = report {
+        collect_add_ordering_hint_warnings(candidate, fragment, report);
+        warn_unsupported_add_candidate_keys(candidate, report);
+    }
+
+    let category = match non_empty_string(candidate.get("category")) {
+        None => None,
+        Some(text) => Some(
+            parse_itinerary_category(&text)
+                .map_err(|error| format!("candidate_content.category が不正です: {error}"))?,
+        ),
+    };
+
+    let start_time = match non_empty_string(candidate.get("start_time")) {
+        None => None,
+        Some(text) => {
+            parse_time_hhmm(&text).map_err(|error| error.to_string())?;
+            Some(text)
+        }
+    };
+
+    let duration_minutes =
+        parse_optional_non_negative_i64(candidate.get("duration_minutes"), "duration_minutes")?;
+    let travel_minutes = parse_travel_minutes_field(candidate)?;
+
+    Ok(ParsedAddItineraryFields {
+        title,
+        note: non_empty_string(fragment.get("notes")),
+        location: non_empty_string(candidate.get("location")),
+        category,
+        start_time,
+        duration_minutes,
+        travel_minutes,
+    })
+}
+
+fn parse_travel_minutes_field(candidate: &Map<String, Value>) -> Result<Option<i64>, String> {
+    let travel_minutes =
+        parse_optional_non_negative_i64(candidate.get("travel_minutes"), "travel_minutes")?;
+    let travel_time_minutes = parse_optional_non_negative_i64(
+        candidate.get("travel_time_minutes"),
+        "travel_time_minutes",
+    )?;
+    match (travel_minutes, travel_time_minutes) {
+        (Some(left), Some(right)) if left != right => {
+            Err("travel_minutes と travel_time_minutes が矛盾しています".to_string())
+        }
+        (Some(value), _) | (_, Some(value)) => Ok(Some(value)),
+        (None, None) => Ok(None),
+    }
+}
+
+fn parse_optional_non_negative_i64(
+    value: Option<&Value>,
+    field: &str,
+) -> Result<Option<i64>, String> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let number = value
+        .as_i64()
+        .ok_or_else(|| format!("{field} は整数である必要があります"))?;
+    if number < 0 {
+        return Err(format!("{field} は 0 以上である必要があります"));
+    }
+    Ok(Some(number))
+}
+
+fn collect_add_ordering_hint_warnings(
+    candidate: &Map<String, Value>,
+    fragment: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    if candidate.get("sort_order").is_some() {
+        push_unique(
+            &mut report.warnings,
+            "ordering_hint: candidate_content.sort_order は v4.7.21 confirm では無視され、Day 末尾に append します".to_string(),
+        );
+    }
+    if non_empty_string(candidate.get("placement_hint")).is_some() {
+        push_unique(
+            &mut report.warnings,
+            "ordering_hint: placement_hint は preview のみ — confirm は Day 末尾 append（--after / reorder は未実装）".to_string(),
+        );
+    }
+    if candidate.get("after").is_some() || candidate.get("before").is_some() {
+        push_unique(
+            &mut report.warnings,
+            "ordering_hint: after / before は v4.7.21 confirm では未対応です — Day 末尾に append します".to_string(),
+        );
+    }
+    if fragment
+        .get("placement_hints")
+        .is_some_and(|value| !value.is_null())
+    {
+        push_unique(
+            &mut report.warnings,
+            "ordering_hint: placement_hints は v4.7.21 confirm では未反映です — Day 末尾に append します".to_string(),
+        );
+    }
+}
+
+fn warn_unsupported_add_candidate_keys(
+    candidate: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    const SUPPORTED: &[&str] = &[
+        "title",
+        "location",
+        "category",
+        "start_time",
+        "duration_minutes",
+        "travel_minutes",
+        "travel_time_minutes",
+        "sort_order",
+        "placement_hint",
+        "after",
+        "before",
+    ];
+    for key in candidate.keys() {
+        if SUPPORTED.contains(&key.as_str()) {
+            continue;
+        }
+        push_unique(
+            &mut report.warnings,
+            format!("unsupported_field: candidate_content.{key} は add_itinerary では未反映です"),
+        );
+    }
+}
+
+fn append_sort_order_for_export_day(day: &ExportDayV3) -> i64 {
+    day.itineraries
+        .iter()
+        .map(|item| item.sort_order)
+        .max()
+        .unwrap_or(0)
+        + SORT_ORDER_STEP
+}
+
+fn build_export_itinerary_from_add_fields(
+    fields: &ParsedAddItineraryFields,
+    sort_order: i64,
+) -> ExportItineraryV3 {
+    ExportItineraryV3 {
+        title: fields.title.clone(),
+        note: fields.note.clone(),
+        start_time: fields.start_time.clone(),
+        sort_order,
+        duration_minutes: fields.duration_minutes,
+        travel_minutes: fields.travel_minutes,
+        location: fields.location.clone(),
+        category: fields.category,
+        expenses: Vec::new(),
+        estimates: Vec::new(),
+        reservations: Vec::new(),
+    }
 }
 
 fn non_empty_string(value: Option<&Value>) -> Option<String> {
@@ -668,41 +843,20 @@ fn simulate_apply_preview(
 
     match intent {
         "add" => {
-            let title = candidate_title.ok_or_else(|| {
-                "intent が add ですが candidate_content.title がありません".to_string()
-            })?;
             let day_number = resolved.day_number.ok_or_else(|| {
                 "intent が add ですが target Day が解決されていません".to_string()
             })?;
             ensure_day_in_range(export, day_number)?;
+            let fields = parse_add_itinerary_fields(fragment, Some(report))?;
             let day = find_or_create_day(export, day_number);
-            let sort_order = day
-                .itineraries
-                .iter()
-                .map(|item| item.sort_order)
-                .max()
-                .unwrap_or(0)
-                + 1;
-            day.itineraries.push(ExportItineraryV3 {
-                title: title.clone(),
-                note: non_empty_string(fragment.get("notes")),
-                start_time: None,
-                sort_order,
-                duration_minutes: None,
-                travel_minutes: None,
-                location: candidate
-                    .and_then(|v| v.as_object())
-                    .and_then(|obj| non_empty_string(obj.get("location"))),
-                category: None,
-                expenses: Vec::new(),
-                estimates: Vec::new(),
-                reservations: Vec::new(),
-            });
+            let sort_order = append_sort_order_for_export_day(day);
+            day.itineraries
+                .push(build_export_itinerary_from_add_fields(&fields, sort_order));
             let itineraries_after = count_itineraries(export);
             Ok(FragmentApplyPreviewSummary {
                 intent: intent.to_string(),
                 action: "add_itinerary".to_string(),
-                candidate_title: Some(title),
+                candidate_title: Some(fields.title),
                 itineraries_before,
                 itineraries_after,
             })
@@ -887,6 +1041,127 @@ mod tests {
       },
       "adoption_hints": { "required_decisions": [] }
     }"#;
+
+    const APPLY_EXPANDED_FRAGMENT: &str = r#"{
+      "metadata": {
+        "fragment_id": "frag-apply-expanded",
+        "created_at": "2026-03-15T14:00:00Z",
+        "source": "manual",
+        "provider": "fixture"
+      },
+      "target": {
+        "target_type": "day",
+        "day_reference": 1
+      },
+      "fragment": {
+        "intent": "add",
+        "candidate_content": {
+          "title": "Afternoon temple visit",
+          "location": "Kiyomizu area",
+          "category": "activity",
+          "start_time": "14:30",
+          "duration_minutes": 90,
+          "travel_time_minutes": 20
+        },
+        "notes": "Ticket not purchased yet."
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+    #[test]
+    fn expanded_add_fields_match_between_preview_and_confirm() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", APPLY_EXPANDED_FRAGMENT, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        let preview_json = preview_json.expect("preview json");
+        let preview: TripExportV3 = serde_json::from_str(&preview_json).unwrap();
+        let preview_day = preview
+            .days
+            .iter()
+            .find(|day| day.day_number == 1)
+            .expect("day 1");
+        let preview_item = preview_day
+            .itineraries
+            .iter()
+            .find(|item| item.title == "Afternoon temple visit")
+            .expect("preview item");
+        assert_eq!(preview_item.category, Some(ItineraryCategory::Activity));
+        assert_eq!(preview_item.start_time.as_deref(), Some("14:30"));
+        assert_eq!(preview_item.duration_minutes, Some(90));
+        assert_eq!(preview_item.travel_minutes, Some(20));
+        assert_eq!(preview_item.sort_order, 2000);
+
+        let options = FragmentApplyOptions {
+            dry_run: false,
+            confirm: true,
+            trip_id,
+            output: None,
+            json: false,
+        };
+        let path = std::env::temp_dir().join(format!(
+            "caglla-fragment-expanded-confirm-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, APPLY_EXPANDED_FRAGMENT).unwrap();
+        run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
+
+        let item = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.title == "Afternoon temple visit")
+            .expect("db item");
+        assert_eq!(item.category, Some(ItineraryCategory::Activity));
+        assert_eq!(item.start_time.as_deref(), Some("14:30"));
+        assert_eq!(item.duration_minutes, Some(90));
+        assert_eq!(item.travel_minutes, Some(20));
+        assert_eq!(item.sort_order, preview_item.sort_order);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn invalid_category_blocks_apply_without_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "day", "day_reference": 1 },
+          "fragment": {
+            "intent": "add",
+            "candidate_content": { "title": "Bad", "category": "meal" },
+            "notes": "n"
+          }
+        }"#;
+        let before = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .len();
+        let (report, preview) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(!report.valid);
+        assert!(preview.is_none());
+        assert!(report.errors.iter().any(|e| e.contains("category")));
+        let after = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .len();
+        assert_eq!(before, after);
+    }
 
     #[test]
     fn dry_run_simulates_add_without_db_write() {

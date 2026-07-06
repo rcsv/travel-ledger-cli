@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "fragment_id": "frag-fixture-invalid-category",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "target": {
+    "target_type": "day",
+    "day_reference": 1
+  },
+  "fragment": {
+    "intent": "add",
+    "candidate_content": {
+      "title": "Bad category example",
+      "category": "meal"
+    },
+    "notes": "Should fail validation."
+  },
+  "adoption_hints": {
+    "required_decisions": []
+  }
+}

@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.21 | Fragment apply add_itinerary field expansion (P-6e) | [v4.7.21-notes.md](v4.7.21-notes.md) |
 | v4.7.20 | P-6 post-implementation review | [v4.7.20-notes.md](v4.7.20-notes.md) |
 | v4.7.19 | Fragment apply --confirm (P-6d) | [v4.7.19-notes.md](v4.7.19-notes.md) |
 | v4.7.18 | Fragment apply dry-run (P-6c) | [v4.7.18-notes.md](v4.7.18-notes.md) |

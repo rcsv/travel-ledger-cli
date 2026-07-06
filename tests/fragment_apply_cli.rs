@@ -473,6 +473,265 @@ fn cli_fragment_apply_json_gate_report() {
 }
 
 #[test]
+fn cli_fragment_apply_confirm_writes_expanded_itinerary_fields() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-expanded-fragment.json");
+    let preview_path = dir.join("apply-preview.json");
+    let export_path = dir.join("trip-after-confirm.json");
+
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Kyoto Weekend",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        &dir,
+        &["itinerary", "add", "1", "--day", "1", "Morning temple"],
+    )
+    .status
+    .success());
+
+    let dry_run = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+        ],
+    );
+    assert!(dry_run.status.success(), "dry-run failed");
+
+    let confirm = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(confirm.status.success(), "confirm failed");
+
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    let list_stdout = String::from_utf8_lossy(&list.stdout);
+    assert!(list_stdout.contains("Afternoon temple visit"));
+    assert!(list_stdout.contains("14:30"));
+    assert!(list_stdout.contains("90分"));
+    assert!(list_stdout.contains("20分"));
+
+    let day_show = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(day_show.status.success());
+    let day_stdout = String::from_utf8_lossy(&day_show.stdout);
+    assert!(day_stdout.contains("Afternoon temple visit"));
+
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "export",
+            "1",
+            "--output",
+            export_path.to_str().unwrap(),
+        ],
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        &dir,
+        &["trip", "validate-export", export_path.to_str().unwrap(),],
+    )
+    .status
+    .success());
+
+    let preview: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&preview_path).unwrap()).unwrap();
+    let exported: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&export_path).unwrap()).unwrap();
+    let preview_day = preview["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|day| day["day_number"] == 1)
+        .expect("preview day 1");
+    let export_day = exported["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|day| day["day_number"] == 1)
+        .expect("export day 1");
+    let preview_item = preview_day["itineraries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["title"] == "Afternoon temple visit")
+        .expect("preview item");
+    let export_item = export_day["itineraries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["title"] == "Afternoon temple visit")
+        .expect("export item");
+    assert_eq!(preview_item["category"], "activity");
+    assert_eq!(export_item["category"], "activity");
+    assert_eq!(preview_item["start_time"], "14:30");
+    assert_eq!(export_item["start_time"], "14:30");
+    assert_eq!(preview_item["duration_minutes"], 90);
+    assert_eq!(export_item["duration_minutes"], 90);
+    assert_eq!(preview_item["travel_minutes"], 20);
+    assert_eq!(export_item["travel_minutes"], 20);
+    assert_eq!(preview_item["location"], "Kiyomizu area");
+    assert_eq!(export_item["location"], "Kiyomizu area");
+    assert_eq!(preview_item["sort_order"], export_item["sort_order"]);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_invalid_category_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-invalid-category-fragment.json");
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Trip",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+
+    let before = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(before.status.success());
+
+    for args in [
+        [
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+        [
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    ] {
+        let output = run_cli_in(&dir, &args);
+        assert!(!output.status.success());
+        let combined = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(combined.contains("category"));
+    }
+
+    let after = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(after.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&before.stdout),
+        String::from_utf8_lossy(&after.stdout)
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_ordering_hint_warns_and_confirm_appends_to_day_end() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-ordering-hint-fragment.json");
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Trip",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        &dir,
+        &["itinerary", "add", "1", "--day", "1", "Morning temple"],
+    )
+    .status
+    .success());
+
+    let dry_run = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(dry_run.status.success());
+    let dry_stdout = String::from_utf8_lossy(&dry_run.stdout);
+    assert!(dry_stdout.contains("ordering_hint"));
+
+    let confirm = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(confirm.status.success());
+
+    let list = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(list.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&list.stdout)).unwrap();
+    let evening = parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["title"] == "Evening walk")
+        .expect("evening walk");
+    assert_eq!(evening["sort_order"], 2000);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn cli_fragment_validate_remains_file_only() {
     let fragment = fixture_path("valid-fragment.json");
     let temp_dir = std::env::temp_dir().join(format!(
