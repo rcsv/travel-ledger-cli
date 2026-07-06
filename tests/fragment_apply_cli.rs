@@ -731,6 +731,211 @@ fn cli_fragment_apply_ordering_hint_warns_and_confirm_appends_to_day_end() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+fn seed_trip_with_itinerary(dir: &std::path::Path) {
+    assert!(run_cli_in(
+        dir,
+        &[
+            "trip",
+            "add",
+            "Kyoto Weekend",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        dir,
+        &["itinerary", "add", "1", "--day", "1", "Morning temple"],
+    )
+    .status
+    .success());
+}
+
+fn note_count(dir: &std::path::Path, trip_id: &str) -> usize {
+    let output = run_cli_in(dir, &["note", "list", "--trip", trip_id, "--json"]);
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    parsed["notes"]
+        .as_array()
+        .map(|items| items.len())
+        .unwrap_or(0)
+}
+
+#[test]
+fn cli_fragment_apply_add_note_trip_dry_run_preview_keeps_db_unchanged() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-trip-fragment.json");
+    let preview_path = dir.join("add-note-trip-preview.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before_notes = note_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("add_note"));
+    assert!(stdout.contains("notes_after: 1"));
+
+    let preview_json = std::fs::read_to_string(&preview_path).expect("preview json");
+    let parsed: serde_json::Value = serde_json::from_str(&preview_json).expect("parse preview");
+    let notes = parsed["notes"].as_array().expect("notes array");
+    assert_eq!(notes.len(), 1);
+    assert_eq!(notes[0]["owner_type"], "trip");
+    assert_eq!(notes[0]["body"], "Book JR tickets before departure week.");
+
+    assert!(run_cli_in(
+        &dir,
+        &["trip", "validate-export", preview_path.to_str().unwrap()],
+    )
+    .status
+    .success());
+
+    assert_eq!(note_count(&dir, "1"), before_notes);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_note_day_dry_run_preview() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-day-fragment.json");
+    let preview_path = dir.join("add-note-day-preview.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+        ],
+    );
+    assert!(output.status.success());
+
+    let preview_json = std::fs::read_to_string(&preview_path).expect("preview json");
+    let parsed: serde_json::Value = serde_json::from_str(&preview_json).expect("parse preview");
+    let notes = parsed["notes"].as_array().expect("notes array");
+    assert_eq!(notes.len(), 1);
+    assert_eq!(notes[0]["owner_type"], "day");
+    assert_eq!(notes[0]["day_number"], 1);
+    assert_eq!(notes[0]["body"], "Temple opens at 06:00 — arrive early.");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_note_itinerary_dry_run_preview() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-itinerary-fragment.json");
+    let preview_path = dir.join("add-note-itinerary-preview.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+        ],
+    );
+    assert!(output.status.success());
+
+    let preview_json = std::fs::read_to_string(&preview_path).expect("preview json");
+    let parsed: serde_json::Value = serde_json::from_str(&preview_json).expect("parse preview");
+    let notes = parsed["notes"].as_array().expect("notes array");
+    assert_eq!(notes.len(), 1);
+    assert_eq!(notes[0]["owner_type"], "itinerary");
+    assert_eq!(notes[0]["itinerary_key"]["title"], "Morning temple");
+    assert_eq!(
+        notes[0]["body"],
+        "Photography allowed in outer garden only."
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_note_required_decisions_invalid_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-required-decisions-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before_notes = note_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("required decisions"));
+    assert_eq!(note_count(&dir, "1"), before_notes);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_note_confirm_not_supported() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-note-trip-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before_notes = note_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(note_count(&dir, "1"), before_notes);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn cli_fragment_validate_remains_file_only() {
     let fragment = fixture_path("valid-fragment.json");

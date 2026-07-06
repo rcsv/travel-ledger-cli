@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "fragment_id": "frag-add-note-required-decisions",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "target": {
+    "target_type": "day",
+    "day_reference": 1
+  },
+  "fragment": {
+    "intent": "add_note",
+    "candidate_content": {
+      "body": "Pick lunch spot first."
+    }
+  },
+  "adoption_hints": {
+    "required_decisions": ["Confirm which restaurant to annotate"]
+  }
+}

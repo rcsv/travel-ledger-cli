@@ -5,8 +5,8 @@ use serde_json::{Map, Value};
 
 use crate::day::{find_day_by_trip_and_day_number, validate_trip_date_range};
 use crate::domain::models::{
-    parse_itinerary_category, ExportDayV3, ExportItineraryV3, ItineraryCategory, TripExportV3,
-    TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
+    parse_itinerary_category, ExportDayV3, ExportItineraryV3, ExportNote, ItineraryCategory,
+    ItineraryNoteKey, TripExportV3, TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
 };
 use crate::itinerary::{parse_time_hhmm, SORT_ORDER_STEP};
 use crate::output::json::print_json;
@@ -38,6 +38,10 @@ pub struct FragmentApplyPreviewSummary {
     pub candidate_title: Option<String>,
     pub itineraries_before: usize,
     pub itineraries_after: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_before: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_after: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +115,12 @@ struct ParsedAddItineraryFields {
     start_time: Option<String>,
     duration_minutes: Option<i64>,
     travel_minutes: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ParsedAddNoteFields {
+    title: Option<String>,
+    body: String,
 }
 
 pub fn run_fragment_apply(
@@ -307,6 +317,7 @@ fn fragment_apply_gate_json(
     };
 
     let itineraries_before = count_itineraries(&preview_export);
+    let notes_before = count_notes(&preview_export);
     let mut simulated = preview_export;
     let preview_summary = match simulate_apply_preview(
         &mut simulated,
@@ -314,6 +325,7 @@ fn fragment_apply_gate_json(
         fragment_body,
         &intent,
         itineraries_before,
+        notes_before,
         &mut report,
     ) {
         Ok(summary) => summary,
@@ -348,6 +360,15 @@ fn fragment_apply_gate_json(
     if confirm && !validate_confirm_scope(&resolved, &intent, &preview_summary, &mut report) {
         report.preview = Some(preview_summary);
         return (report, None);
+    }
+
+    if !report.required_decisions.is_empty() {
+        report.errors.push(
+            "required decisions が未解決です — apply preview は valid confirm candidate ではありません"
+                .to_string(),
+        );
+        report.preview = Some(preview_summary);
+        return (report, Some(preview_json));
     }
 
     report.preview = Some(preview_summary);
@@ -824,12 +845,132 @@ fn count_itineraries(export: &TripExportV3) -> usize {
     export.days.iter().map(|day| day.itineraries.len()).sum()
 }
 
+fn count_notes(export: &TripExportV3) -> usize {
+    export.notes().len()
+}
+
+fn parse_add_note_fields(
+    fragment: &Map<String, Value>,
+    report: Option<&mut FragmentApplyDryRunReport>,
+) -> Result<ParsedAddNoteFields, String> {
+    if let Some(report) = report {
+        if let Some(candidate) = fragment.get("candidate_content").and_then(Value::as_object) {
+            warn_unsupported_add_note_candidate_keys(candidate, report);
+        }
+    }
+
+    let body = non_empty_string(
+        fragment
+            .get("candidate_content")
+            .and_then(Value::as_object)
+            .and_then(|obj| obj.get("body")),
+    )
+    .or_else(|| {
+        fragment
+            .get("candidate_content")
+            .and_then(|value| non_empty_string(Some(value)))
+    })
+    .or_else(|| non_empty_string(fragment.get("notes")))
+    .ok_or_else(|| {
+        "add_note には candidate_content.body または fragment.notes が必要です".to_string()
+    })?;
+
+    let title = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .and_then(|obj| non_empty_string(obj.get("title")));
+
+    Ok(ParsedAddNoteFields { title, body })
+}
+
+fn warn_unsupported_add_note_candidate_keys(
+    candidate: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    const SUPPORTED: &[&str] = &["title", "body"];
+    for key in candidate.keys() {
+        if SUPPORTED.contains(&key.as_str()) {
+            continue;
+        }
+        push_unique(
+            &mut report.warnings,
+            format!("unsupported_field: candidate_content.{key} は add_note では未反映です"),
+        );
+    }
+}
+
+fn build_export_note_from_add_fields(
+    fields: &ParsedAddNoteFields,
+    resolved: &ResolvedApplyTarget,
+    export: &TripExportV3,
+) -> Result<ExportNote, String> {
+    match resolved.target_type.as_str() {
+        "trip" => Ok(ExportNote::Trip {
+            title: fields.title.clone(),
+            body: fields.body.clone(),
+        }),
+        "day" => {
+            let day_number = resolved
+                .day_number
+                .ok_or_else(|| "add_note の Day target が解決されていません".to_string())?;
+            Ok(ExportNote::Day {
+                day_number,
+                title: fields.title.clone(),
+                body: fields.body.clone(),
+            })
+        }
+        "itinerary" => {
+            let day_number = resolved.day_number.ok_or_else(|| {
+                "add_note の Itinerary target が解決されていません（day）".to_string()
+            })?;
+            let sort_order = resolved.itinerary_sort_order.ok_or_else(|| {
+                "add_note の Itinerary target が解決されていません（sort_order）".to_string()
+            })?;
+            let itinerary_title = resolved.itinerary_title.clone().ok_or_else(|| {
+                "add_note の Itinerary target が解決されていません（title）".to_string()
+            })?;
+            let start_time = lookup_itinerary_in_export(export, day_number, sort_order)
+                .and_then(|item| item.start_time.clone());
+            Ok(ExportNote::Itinerary {
+                itinerary_key: ItineraryNoteKey {
+                    day_number,
+                    sort_order,
+                    start_time,
+                    title: itinerary_title,
+                },
+                title: fields.title.clone(),
+                body: fields.body.clone(),
+            })
+        }
+        other => Err(format!(
+            "add_note は trip / day / itinerary target のみサポートしています（現在: {other}）"
+        )),
+    }
+}
+
+fn lookup_itinerary_in_export(
+    export: &TripExportV3,
+    day_number: i64,
+    sort_order: i64,
+) -> Option<&ExportItineraryV3> {
+    export
+        .days
+        .iter()
+        .find(|day| day.day_number == day_number)
+        .and_then(|day| {
+            day.itineraries
+                .iter()
+                .find(|item| item.sort_order == sort_order)
+        })
+}
+
 fn simulate_apply_preview(
     export: &mut TripExportV3,
     resolved: &ResolvedApplyTarget,
     fragment: &Map<String, Value>,
     intent: &str,
     itineraries_before: usize,
+    notes_before: usize,
     report: &mut FragmentApplyDryRunReport,
 ) -> Result<FragmentApplyPreviewSummary, String> {
     let candidate = fragment.get("candidate_content");
@@ -859,6 +1000,23 @@ fn simulate_apply_preview(
                 candidate_title: Some(fields.title),
                 itineraries_before,
                 itineraries_after,
+                notes_before: None,
+                notes_after: None,
+            })
+        }
+        "add_note" => {
+            let fields = parse_add_note_fields(fragment, Some(report))?;
+            let export_note = build_export_note_from_add_fields(&fields, resolved, export)?;
+            let notes = export.notes.get_or_insert_with(Vec::new);
+            notes.push(export_note);
+            Ok(FragmentApplyPreviewSummary {
+                intent: intent.to_string(),
+                action: "add_note".to_string(),
+                candidate_title: fields.title.clone(),
+                itineraries_before,
+                itineraries_after: itineraries_before,
+                notes_before: Some(notes_before),
+                notes_after: Some(notes_before + 1),
             })
         }
         "enrich" => {
@@ -888,6 +1046,8 @@ fn simulate_apply_preview(
                 candidate_title,
                 itineraries_before,
                 itineraries_after: itineraries_before,
+                notes_before: None,
+                notes_after: None,
             })
         }
         "warning" => Ok(FragmentApplyPreviewSummary {
@@ -896,6 +1056,8 @@ fn simulate_apply_preview(
             candidate_title,
             itineraries_before,
             itineraries_after: itineraries_before,
+            notes_before: None,
+            notes_after: None,
         }),
         "replace_candidate" | "reorder_hint" => {
             report.warnings.push(format!(
@@ -907,6 +1069,8 @@ fn simulate_apply_preview(
                 candidate_title,
                 itineraries_before,
                 itineraries_after: itineraries_before,
+                notes_before: None,
+                notes_after: None,
             })
         }
         other => Err(format!("未対応の intent です: {other}")),
@@ -990,6 +1154,12 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
         }
         println!("  itineraries_before: {}", preview.itineraries_before);
         println!("  itineraries_after: {}", preview.itineraries_after);
+        if let Some(notes_before) = preview.notes_before {
+            println!("  notes_before: {notes_before}");
+        }
+        if let Some(notes_after) = preview.notes_after {
+            println!("  notes_after: {notes_after}");
+        }
     }
 
     if let Some(itinerary_id) = report.inserted_itinerary_id {
@@ -1134,6 +1304,37 @@ mod tests {
         assert_eq!(item.travel_minutes, Some(20));
         assert_eq!(item.sort_order, preview_item.sort_order);
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn add_note_dry_run_appends_trip_note_to_preview() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "trip" },
+          "fragment": {
+            "intent": "add_note",
+            "candidate_content": {
+              "title": "Memo",
+              "body": "Pack rain jacket."
+            }
+          }
+        }"#;
+        let before = crate::note::list_all_notes_for_trip(&conn, trip_id)
+            .unwrap()
+            .len();
+        let (report, preview_json) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        let preview = preview_json.expect("preview json");
+        let export: TripExportV3 = serde_json::from_str(&preview).unwrap();
+        assert_eq!(export.notes().len(), 1);
+        assert_eq!(report.preview.unwrap().action, "add_note");
+        let after = crate::note::list_all_notes_for_trip(&conn, trip_id)
+            .unwrap()
+            .len();
+        assert_eq!(before, after);
     }
 
     #[test]

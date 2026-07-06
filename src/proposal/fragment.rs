@@ -9,6 +9,7 @@ pub const FRAGMENT_VALIDATION_REPORT_SCHEMA_VERSION: i32 = 1;
 
 const VALID_INTENTS: &[&str] = &[
     "add",
+    "add_note",
     "enrich",
     "replace_candidate",
     "reorder_hint",
@@ -261,20 +262,26 @@ fn validate_fragment_fields(
         None => report.errors.push("fragment.intent が必要です".to_string()),
         Some(value) if !VALID_INTENTS.contains(&value.as_str()) => {
             report.errors.push(format!(
-                "fragment.intent が想定範囲外です: {value}（add / enrich / replace_candidate / reorder_hint / warning のいずれか）"
+                "fragment.intent が想定範囲外です: {value}（add / add_note / enrich / replace_candidate / reorder_hint / warning のいずれか）"
             ));
         }
         _ => {}
     }
 
-    if fragment_body_nearly_empty(fragment) {
+    if fragment_body_nearly_empty(fragment, intent.as_deref()) {
         report.errors.push(
             "fragment body が空に近いです（candidate_content または notes が必要）".to_string(),
         );
     }
 }
 
-fn fragment_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> bool {
+fn fragment_body_nearly_empty(
+    fragment: &serde_json::Map<String, Value>,
+    intent: Option<&str>,
+) -> bool {
+    if intent == Some("add_note") {
+        return add_note_body_from_fragment(fragment).is_none();
+    }
     let has_notes = non_empty_string(fragment.get("notes")).is_some();
     let candidate = fragment.get("candidate_content");
     let has_candidate = candidate
@@ -282,6 +289,19 @@ fn fragment_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> bool
         .is_some_and(|obj| !obj.is_empty())
         || non_empty_string(candidate).is_some();
     !has_notes && !has_candidate
+}
+
+fn add_note_body_from_fragment(fragment: &serde_json::Map<String, Value>) -> Option<String> {
+    if let Some(candidate) = fragment.get("candidate_content") {
+        if let Some(obj) = candidate.as_object() {
+            if let Some(body) = non_empty_string(obj.get("body")) {
+                return Some(body);
+            }
+        } else if let Some(text) = non_empty_string(Some(candidate)) {
+            return Some(text);
+        }
+    }
+    non_empty_string(fragment.get("notes"))
 }
 
 fn target_summary_string(target: &serde_json::Map<String, Value>) -> Option<String> {

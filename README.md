@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.21](docs/releases/v4.7.21-notes.md) — P-6e add_itinerary field expansion。
+**最新:** [v4.7.22](docs/releases/v4.7.22-notes.md) — P-6f add_note dry-run。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.22](docs/releases/v4.7.22-notes.md) | minor | Fragment apply add_note dry-run (P-6f) |
 | [v4.7.21](docs/releases/v4.7.21-notes.md) | minor | Fragment apply add_itinerary field expansion (P-6e) |
 | [v4.7.20](docs/releases/v4.7.20-notes.md) | docs | P-6 post-implementation review |
 | [v4.7.19](docs/releases/v4.7.19-notes.md) | minor | Fragment apply --confirm (P-6d) |
