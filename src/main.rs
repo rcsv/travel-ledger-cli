@@ -96,12 +96,16 @@ fn main() -> Result<()> {
         }
     }
 
-    if let Command::Fragment { action } = command {
-        return match action {
+    if let Command::Fragment { ref action } = command {
+        match action {
             FragmentAction::Validate { file, json } => {
-                crate::proposal::run_fragment_validate(&file, json)
+                return crate::proposal::run_fragment_validate(file, *json);
             }
-        };
+            FragmentAction::Apply { dry_run, .. } if !*dry_run => {
+                bail!("fragment apply には --dry-run が必要です（v4.7.18 は apply preview のみ）");
+            }
+            FragmentAction::Apply { .. } => {}
+        }
     }
 
     // File-only Trip commands — no DB (avoids migration side effects in parallel CI / guard tests)
@@ -1051,7 +1055,26 @@ fn main() -> Result<()> {
             },
         )?,
         Command::Proposal { .. } => unreachable!("proposal commands handled before DB open"),
-        Command::Fragment { .. } => unreachable!("fragment commands handled before DB open"),
+        Command::Fragment {
+            action:
+                FragmentAction::Apply {
+                    file,
+                    dry_run,
+                    trip,
+                    output,
+                    json,
+                },
+        } => crate::proposal::run_fragment_apply(
+            &file,
+            &conn,
+            &crate::proposal::FragmentApplyOptions {
+                dry_run,
+                trip_id: trip,
+                output,
+                json,
+            },
+        )?,
+        Command::Fragment { .. } => unreachable!("fragment validate handled before DB open"),
         Command::Trip { action } => match action {
             TripAction::Add {
                 name,

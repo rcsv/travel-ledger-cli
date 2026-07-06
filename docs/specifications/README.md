@@ -76,6 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.7.18-fragment-apply-dry-run.md](v4.7.18-fragment-apply-dry-run.md) | v4.7.18 Fragment apply dry-run（P-6c） |
 | [v4.7.17-proposal-materialize-confirm.md](v4.7.17-proposal-materialize-confirm.md) | v4.7.17 Proposal materialize --confirm（P-6b） |
 | [v4.7.16-proposal-materialize-dry-run.md](v4.7.16-proposal-materialize-dry-run.md) | v4.7.16 Proposal materialize dry-run（P-6a） |
 | [v4.7.15-materialize-apply-planning-spec.md](v4.7.15-materialize-apply-planning-spec.md) | v4.7.15 Materialize / apply planning（P-5） |

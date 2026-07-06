@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.18 | Fragment apply dry-run (P-6c) | [v4.7.18-notes.md](v4.7.18-notes.md) |
 | v4.7.17 | Proposal materialize --confirm (P-6b) | [v4.7.17-notes.md](v4.7.17-notes.md) |
 | v4.7.16 | Proposal materialize dry-run (P-6a) | [v4.7.16-notes.md](v4.7.16-notes.md) |
 | v4.7.15 | Materialize / apply planning spec | [v4.7.15-notes.md](v4.7.15-notes.md) |

@@ -1,0 +1,24 @@
+{
+  "metadata": {
+    "fragment_id": "frag-fixture-apply-ready",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "target": {
+    "target_type": "day",
+    "trip_reference": "Kyoto Weekend",
+    "day_reference": 1
+  },
+  "fragment": {
+    "intent": "add",
+    "candidate_content": {
+      "title": "Lunch at local cafe (candidate)"
+    },
+    "notes": "Hours not verified."
+  },
+  "adoption_hints": {
+    "required_decisions": [],
+    "warnings": []
+  }
+}
