@@ -123,6 +123,7 @@ AI / provider（将来）
 | **v4.7.15** | **Materialize / apply planning (P-5)** |
 | **v4.7.16** | **Proposal materialize dry-run (P-6a)** |
 | **v4.7.17** | **Proposal materialize --confirm (P-6b)** |
+| **v4.7.19** | **Fragment apply --confirm (P-6d)** |
 | **v4.7.18** | **Fragment apply dry-run (P-6c)** |
 
 実装・schema 変更は v4.7.8 の scope 外です（planning のみ）。

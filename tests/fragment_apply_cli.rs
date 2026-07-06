@@ -104,7 +104,7 @@ fn cli_fragment_apply_dry_run_writes_preview_and_keeps_db_unchanged() {
 }
 
 #[test]
-fn cli_fragment_apply_requires_dry_run_flag() {
+fn cli_fragment_apply_requires_dry_run_or_confirm_flag() {
     let dir = temp_workdir();
     let fragment = fixture_path("apply-ready-fragment.json");
     let output = run_cli_in(
@@ -123,7 +123,245 @@ fn cli_fragment_apply_requires_dry_run_flag() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(combined.contains("--dry-run"));
+    assert!(combined.contains("--dry-run") || combined.contains("--confirm"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_dry_run_and_confirm_together_fails() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-ready-fragment.json");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("--dry-run") && combined.contains("--confirm"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_confirm_inserts_itinerary() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-ready-fragment.json");
+
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Kyoto Weekend",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        &dir,
+        &["itinerary", "add", "1", "--day", "1", "Morning temple"],
+    )
+    .status
+    .success());
+
+    let before = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(before.status.success());
+    let before_stdout = String::from_utf8_lossy(&before.stdout);
+    assert_eq!(before_stdout.matches("Morning temple").count(), 1);
+    assert!(!before_stdout.contains("Lunch at local cafe"));
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("fragment apply --confirm"));
+    assert!(stdout.contains("Lunch at local cafe"));
+
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    let list_stdout = String::from_utf8_lossy(&list.stdout);
+    assert_eq!(list_stdout.matches("Morning temple").count(), 1);
+    assert_eq!(list_stdout.matches("Lunch at local cafe").count(), 1);
+
+    let day_show = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(day_show.status.success());
+    let day_stdout = String::from_utf8_lossy(&day_show.stdout);
+    assert!(day_stdout.contains("Lunch at local cafe"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_confirm_unsupported_intent_fails_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-confirm-enrich-fragment.json");
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Trip",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("add_itinerary"));
+
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(!String::from_utf8_lossy(&list.stdout).contains("Afternoon focus"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_confirm_non_day_target_fails_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-confirm-itinerary-target-fragment.json");
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Trip",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        &dir,
+        &["itinerary", "add", "1", "--day", "1", "Morning temple"],
+    )
+    .status
+    .success());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("Day target"));
+
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    let list_stdout = String::from_utf8_lossy(&list.stdout);
+    assert_eq!(list_stdout.matches("Morning temple").count(), 1);
+    assert!(!list_stdout.contains("After temple lunch"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_confirm_required_decisions_block_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-confirm-required-decisions-fragment.json");
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "Trip",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("required decisions"));
+
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(
+        String::from_utf8_lossy(&list.stdout)
+            .matches("Dinner reservation candidate")
+            .count()
+            == 0
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

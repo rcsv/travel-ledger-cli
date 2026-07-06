@@ -101,10 +101,18 @@ fn main() -> Result<()> {
             FragmentAction::Validate { file, json } => {
                 return crate::proposal::run_fragment_validate(file, *json);
             }
-            FragmentAction::Apply { dry_run, .. } if !*dry_run => {
-                bail!("fragment apply には --dry-run が必要です（v4.7.18 は apply preview のみ）");
+            FragmentAction::Apply {
+                dry_run, confirm, ..
+            } => {
+                if !dry_run && !confirm {
+                    bail!("fragment apply には --dry-run または --confirm のいずれかが必要です");
+                }
+                if *dry_run && *confirm {
+                    bail!(
+                        "--dry-run と --confirm は併用できません（dry-run means no Trip domain data side effects）"
+                    );
+                }
             }
-            FragmentAction::Apply { .. } => {}
         }
     }
 
@@ -1060,6 +1068,7 @@ fn main() -> Result<()> {
                 FragmentAction::Apply {
                     file,
                     dry_run,
+                    confirm,
                     trip,
                     output,
                     json,
@@ -1069,6 +1078,7 @@ fn main() -> Result<()> {
             &conn,
             &crate::proposal::FragmentApplyOptions {
                 dry_run,
+                confirm,
                 trip_id: trip,
                 output,
                 json,

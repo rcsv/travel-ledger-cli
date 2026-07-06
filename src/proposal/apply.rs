@@ -12,7 +12,7 @@ use crate::trip::{analyze_trip_export_json, build_trip_export_v3, get_trip};
 
 use super::fragment::analyze_proposal_fragment_json;
 
-pub const FRAGMENT_APPLY_REPORT_SCHEMA_VERSION: i32 = 1;
+pub const FRAGMENT_APPLY_REPORT_SCHEMA_VERSION: i32 = 2;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FragmentApplyResolvedTarget {
@@ -43,6 +43,7 @@ pub struct FragmentApplyDryRunReport {
     pub schema_version: i32,
     pub file: String,
     pub dry_run: bool,
+    pub confirm: bool,
     pub valid: bool,
     pub fragment_valid: bool,
     pub trip_export_valid: bool,
@@ -54,14 +55,17 @@ pub struct FragmentApplyDryRunReport {
     pub resolved_target: Option<FragmentApplyResolvedTarget>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<FragmentApplyPreviewSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inserted_itinerary_id: Option<i64>,
 }
 
 impl FragmentApplyDryRunReport {
-    fn new(file: impl Into<String>, trip_id: i64) -> Self {
+    fn new(file: impl Into<String>, trip_id: i64, dry_run: bool, confirm: bool) -> Self {
         Self {
             schema_version: FRAGMENT_APPLY_REPORT_SCHEMA_VERSION,
             file: file.into(),
-            dry_run: true,
+            dry_run,
+            confirm,
             valid: false,
             fragment_valid: false,
             trip_export_valid: false,
@@ -71,6 +75,7 @@ impl FragmentApplyDryRunReport {
             required_decisions: Vec::new(),
             resolved_target: None,
             preview: None,
+            inserted_itinerary_id: None,
         }
     }
 }
@@ -78,6 +83,7 @@ impl FragmentApplyDryRunReport {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FragmentApplyOptions {
     pub dry_run: bool,
+    pub confirm: bool,
     pub trip_id: i64,
     pub output: Option<String>,
     pub json: bool,
@@ -99,21 +105,47 @@ pub fn run_fragment_apply(
     conn: &Connection,
     options: &FragmentApplyOptions,
 ) -> Result<()> {
-    if !options.dry_run {
-        bail!("v4.7.18 では fragment apply は --dry-run のみサポートしています（DB 更新は未実装）");
+    if !options.dry_run && !options.confirm {
+        bail!("fragment apply には --dry-run または --confirm のいずれかが必要です");
+    }
+    if options.dry_run && options.confirm {
+        bail!("--dry-run と --confirm は併用できません（dry-run means no Trip domain data side effects）");
     }
 
     let json = std::fs::read_to_string(path)
         .with_context(|| format!("ファイル '{path}' を読み込めませんでした"))?;
-    let (report, preview_json) = fragment_apply_dry_run_json(conn, path, &json, options.trip_id);
+    let (mut report, preview_json) = fragment_apply_gate_json(
+        conn,
+        path,
+        &json,
+        options.trip_id,
+        options.dry_run,
+        options.confirm,
+    );
 
-    if options.json {
-        print_json(&report)?;
-    } else {
-        print_fragment_apply_report(&report);
-    }
-
-    if report.valid {
+    if options.confirm {
+        if report.valid {
+            match execute_confirm_add_itinerary(conn, options.trip_id, &json, &report) {
+                Ok(itinerary_id) => {
+                    report.inserted_itinerary_id = Some(itinerary_id);
+                    let item = crate::itinerary::get_itinerary_item(conn, itinerary_id)?;
+                    if !options.json {
+                        println!();
+                        println!("Itinerary を DB に追加しました（fragment apply --confirm）");
+                        println!("  itinerary ID : {itinerary_id}");
+                        println!("  旅行 ID      : {}", options.trip_id);
+                        println!("  日目         : {}", item.day);
+                        println!("  並び順       : {}", item.sort_order);
+                        println!("  タイトル     : {}", item.title);
+                    }
+                }
+                Err(error) => {
+                    report.valid = false;
+                    report.errors.push(error.to_string());
+                }
+            }
+        }
+    } else if report.valid {
         if let Some(output_path) = options.output.as_deref() {
             let preview_json = preview_json.expect("valid dry-run must produce preview JSON");
             std::fs::write(output_path, &preview_json)
@@ -128,20 +160,45 @@ pub fn run_fragment_apply(
                 println!("{preview_json}");
             }
         }
+    }
+
+    if options.json {
+        print_json(&report)?;
     } else {
-        anyhow::bail!("fragment apply --dry-run に失敗しました");
+        print_fragment_apply_report(&report);
+    }
+
+    if !report.valid {
+        let mode = if options.confirm {
+            "--confirm"
+        } else {
+            "--dry-run"
+        };
+        anyhow::bail!("fragment apply {mode} に失敗しました");
     }
 
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn fragment_apply_dry_run_json(
     conn: &Connection,
     path: &str,
     json: &str,
     trip_id: i64,
 ) -> (FragmentApplyDryRunReport, Option<String>) {
-    let mut report = FragmentApplyDryRunReport::new(path, trip_id);
+    fragment_apply_gate_json(conn, path, json, trip_id, true, false)
+}
+
+fn fragment_apply_gate_json(
+    conn: &Connection,
+    path: &str,
+    json: &str,
+    trip_id: i64,
+    dry_run: bool,
+    confirm: bool,
+) -> (FragmentApplyDryRunReport, Option<String>) {
+    let mut report = FragmentApplyDryRunReport::new(path, trip_id, dry_run, confirm);
     let validation = analyze_proposal_fragment_json(path, json);
     report.fragment_valid = validation.valid;
     report.warnings.extend(validation.warnings);
@@ -252,7 +309,6 @@ pub fn fragment_apply_dry_run_json(
             return (report, None);
         }
     };
-    report.preview = Some(preview_summary);
 
     finalize_apply_preview_export(&mut simulated);
 
@@ -276,8 +332,93 @@ pub fn fragment_apply_dry_run_json(
         return (report, None);
     }
 
+    if confirm && !validate_confirm_scope(&resolved, &intent, &preview_summary, &mut report) {
+        report.preview = Some(preview_summary);
+        return (report, None);
+    }
+
+    report.preview = Some(preview_summary);
     report.valid = true;
     (report, Some(preview_json))
+}
+
+fn validate_confirm_scope(
+    resolved: &ResolvedApplyTarget,
+    intent: &str,
+    preview: &FragmentApplyPreviewSummary,
+    report: &mut FragmentApplyDryRunReport,
+) -> bool {
+    if resolved.target_type != "day" {
+        report
+            .errors
+            .push("v4.7.19 --confirm は Day target のみサポートしています".to_string());
+        return false;
+    }
+    if intent != "add" || preview.action != "add_itinerary" {
+        report.errors.push(format!(
+            "v4.7.19 --confirm は intent add (add_itinerary) のみサポートしています（現在: intent={intent}, action={}）",
+            preview.action
+        ));
+        return false;
+    }
+    if resolved.resolution == "ambiguous" {
+        report
+            .errors
+            .push("target が曖昧です — DB 更新しません".to_string());
+        return false;
+    }
+    if !report.required_decisions.is_empty() {
+        report
+            .errors
+            .push("required decisions が未解決です — DB 更新しません".to_string());
+        return false;
+    }
+    true
+}
+
+fn execute_confirm_add_itinerary(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let root: Value =
+        serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+    let root_obj = root
+        .as_object()
+        .context("トップレベルが JSON object ではありません")?;
+    let fragment_body = root_obj
+        .get("fragment")
+        .and_then(Value::as_object)
+        .context("fragment object が必要です")?;
+    let day_number = report
+        .resolved_target
+        .as_ref()
+        .and_then(|target| target.day_number)
+        .context("target Day が解決されていません")?;
+    let candidate = fragment_body.get("candidate_content");
+    let title = candidate
+        .and_then(|value| value.as_object())
+        .and_then(|obj| non_empty_string(obj.get("title")))
+        .context("candidate_content.title が必要です")?;
+    let note = non_empty_string(fragment_body.get("notes"));
+    let location = candidate
+        .and_then(|value| value.as_object())
+        .and_then(|obj| non_empty_string(obj.get("location")));
+
+    crate::itinerary::add_itinerary_item(
+        conn,
+        trip_id,
+        day_number,
+        &title,
+        note.as_deref(),
+        None,
+        None,
+        None,
+        None,
+        location.as_deref(),
+        None,
+    )
 }
 
 fn non_empty_string(value: Option<&Value>) -> Option<String> {
@@ -659,9 +800,14 @@ fn find_or_create_day(export: &mut TripExportV3, day_number: i64) -> &mut Export
 }
 
 fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
-    println!("Fragment apply dry-run result (apply preview / simulation):");
+    if report.confirm {
+        println!("Fragment apply confirm result:");
+    } else {
+        println!("Fragment apply dry-run result (apply preview / simulation):");
+    }
     println!("  file: {}", report.file);
     println!("  dry_run: {}", report.dry_run);
+    println!("  confirm: {}", report.confirm);
     println!("  trip_id: {}", report.trip_id);
     println!("  valid: {}", report.valid);
     println!("  fragment_valid: {}", report.fragment_valid);
@@ -690,6 +836,10 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
         }
         println!("  itineraries_before: {}", preview.itineraries_before);
         println!("  itineraries_after: {}", preview.itineraries_after);
+    }
+
+    if let Some(itinerary_id) = report.inserted_itinerary_id {
+        println!("  inserted_itinerary_id: {itinerary_id}");
     }
 
     if !report.required_decisions.is_empty() {
@@ -794,5 +944,80 @@ mod tests {
         assert!(!report.valid);
         assert!(preview.is_none());
         assert!(report.errors.iter().any(|e| e.contains("unresolved")));
+    }
+
+    #[test]
+    fn confirm_add_itinerary_writes_db() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Apply Test Trip", "2026-05-01", "2026-05-02", None)
+                .unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning walk",
+            None,
+            None,
+            Some(1),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let path = std::env::temp_dir().join(format!(
+            "caglla-fragment-confirm-unit-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, APPLY_READY_FRAGMENT).unwrap();
+
+        let before = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .len();
+        let options = FragmentApplyOptions {
+            dry_run: false,
+            confirm: true,
+            trip_id,
+            output: None,
+            json: false,
+        };
+        run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
+        let after = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .len();
+        assert_eq!(after, before + 1);
+        assert!(crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .iter()
+            .any(|item| item.title == "Lunch candidate"));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn confirm_rejects_unsupported_intent_without_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "day", "day_reference": 1 },
+          "fragment": {
+            "intent": "enrich",
+            "candidate_content": { "summary": "Updated" },
+            "notes": "n"
+          }
+        }"#;
+        let before = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .len();
+        let (report, _) = fragment_apply_gate_json(&conn, "test.json", json, trip_id, false, true);
+        assert!(!report.valid);
+        assert!(report.errors.iter().any(|e| e.contains("add_itinerary")));
+        let after = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .len();
+        assert_eq!(before, after);
     }
 }

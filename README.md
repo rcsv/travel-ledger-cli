@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.18](docs/releases/v4.7.18-notes.md) — Fragment apply dry-run（P-6c）。
+**最新:** [v4.7.19](docs/releases/v4.7.19-notes.md) — Fragment apply --confirm（P-6d）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.19](docs/releases/v4.7.19-notes.md) | minor | Fragment apply --confirm (P-6d) |
 | [v4.7.18](docs/releases/v4.7.18-notes.md) | minor | Fragment apply dry-run (P-6c) |
 | [v4.7.17](docs/releases/v4.7.17-notes.md) | minor | Proposal materialize --confirm (P-6b) |
 | [v4.7.16](docs/releases/v4.7.16-notes.md) | minor | Proposal materialize dry-run (P-6a) |

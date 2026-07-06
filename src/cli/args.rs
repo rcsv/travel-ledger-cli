@@ -1051,17 +1051,20 @@ pub enum FragmentAction {
         #[arg(long)]
         json: bool,
     },
-    /// Proposal Fragment を既存 Trip に適用する apply preview / simulation（file + DB read のみ）
+    /// Proposal Fragment を既存 Trip に適用する（apply preview / confirm）
     Apply {
         /// 対象の Proposal Fragment JSON ファイル
         file: String,
         /// Dry-run — apply preview / simulation（read-only DB access、Trip domain data 更新なし）
-        #[arg(long)]
+        #[arg(long, conflicts_with = "confirm")]
         dry_run: bool,
+        /// 明示的採用 — gate 通過後に既存 Day へ itinerary を追加（--dry-run と併用不可）
+        #[arg(long, conflicts_with = "dry_run")]
+        confirm: bool,
         /// 適用先 Trip ID
         #[arg(long)]
         trip: i64,
-        /// apply preview（schema v8 Trip JSON）の出力先。後続の trip diff 等では --output を推奨
+        /// apply preview（schema v8 Trip JSON）の出力先。後続の trip diff 等では --output を推奨（--dry-run のみ）
         #[arg(long)]
         output: Option<String>,
         /// apply gate report を JSON 出力（preview Trip JSON そのものではない）

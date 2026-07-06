@@ -130,10 +130,11 @@ v4.7.14 Public examples guard CI isolation hotfix — 完了
 v4.7.15 Materialize / apply planning — 完了
 v4.7.16 Proposal materialize dry-run (P-6a) — 完了
 v4.7.17 Proposal materialize --confirm (P-6b) — 完了
-v4.7.18 Fragment apply dry-run (P-6c) — 実装済み
+v4.7.18 Fragment apply dry-run (P-6c) — 完了
+v4.7.19 Fragment apply --confirm (P-6d) — 実装済み
 ```
 
-Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6c: [v4.7.18 spec](../specifications/v4.7.18-fragment-apply-dry-run.md) · P-6b: [v4.7.17 spec](../specifications/v4.7.17-proposal-materialize-confirm.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md)
+Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6d: [v4.7.19 spec](../specifications/v4.7.19-fragment-apply-confirm.md) · P-6c: [v4.7.18 spec](../specifications/v4.7.18-fragment-apply-dry-run.md) · P-6b: [v4.7.17 spec](../specifications/v4.7.17-proposal-materialize-confirm.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md)
 
 ### CLI（v4.7.9+）
 
@@ -147,9 +148,12 @@ caglla proposal materialize <envelope.json> --confirm [--start YYYY-MM-DD] [--en
 caglla fragment validate <fragment.json>    # v4.7.11+
 caglla fragment validate <fragment.json> --json
 caglla fragment apply <fragment.json> --dry-run --trip <id> [--output preview.json]  # v4.7.18+
+caglla fragment apply <fragment.json> --confirm --trip <id>  # v4.7.19+
 ```
 
 `fragment apply --dry-run`: **apply preview / apply simulation** — **read-only DB access** で既存 Trip を読み取り、Trip / Day / Itinerary は変更しない。preview Trip JSON を `trip diff` 等で扱う場合は **`--output`** を使う。`--json` は gate report のみ。`fragment validate` とは異なり file-only ではない。
+
+`fragment apply --confirm`: gate 通過後に **Day target + add_itinerary のみ** 既存 Day へ itinerary を1件 insert。`--dry-run` と `--confirm` は併用不可（dry-run means no Trip domain data side effects）。
 
 `proposal materialize --dry-run` / `--confirm`: Trip JSON 候補または DB 保存。`--dry-run` と `--confirm` は併用不可（dry-run means no side effects）。
 
