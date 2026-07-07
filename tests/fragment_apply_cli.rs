@@ -2003,6 +2003,335 @@ fn cli_fragment_apply_update_itinerary_noop_blocks_without_db_write() {
 }
 
 #[test]
+fn cli_fragment_apply_update_itinerary_basic_confirm_updates_itinerary() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-update-itinerary-basic-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before_expenses = itinerary_expense_count(&dir, "1");
+    let before_reservations = itinerary_reservation_count(&dir, "1");
+    let before_notes = note_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["preview"]["action"], "update_itinerary");
+    assert_eq!(parsed["updated_itinerary_id"], 1);
+    let changes = parsed["preview"]["itinerary_field_changes"]
+        .as_array()
+        .expect("itinerary_field_changes");
+    assert_eq!(changes.len(), 3);
+
+    let show = run_cli_in(&dir, &["itinerary", "show", "1", "--json"]);
+    assert!(show.status.success());
+    let item: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
+    assert_eq!(item["title"], "Morning temple visit");
+    assert_eq!(item["category"], "museum");
+    assert_eq!(item["note"], "Arrive 15 minutes early.");
+
+    let export_path = dir.join("trip-export-after-confirm.json");
+    let export = run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "export",
+            "1",
+            "--output",
+            export_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        export.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&export.stdout),
+        String::from_utf8_lossy(&export.stderr)
+    );
+    let export_json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&export_path).expect("export json")).unwrap();
+    let itinerary = export_json["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|day| day["day_number"] == 1)
+        .unwrap()["itineraries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["title"] == "Morning temple visit")
+        .expect("exported itinerary");
+    assert_eq!(itinerary["category"], "museum");
+    assert_eq!(itinerary["note"], "Arrive 15 minutes early.");
+
+    assert_eq!(itinerary_expense_count(&dir, "1"), before_expenses);
+    assert_eq!(itinerary_reservation_count(&dir, "1"), before_reservations);
+    assert_eq!(note_count(&dir, "1"), before_notes);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_trip_target_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-update-itinerary-trip-target-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_day_target_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-update-itinerary-day-target-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_required_decisions_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-update-itinerary-required-decisions-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_conflict_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-update-itinerary-conflict-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("baseline mismatch"));
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_noop_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-update-itinerary-noop-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_invalid_category_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-update-itinerary-invalid-category-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_invalid_time_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment = dir.join("apply-update-itinerary-invalid-time.json");
+    std::fs::write(
+        &fragment,
+        r#"{
+  "metadata": {
+    "fragment_id": "frag-update-itinerary-invalid-time",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  },
+  "fragment": {
+    "intent": "update_itinerary",
+    "candidate_content": {
+      "start_time": "25:99"
+    }
+  },
+  "adoption_hints": {
+    "required_decisions": []
+  }
+}"#,
+    )
+    .expect("write fragment");
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_update_itinerary_negative_duration_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment = dir.join("apply-update-itinerary-negative-duration.json");
+    std::fs::write(
+        &fragment,
+        r#"{
+  "metadata": {
+    "fragment_id": "frag-update-itinerary-negative-duration",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  },
+  "fragment": {
+    "intent": "update_itinerary",
+    "candidate_content": {
+      "duration_minutes": -10
+    }
+  },
+  "adoption_hints": {
+    "required_decisions": []
+  }
+}"#,
+    )
+    .expect("write fragment");
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn cli_fragment_validate_remains_file_only() {
     let fragment = fixture_path("valid-fragment.json");
     let temp_dir = std::env::temp_dir().join(format!(

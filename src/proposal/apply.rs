@@ -119,6 +119,8 @@ pub struct FragmentApplyDryRunReport {
     pub inserted_expense_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inserted_reservation_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_itinerary_id: Option<i64>,
 }
 
 impl FragmentApplyDryRunReport {
@@ -141,6 +143,7 @@ impl FragmentApplyDryRunReport {
             inserted_note_id: None,
             inserted_expense_id: None,
             inserted_reservation_id: None,
+            updated_itinerary_id: None,
         }
     }
 }
@@ -222,6 +225,7 @@ enum ConfirmInsertResult {
     Note(i64),
     Expense(i64),
     Reservation(i64),
+    UpdatedItinerary(i64),
 }
 
 pub fn run_fragment_apply(
@@ -266,6 +270,10 @@ pub fn run_fragment_apply(
                 "add_reservation" => {
                     execute_confirm_add_reservation(conn, options.trip_id, &json, &report)
                         .map(ConfirmInsertResult::Reservation)
+                }
+                "update_itinerary" => {
+                    execute_confirm_update_itinerary(conn, options.trip_id, &json, &report)
+                        .map(ConfirmInsertResult::UpdatedItinerary)
                 }
                 other => Err(anyhow::anyhow!("未対応の confirm action です: {other}")),
             };
@@ -333,6 +341,24 @@ pub fn run_fragment_apply(
                         }
                         if let Some(remark) = &reservation.remark {
                             println!("  remark         : {remark}");
+                        }
+                    }
+                }
+                Ok(ConfirmInsertResult::UpdatedItinerary(itinerary_id)) => {
+                    report.updated_itinerary_id = Some(itinerary_id);
+                    let item = crate::itinerary::get_itinerary_item(conn, itinerary_id)?;
+                    if !options.json {
+                        println!();
+                        println!("Itinerary を DB に更新しました（fragment apply --confirm）");
+                        println!("  itinerary ID : {itinerary_id}");
+                        println!("  旅行 ID      : {}", options.trip_id);
+                        println!("  日目         : {}", item.day);
+                        println!("  タイトル     : {}", item.title);
+                        if let Some(category) = item.category {
+                            println!("  category     : {}", category.as_str());
+                        }
+                        if let Some(note) = &item.note {
+                            println!("  note         : {note}");
                         }
                     }
                 }
@@ -614,9 +640,19 @@ fn validate_confirm_scope(
             }
             true
         }
+        ("update_itinerary", "update_itinerary") => {
+            if resolved.target_type != "itinerary" {
+                report.errors.push(format!(
+                    "v4.7.29 --confirm は itinerary target + update_itinerary のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            true
+        }
         _ => {
             report.errors.push(format!(
-                "v4.7.27 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
+                "v4.7.29 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、update_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
                 preview.action
             ));
             false
@@ -763,6 +799,141 @@ fn execute_confirm_add_reservation(
         },
     )?;
     Ok(result.id)
+}
+
+fn execute_confirm_update_itinerary(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let preview = report
+        .preview
+        .as_ref()
+        .context("update_itinerary confirm には preview が必要です")?;
+    let changes = preview
+        .itinerary_field_changes
+        .as_ref()
+        .filter(|changes| !changes.is_empty())
+        .context("update_itinerary confirm には itinerary_field_changes が必要です")?;
+
+    let root: Value =
+        serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+    let root_obj = root
+        .as_object()
+        .context("トップレベルが JSON object ではありません")?;
+    let fragment_body = root_obj
+        .get("fragment")
+        .and_then(Value::as_object)
+        .context("fragment object が必要です")?;
+    let candidate = fragment_body
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .context("candidate_content object が必要です")?;
+    let target = report
+        .resolved_target
+        .as_ref()
+        .context("target が解決されていません")?;
+    let fields = parse_update_itinerary_fields(fragment_body, None)
+        .map_err(|error| anyhow::anyhow!(error))?;
+    let itinerary_id = resolve_itinerary_id_for_apply_target(conn, trip_id, target)?;
+
+    revalidate_update_itinerary_before_write(conn, itinerary_id, candidate, changes)
+        .map_err(|error| anyhow::anyhow!(error))?;
+
+    let note = fields.note.as_ref().map(|patch| {
+        if patch.value.is_empty() {
+            None
+        } else {
+            Some(patch.value.as_str())
+        }
+    });
+    let location = fields.location.as_ref().map(|patch| {
+        if patch.value.is_empty() {
+            None
+        } else {
+            Some(patch.value.as_str())
+        }
+    });
+    let start_time = fields.start_time.as_ref().map(|patch| {
+        if patch.value.is_empty() {
+            None
+        } else {
+            Some(patch.value.as_str())
+        }
+    });
+    let category = fields.category.as_ref().map(|patch| Some(patch.value));
+
+    crate::itinerary::update_itinerary_item(
+        conn,
+        itinerary_id,
+        None,
+        fields.title.as_deref(),
+        note,
+        start_time,
+        None,
+        fields.duration_minutes,
+        fields.travel_minutes,
+        location,
+        category,
+    )?;
+
+    Ok(itinerary_id)
+}
+
+fn itinerary_item_to_export_snapshot(
+    item: &crate::domain::models::ItineraryItem,
+) -> ExportItineraryV3 {
+    ExportItineraryV3 {
+        title: item.title.clone(),
+        note: item.note.clone(),
+        start_time: item.start_time.clone(),
+        sort_order: item.sort_order,
+        duration_minutes: item.duration_minutes,
+        travel_minutes: item.travel_minutes,
+        location: item.location.clone(),
+        category: item.category,
+        expenses: Vec::new(),
+        estimates: Vec::new(),
+        reservations: Vec::new(),
+    }
+}
+
+fn revalidate_update_itinerary_before_write(
+    conn: &Connection,
+    itinerary_id: i64,
+    candidate: &Map<String, Value>,
+    preview_changes: &[FragmentApplyItineraryFieldChange],
+) -> Result<(), String> {
+    let item = crate::itinerary::get_itinerary_item(conn, itinerary_id)
+        .map_err(|error| error.to_string())?;
+    let current = itinerary_item_to_export_snapshot(&item);
+
+    detect_update_itinerary_baseline_conflicts(candidate, &current)?;
+
+    for change in preview_changes {
+        let actual_before = export_itinerary_field_display(&current, &change.field);
+        if actual_before != change.before {
+            return Err(format!(
+                "TOCTOU mismatch: itinerary_field_changes.{} の before ({}) が現行 DB ({actual_before}) と一致しません — DB 更新しません",
+                change.field, change.before
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn export_itinerary_field_display(current: &ExportItineraryV3, field: &str) -> String {
+    match field {
+        "title" => current.title.clone(),
+        "note" => fmt_diff_option_str(&current.note),
+        "location" => fmt_diff_option_str(&current.location),
+        "category" => fmt_diff_option_category(current.category),
+        "start_time" => fmt_diff_option_str(&current.start_time),
+        "duration_minutes" => fmt_diff_option_i64(current.duration_minutes),
+        "travel_minutes" => fmt_diff_option_i64(current.travel_minutes),
+        other => other.to_string(),
+    }
 }
 
 fn resolve_itinerary_id_for_apply_target(
@@ -2458,6 +2629,10 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
         println!("  inserted_reservation_id: {reservation_id}");
     }
 
+    if let Some(itinerary_id) = report.updated_itinerary_id {
+        println!("  updated_itinerary_id: {itinerary_id}");
+    }
+
     if !report.required_decisions.is_empty() {
         println!("Required decisions:");
         for item in &report.required_decisions {
@@ -2990,5 +3165,119 @@ mod tests {
             .expect("db itinerary");
         assert_eq!(item_after.title, "Morning temple");
         assert_eq!(item_after.category, None);
+    }
+
+    const UPDATE_ITINERARY_FRAGMENT: &str = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "update_itinerary",
+            "candidate_content": {
+              "title": "Morning temple visit",
+              "category": "museum",
+              "note": "Arrive 15 minutes early."
+            }
+          },
+          "adoption_hints": { "required_decisions": [] }
+        }"#;
+
+    #[test]
+    fn confirm_update_itinerary_writes_db() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let item_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let path = std::env::temp_dir().join(format!(
+            "caglla-fragment-update-confirm-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, UPDATE_ITINERARY_FRAGMENT).unwrap();
+        let options = FragmentApplyOptions {
+            dry_run: false,
+            confirm: true,
+            trip_id,
+            output: None,
+            json: false,
+        };
+        run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
+
+        let item = crate::itinerary::get_itinerary_item(&conn, item_id).unwrap();
+        assert_eq!(item.title, "Morning temple visit");
+        assert_eq!(item.category, Some(ItineraryCategory::Museum));
+        assert_eq!(item.note.as_deref(), Some("Arrive 15 minutes early."));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn confirm_update_itinerary_toctou_blocks_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let item_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let (report, _) = fragment_apply_gate_json(
+            &conn,
+            "test.json",
+            UPDATE_ITINERARY_FRAGMENT,
+            trip_id,
+            false,
+            true,
+        );
+        assert!(report.valid, "errors: {:?}", report.errors);
+
+        crate::itinerary::update_itinerary_item(
+            &conn,
+            item_id,
+            None,
+            Some("Changed by another writer"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let error =
+            execute_confirm_update_itinerary(&conn, trip_id, UPDATE_ITINERARY_FRAGMENT, &report)
+                .unwrap_err();
+        assert!(error.to_string().contains("TOCTOU"));
+
+        let item = crate::itinerary::get_itinerary_item(&conn, item_id).unwrap();
+        assert_eq!(item.title, "Changed by another writer");
+        assert_eq!(item.category, None);
     }
 }

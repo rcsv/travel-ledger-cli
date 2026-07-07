@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.28](docs/releases/v4.7.28-notes.md) — P-6i update_itinerary dry-run。
+**最新:** [v4.7.29](docs/releases/v4.7.29-notes.md) — P-6i update_itinerary --confirm。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.29](docs/releases/v4.7.29-notes.md) | minor | Fragment apply update_itinerary --confirm (P-6i) |
 | [v4.7.28](docs/releases/v4.7.28-notes.md) | minor | Fragment apply update_itinerary dry-run (P-6i) |
 | [v4.7.27](docs/releases/v4.7.27-notes.md) | minor | Fragment apply add_reservation --confirm (P-6h) |
 | [v4.7.26](docs/releases/v4.7.26-notes.md) | minor | Fragment apply add_reservation dry-run (P-6h) |
