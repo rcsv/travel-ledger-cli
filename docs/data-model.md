@@ -28,6 +28,8 @@ Trip（旅行全体）
 
 Itinerary は場所（Venue / POI）ではなく、**旅行中の行動を表す最小単位** です。計画時には予定として、旅行後には実績として扱えます。`title` と `--day` があれば登録でき、`location`（場所文字列）は **任意** です。高速道路・給油・チェックイン・部屋食・帰宅など、固定 POI に紐づかない行も Itinerary として扱います。費用は Itinerary 自身ではなく、配下の **Expense** に記録します。
 
+将来の Venue 導入方針（primary venue ref のみ・複数 role は初期スコープ外）: [specifications/venue-model-introduction-policy.md](specifications/venue-model-introduction-policy.md)。
+
 ### Note と itinerary --note の違い
 
 Trip / Day / Itinerary に付けられる **自由記述メモ**（`note` コマンド）は、既存の `itinerary add ... --note`（1 予定 1 フィールド）とは別エンティティです。

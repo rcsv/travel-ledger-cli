@@ -39,6 +39,7 @@ P-6i update_itinerary dry-run — v4.7.28 完了
 
 - P-6j delete / reorder
 - P-6i day / sort_order 拡張（reorder 設計後）
+- **Venue model 実装** — [venue-model-introduction-policy.md](specifications/venue-model-introduction-policy.md)（planning 済み、v4.8+ 候補）
 - safety test hardening（day target / ambiguous / invalid time / negative numeric / estimate 不変の専用 test）
 - doctor / advisor finding schema / AI Fragment generation
 - DB proposal storage / import / list

@@ -7,6 +7,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [planning-design-principles.md](planning-design-principles.md) | Planning 設計原則（Itinerary / Checklist / Note / Reservation / Expense の役割分担 — v2.0.1 後） |
 | [day-model.md](day-model.md) | Day モデル（v1.0.9–v1.2.0 反映済み） |
 | [itinerary-model.md](itinerary-model.md) | Itinerary モデル（v1.8.0：行動単位、not a venue） |
+| [venue-model-introduction-policy.md](venue-model-introduction-policy.md) | Venue model 導入方針（planning — primary venue ref only、実装前） |
 | [ordering-model.md](ordering-model.md) | Ordering モデル（Sequence-first 原則・v1.9.0 実装済み） |
 | [travel-ledger-responsibilities.md](travel-ledger-responsibilities.md) | Summary / Remark / Note / Reservation の責務分離（v1.10.0 文書化） |
 | [summary-responsibilities-review.md](summary-responsibilities-review.md) | Summary Responsibilities Review（v1.14.0 設計前責務整理） |

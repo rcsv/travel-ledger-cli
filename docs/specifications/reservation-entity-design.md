@@ -283,7 +283,7 @@ Reservation
 - 予約番号、確認、利用期間、連絡先（予約窓口）
 ```
 
-Itinerary の `location`（任意テキスト）は移行期の表示用。将来は Venue 参照 + Reservation の組み合わせが目標。
+Itinerary の `location`（任意テキスト）は移行期の表示用。将来は **optional primary Venue ref** + Reservation の組み合わせが目標（[venue-model-introduction-policy.md](venue-model-introduction-policy.md)）。
 
 ---
 

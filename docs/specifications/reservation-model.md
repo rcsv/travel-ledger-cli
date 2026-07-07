@@ -299,7 +299,7 @@ Sample 更新
 | CLI | `reservation add/list/show/update/delete`（Itinerary スコープ） |
 | Export | schema v4 または v3 拡張（要互換検討） |
 | しおり | Trip-level Reservation セクション |
-| Venue model | 別仕様書（Itinerary 配下、POI 参照） |
+| Venue model | [Venue Model Introduction Policy](venue-model-introduction-policy.md)（Itinerary 配下、primary ref only — planning） |
 | Routing model | 別仕様書（本書対象外） |
 
 ---

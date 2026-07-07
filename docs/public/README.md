@@ -24,6 +24,7 @@ Travel Ledger を **外部に説明するための入口** です。実装の詳
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md) — Envelope 概念正本
 - [future-roadmap-planning-memo.md](../future-roadmap-planning-memo.md) — 将来機能のブレインストーミング（非確約）
 - [export-schema.md](../specifications/export-schema.md) — export スキーマ正本（実装者向け）
+- [venue-model-introduction-policy.md](../specifications/venue-model-introduction-policy.md) — Venue 導入方針（planning、schema v8 変更前）
 
 ---
 

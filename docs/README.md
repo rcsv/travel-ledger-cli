@@ -49,6 +49,7 @@ Latest Proposal apply spec: [v4.7.28 Fragment apply update_itinerary dry-run](sp
 | [specifications/README.md](specifications/README.md) | 仕様ドキュメントの索引 |
 | [specifications/day-model.md](specifications/day-model.md) | Day モデル |
 | [specifications/itinerary-model.md](specifications/itinerary-model.md) | Itinerary モデル（not a venue） |
+| [specifications/venue-model-introduction-policy.md](specifications/venue-model-introduction-policy.md) | Venue 導入方針（planning — primary venue ref only） |
 | [specifications/export-schema.md](specifications/export-schema.md) | Export JSON スキーマ |
 | [specifications/note-model.md](specifications/note-model.md) | Note モデル |
 | [specifications/expense-model.md](specifications/expense-model.md) | Expense モデル |

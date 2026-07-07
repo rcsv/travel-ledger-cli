@@ -35,6 +35,8 @@ v1.8.0 で **CLI 側のモデルを正として明文化** します。実装は
 - Google Place / POI ID などの外部参照は **現行 CLI にはない**（将来、任意の補助メタデータとして追加可能）
 - 場所が特定できない・特定する必要がない行動（「出発」「部屋で夕食」「帰宅」など）も Itinerary として登録する
 
+**Venue model（将来）:** Itinerary は Venue そのものではないが、**任意で最大 1 つの primary Venue** を参照できる方針とする。複数 Venue role（origin / destination / waypoint 等）や経路構造は初期スコープ外。詳細は [venue-model-introduction-policy.md](venue-model-introduction-policy.md)。
+
 ### 費用は Itinerary 配下の Estimate と Expense
 
 Itinerary 自身は金額を持たない。
