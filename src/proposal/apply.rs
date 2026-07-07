@@ -6,12 +6,13 @@ use serde_json::{Map, Value};
 use crate::day::{find_day_by_trip_and_day_number, validate_trip_date_range};
 use crate::domain::models::{
     parse_itinerary_category, ExportDayV3, ExportExpenseV3, ExportItineraryV3, ExportNote,
-    ItineraryCategory, ItineraryNoteKey, TripExportV3, TRIP_EXPORT_GENERATOR,
+    ExportReservationV3, ItineraryCategory, ItineraryNoteKey, TripExportV3, TRIP_EXPORT_GENERATOR,
     TRIP_EXPORT_SCHEMA_VERSION,
 };
 use crate::itinerary::{parse_time_hhmm, SORT_ORDER_STEP};
 use crate::money::{parse_amount_for_currency, validate_currency_code};
 use crate::output::json::print_json;
+use crate::reservation::{validate_provider_name, validate_reservation_type};
 use crate::trip::{analyze_trip_export_json, build_trip_export_v3, get_trip};
 
 use super::fragment::analyze_proposal_fragment_json;
@@ -50,6 +51,12 @@ pub struct FragmentApplyPreviewSummary {
     pub expenses_after: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expense_preview: Option<FragmentApplyExpensePreview>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reservations_before: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reservations_after: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reservation_preview: Option<FragmentApplyReservationPreview>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,6 +67,22 @@ pub struct FragmentApplyExpensePreview {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyReservationPreview {
+    pub reservation_type: String,
+    pub provider_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirmation_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reservation_site_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_at: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -153,6 +176,17 @@ struct ParsedAddExpenseFields {
     amount: i64,
     currency: String,
     note: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ParsedAddReservationFields {
+    reservation_type: String,
+    provider_name: String,
+    confirmation_code: Option<String>,
+    reservation_site_url: Option<String>,
+    remark: Option<String>,
+    start_at: Option<String>,
+    end_at: Option<String>,
 }
 
 enum ConfirmInsertResult {
@@ -407,6 +441,7 @@ fn fragment_apply_gate_json(
     let itineraries_before = count_itineraries(&preview_export);
     let notes_before = count_notes(&preview_export);
     let expenses_before = count_expenses(&preview_export);
+    let reservations_before = count_reservations(&preview_export);
     let mut simulated = preview_export;
     let preview_summary = match simulate_apply_preview(
         &mut simulated,
@@ -416,6 +451,7 @@ fn fragment_apply_gate_json(
         itineraries_before,
         notes_before,
         expenses_before,
+        reservations_before,
         &mut report,
     ) {
         Ok(summary) => summary,
@@ -1104,6 +1140,15 @@ fn count_expenses(export: &TripExportV3) -> usize {
         .sum()
 }
 
+fn count_reservations(export: &TripExportV3) -> usize {
+    export
+        .days
+        .iter()
+        .flat_map(|day| day.itineraries.iter())
+        .map(|item| item.reservations.len())
+        .sum()
+}
+
 fn parse_add_expense_fields(
     fragment: &Map<String, Value>,
     report: Option<&mut FragmentApplyDryRunReport>,
@@ -1181,6 +1226,96 @@ fn warn_unsupported_add_expense_candidate_keys(
             &mut report.warnings,
             format!("unsupported_field: candidate_content.{key} は add_expense では未反映です"),
         );
+    }
+}
+
+fn parse_add_reservation_fields(
+    fragment: &Map<String, Value>,
+    report: Option<&mut FragmentApplyDryRunReport>,
+) -> Result<ParsedAddReservationFields, String> {
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    if let Some(report) = report {
+        warn_unsupported_add_reservation_candidate_keys(candidate, report);
+    }
+
+    let reservation_type_text = non_empty_string(candidate.get("reservation_type"))
+        .or_else(|| non_empty_string(candidate.get("type")))
+        .ok_or_else(|| "candidate_content.reservation_type が必要です".to_string())?;
+    let reservation_type = validate_reservation_type(&reservation_type_text)
+        .map_err(|error| format!("candidate_content.reservation_type が不正です: {error}"))?;
+
+    let provider_text = non_empty_string(candidate.get("provider"))
+        .or_else(|| non_empty_string(candidate.get("provider_name")))
+        .ok_or_else(|| "candidate_content.provider が必要です".to_string())?;
+    let provider_name = validate_provider_name(&provider_text)
+        .map_err(|error| format!("candidate_content.provider が不正です: {error}"))?;
+
+    let confirmation_code = non_empty_string(candidate.get("confirmation"))
+        .or_else(|| non_empty_string(candidate.get("confirmation_code")));
+    let reservation_site_url = non_empty_string(candidate.get("site_url"))
+        .or_else(|| non_empty_string(candidate.get("reservation_site_url")));
+    let remark = non_empty_string(candidate.get("remark"))
+        .or_else(|| non_empty_string(candidate.get("note")))
+        .or_else(|| non_empty_string(candidate.get("memo")));
+    let start_at = non_empty_string(candidate.get("start_at"));
+    let end_at = non_empty_string(candidate.get("end_at"));
+
+    Ok(ParsedAddReservationFields {
+        reservation_type,
+        provider_name,
+        confirmation_code,
+        reservation_site_url,
+        remark,
+        start_at,
+        end_at,
+    })
+}
+
+fn warn_unsupported_add_reservation_candidate_keys(
+    candidate: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    const SUPPORTED: &[&str] = &[
+        "reservation_type",
+        "type",
+        "provider",
+        "provider_name",
+        "confirmation",
+        "confirmation_code",
+        "site_url",
+        "reservation_site_url",
+        "remark",
+        "note",
+        "memo",
+        "start_at",
+        "end_at",
+    ];
+    for key in candidate.keys() {
+        if SUPPORTED.contains(&key.as_str()) {
+            continue;
+        }
+        push_unique(
+            &mut report.warnings,
+            format!("unsupported_field: candidate_content.{key} は add_reservation では未反映です"),
+        );
+    }
+}
+
+fn build_export_reservation_from_add_fields(
+    fields: &ParsedAddReservationFields,
+) -> ExportReservationV3 {
+    ExportReservationV3 {
+        reservation_type: fields.reservation_type.clone(),
+        provider_name: fields.provider_name.clone(),
+        confirmation_code: fields.confirmation_code.clone(),
+        reservation_site_url: fields.reservation_site_url.clone(),
+        remark: fields.remark.clone(),
+        start_at: fields.start_at.clone(),
+        end_at: fields.end_at.clone(),
     }
 }
 
@@ -1344,6 +1479,7 @@ fn simulate_apply_preview(
     itineraries_before: usize,
     notes_before: usize,
     expenses_before: usize,
+    reservations_before: usize,
     report: &mut FragmentApplyDryRunReport,
 ) -> Result<FragmentApplyPreviewSummary, String> {
     let candidate = fragment.get("candidate_content");
@@ -1378,6 +1514,9 @@ fn simulate_apply_preview(
                 expenses_before: None,
                 expenses_after: None,
                 expense_preview: None,
+                reservations_before: None,
+                reservations_after: None,
+                reservation_preview: None,
             })
         }
         "add_note" => {
@@ -1396,6 +1535,9 @@ fn simulate_apply_preview(
                 expenses_before: None,
                 expenses_after: None,
                 expense_preview: None,
+                reservations_before: None,
+                reservations_after: None,
+                reservation_preview: None,
             })
         }
         "add_expense" => {
@@ -1440,6 +1582,59 @@ fn simulate_apply_preview(
                     title: fields.title.clone(),
                     note: fields.note.clone(),
                 }),
+                reservations_before: None,
+                reservations_after: None,
+                reservation_preview: None,
+            })
+        }
+        "add_reservation" => {
+            if resolved.target_type != "itinerary" {
+                return Err(
+                    "add_reservation は itinerary target のみサポートしています（trip / day は未対応）"
+                        .to_string(),
+                );
+            }
+            let day_number = resolved.day_number.ok_or_else(|| {
+                "add_reservation の Itinerary target が解決されていません（day）".to_string()
+            })?;
+            let itinerary_sort_order = resolved.itinerary_sort_order.ok_or_else(|| {
+                "add_reservation の Itinerary target が解決されていません（sort_order）".to_string()
+            })?;
+            ensure_day_in_range(export, day_number)?;
+            let fields = parse_add_reservation_fields(fragment, Some(report))?;
+            let day = find_or_create_day(export, day_number);
+            let itinerary = find_itinerary_mut_in_export_day(day, itinerary_sort_order)
+                .ok_or_else(|| {
+                    format!(
+                        "preview 内に itinerary (day {day_number}, sort_order {itinerary_sort_order}) が見つかりません"
+                    )
+                })?;
+            itinerary
+                .reservations
+                .push(build_export_reservation_from_add_fields(&fields));
+            let reservations_after = count_reservations(export);
+            Ok(FragmentApplyPreviewSummary {
+                intent: intent.to_string(),
+                action: "add_reservation".to_string(),
+                candidate_title: Some(fields.provider_name.clone()),
+                itineraries_before,
+                itineraries_after: itineraries_before,
+                notes_before: None,
+                notes_after: None,
+                expenses_before: None,
+                expenses_after: None,
+                expense_preview: None,
+                reservations_before: Some(reservations_before),
+                reservations_after: Some(reservations_after),
+                reservation_preview: Some(FragmentApplyReservationPreview {
+                    reservation_type: fields.reservation_type,
+                    provider_name: fields.provider_name,
+                    confirmation_code: fields.confirmation_code,
+                    reservation_site_url: fields.reservation_site_url,
+                    remark: fields.remark,
+                    start_at: fields.start_at,
+                    end_at: fields.end_at,
+                }),
             })
         }
         "enrich" => {
@@ -1474,6 +1669,9 @@ fn simulate_apply_preview(
                 expenses_before: None,
                 expenses_after: None,
                 expense_preview: None,
+                reservations_before: None,
+                reservations_after: None,
+                reservation_preview: None,
             })
         }
         "warning" => Ok(FragmentApplyPreviewSummary {
@@ -1487,6 +1685,9 @@ fn simulate_apply_preview(
             expenses_before: None,
             expenses_after: None,
             expense_preview: None,
+            reservations_before: None,
+            reservations_after: None,
+            reservation_preview: None,
         }),
         "replace_candidate" | "reorder_hint" => {
             report.warnings.push(format!(
@@ -1503,6 +1704,9 @@ fn simulate_apply_preview(
                 expenses_before: None,
                 expenses_after: None,
                 expense_preview: None,
+                reservations_before: None,
+                reservations_after: None,
+                reservation_preview: None,
             })
         }
         other => Err(format!("未対応の intent です: {other}")),
@@ -1606,6 +1810,37 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
             }
             if let Some(note) = &expense_preview.note {
                 println!("  expense_preview.note: {note}");
+            }
+        }
+        if let Some(reservations_before) = preview.reservations_before {
+            println!("  reservations_before: {reservations_before}");
+        }
+        if let Some(reservations_after) = preview.reservations_after {
+            println!("  reservations_after: {reservations_after}");
+        }
+        if let Some(reservation_preview) = &preview.reservation_preview {
+            println!(
+                "  reservation_preview.reservation_type: {}",
+                reservation_preview.reservation_type
+            );
+            println!(
+                "  reservation_preview.provider_name: {}",
+                reservation_preview.provider_name
+            );
+            if let Some(code) = &reservation_preview.confirmation_code {
+                println!("  reservation_preview.confirmation_code: {code}");
+            }
+            if let Some(url) = &reservation_preview.reservation_site_url {
+                println!("  reservation_preview.reservation_site_url: {url}");
+            }
+            if let Some(remark) = &reservation_preview.remark {
+                println!("  reservation_preview.remark: {remark}");
+            }
+            if let Some(start_at) = &reservation_preview.start_at {
+                println!("  reservation_preview.start_at: {start_at}");
+            }
+            if let Some(end_at) = &reservation_preview.end_at {
+                println!("  reservation_preview.end_at: {end_at}");
             }
         }
     }

@@ -1095,6 +1095,20 @@ fn itinerary_expense_count(dir: &std::path::Path, itinerary_id: &str) -> usize {
         .unwrap_or(0)
 }
 
+fn itinerary_reservation_count(dir: &std::path::Path, itinerary_id: &str) -> usize {
+    let output = run_cli_in(
+        dir,
+        &["reservation", "list", "--itinerary", itinerary_id, "--json"],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    parsed["reservations"]
+        .as_array()
+        .map(|items| items.len())
+        .unwrap_or(0)
+}
+
 #[test]
 fn cli_fragment_apply_add_expense_itinerary_dry_run_preview_keeps_db_unchanged() {
     let dir = temp_workdir();
@@ -1336,6 +1350,158 @@ fn cli_fragment_apply_add_expense_trip_target_confirm_blocks_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_expense_count(&dir, "1"), before);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_reservation_itinerary_dry_run_preview_keeps_db_unchanged() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-reservation-itinerary-fragment.json");
+    let preview_path = dir.join("add-reservation-preview.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before_reservations = itinerary_reservation_count(&dir, "1");
+    let before_notes = note_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["preview"]["action"], "add_reservation");
+    assert_eq!(parsed["preview"]["reservations_after"], 1);
+    assert_eq!(
+        parsed["preview"]["reservation_preview"]["reservation_type"],
+        "ticket"
+    );
+    assert_eq!(
+        parsed["preview"]["reservation_preview"]["provider_name"],
+        "Temple office"
+    );
+    assert_eq!(
+        parsed["preview"]["reservation_preview"]["remark"],
+        "Bring printed QR code."
+    );
+
+    let preview_json = std::fs::read_to_string(&preview_path).expect("preview json");
+    let export: serde_json::Value = serde_json::from_str(&preview_json).expect("parse preview");
+    let day = export["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|day| day["day_number"] == 1)
+        .expect("day 1");
+    let itinerary = day["itineraries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["title"] == "Morning temple")
+        .expect("itinerary");
+    let reservations = itinerary["reservations"].as_array().expect("reservations");
+    assert_eq!(reservations.len(), 1);
+    assert_eq!(reservations[0]["reservation_type"], "ticket");
+    assert_eq!(reservations[0]["provider_name"], "Temple office");
+    assert_eq!(reservations[0]["confirmation_code"], "TCK-12345");
+    assert_eq!(
+        reservations[0]["reservation_site_url"],
+        "https://example.invalid/reservation/TCK-12345"
+    );
+    assert_eq!(reservations[0]["remark"], "Bring printed QR code.");
+
+    assert!(run_cli_in(
+        &dir,
+        &["trip", "validate-export", preview_path.to_str().unwrap()],
+    )
+    .status
+    .success());
+
+    assert_eq!(itinerary_reservation_count(&dir, "1"), before_reservations);
+    assert_eq!(note_count(&dir, "1"), before_notes);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_reservation_invalid_type_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-reservation-invalid-type-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before = itinerary_reservation_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(itinerary_reservation_count(&dir, "1"), before);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_reservation_trip_target_fails_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-reservation-trip-target-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before = itinerary_reservation_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(itinerary_reservation_count(&dir, "1"), before);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_reservation_required_decisions_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-reservation-required-decisions-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before = itinerary_reservation_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(itinerary_reservation_count(&dir, "1"), before);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

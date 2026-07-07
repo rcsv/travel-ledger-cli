@@ -11,6 +11,7 @@ const VALID_INTENTS: &[&str] = &[
     "add",
     "add_note",
     "add_expense",
+    "add_reservation",
     "enrich",
     "replace_candidate",
     "reorder_hint",
@@ -263,7 +264,7 @@ fn validate_fragment_fields(
         None => report.errors.push("fragment.intent が必要です".to_string()),
         Some(value) if !VALID_INTENTS.contains(&value.as_str()) => {
             report.errors.push(format!(
-                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / enrich / replace_candidate / reorder_hint / warning のいずれか）"
+                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_reservation / enrich / replace_candidate / reorder_hint / warning のいずれか）"
             ));
         }
         _ => {}
@@ -285,6 +286,9 @@ fn fragment_body_nearly_empty(
     }
     if intent == Some("add_expense") {
         return add_expense_body_nearly_empty(fragment);
+    }
+    if intent == Some("add_reservation") {
+        return add_reservation_body_nearly_empty(fragment);
     }
     let has_notes = non_empty_string(fragment.get("notes")).is_some();
     let candidate = fragment.get("candidate_content");
@@ -317,6 +321,19 @@ fn add_expense_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> b
         .is_some_and(|value| !value.is_null());
     let has_currency = non_empty_string(candidate.get("currency")).is_some();
     !(has_amount && has_currency)
+}
+
+fn add_reservation_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> bool {
+    let Some(candidate) = fragment.get("candidate_content").and_then(Value::as_object) else {
+        return true;
+    };
+    let has_reservation_type = non_empty_string(candidate.get("reservation_type"))
+        .or_else(|| non_empty_string(candidate.get("type")))
+        .is_some();
+    let has_provider_name = non_empty_string(candidate.get("provider"))
+        .or_else(|| non_empty_string(candidate.get("provider_name")))
+        .is_some();
+    !(has_reservation_type && has_provider_name)
 }
 
 fn target_summary_string(target: &serde_json::Map<String, Value>) -> Option<String> {
