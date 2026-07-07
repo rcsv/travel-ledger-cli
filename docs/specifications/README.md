@@ -77,6 +77,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.7.30-p6j-destructive-structural-apply-policy.md](v4.7.30-p6j-destructive-structural-apply-policy.md) | P-6j delete / reorder policy（planning — 実装前） |
 | [v4.7.29-fragment-apply-update-itinerary-confirm.md](v4.7.29-fragment-apply-update-itinerary-confirm.md) | v4.7.29 Fragment apply update_itinerary --confirm（P-6i） |
 | [v4.7.28-fragment-apply-update-itinerary-dry-run.md](v4.7.28-fragment-apply-update-itinerary-dry-run.md) | v4.7.28 Fragment apply update_itinerary dry-run（P-6i） |
 | [v4.7.28-p6i-update-itinerary-implementation-plan.md](v4.7.28-p6i-update-itinerary-implementation-plan.md) | P-6i update_itinerary implementation plan |
