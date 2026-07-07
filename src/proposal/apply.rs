@@ -34,6 +34,13 @@ pub struct FragmentApplyResolvedTarget {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyItineraryFieldChange {
+    pub field: String,
+    pub before: String,
+    pub after: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FragmentApplyPreviewSummary {
     pub intent: String,
     pub action: String,
@@ -57,6 +64,8 @@ pub struct FragmentApplyPreviewSummary {
     pub reservations_after: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reservation_preview: Option<FragmentApplyReservationPreview>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub itinerary_field_changes: Option<Vec<FragmentApplyItineraryFieldChange>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -190,6 +199,22 @@ struct ParsedAddReservationFields {
     remark: Option<String>,
     start_at: Option<String>,
     end_at: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ParsedUpdateItineraryFields {
+    title: Option<String>,
+    note: Option<UpdateFieldPatch<String>>,
+    location: Option<UpdateFieldPatch<String>>,
+    category: Option<UpdateFieldPatch<ItineraryCategory>>,
+    start_time: Option<UpdateFieldPatch<String>>,
+    duration_minutes: Option<i64>,
+    travel_minutes: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct UpdateFieldPatch<T> {
+    value: T,
 }
 
 enum ConfirmInsertResult {
@@ -1008,6 +1033,15 @@ fn collect_required_decisions(
         }
     }
 
+    if let Some(items) = hints
+        .and_then(Value::as_object)
+        .and_then(|obj| obj.get("conflicts"))
+    {
+        for item in string_array(Some(items)) {
+            push_unique(required_decisions, item);
+        }
+    }
+
     if non_empty_string(target.get("target_type")).as_deref() == Some("unresolved") {
         push_unique(
             required_decisions,
@@ -1394,6 +1428,471 @@ fn build_export_reservation_from_add_fields(
     }
 }
 
+fn parse_update_itinerary_fields(
+    fragment: &Map<String, Value>,
+    report: Option<&mut FragmentApplyDryRunReport>,
+) -> Result<ParsedUpdateItineraryFields, String> {
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    if let Some(report) = report {
+        warn_unsupported_update_itinerary_candidate_keys(candidate, report);
+    }
+
+    let title = if candidate.contains_key("title") {
+        Some(
+            non_empty_string(candidate.get("title"))
+                .ok_or_else(|| "candidate_content.title が必要です".to_string())?,
+        )
+    } else {
+        None
+    };
+
+    let note = patch_optional_string_field(candidate, "note")?;
+    let location = patch_optional_string_field(candidate, "location")?;
+    let category = patch_optional_category_field(candidate)?;
+    let start_time = parse_update_start_time_field(candidate)?;
+    let duration_minutes = parse_update_duration_minutes_field(candidate)?;
+    let travel_minutes = parse_update_travel_minutes_field(candidate)?;
+
+    let has_update_field = title.is_some()
+        || note.is_some()
+        || location.is_some()
+        || category.is_some()
+        || start_time.is_some()
+        || duration_minutes.is_some()
+        || travel_minutes.is_some();
+    if !has_update_field {
+        return Err("update_itinerary には少なくとも 1 つの更新フィールドが必要です".to_string());
+    }
+
+    Ok(ParsedUpdateItineraryFields {
+        title,
+        note,
+        location,
+        category,
+        start_time,
+        duration_minutes,
+        travel_minutes,
+    })
+}
+
+fn patch_optional_string_field(
+    candidate: &Map<String, Value>,
+    key: &str,
+) -> Result<Option<UpdateFieldPatch<String>>, String> {
+    if !candidate.contains_key(key) {
+        return Ok(None);
+    }
+    let value = match candidate.get(key) {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => {
+            if text.is_empty() {
+                None
+            } else {
+                Some(text.clone())
+            }
+        }
+        _ => {
+            return Err(format!(
+                "candidate_content.{key} は文字列である必要があります"
+            ))
+        }
+    };
+    Ok(Some(UpdateFieldPatch {
+        value: value.unwrap_or_default(),
+    }))
+}
+
+fn patch_optional_category_field(
+    candidate: &Map<String, Value>,
+) -> Result<Option<UpdateFieldPatch<ItineraryCategory>>, String> {
+    if !candidate.contains_key("category") {
+        return Ok(None);
+    }
+    let text = non_empty_string(candidate.get("category"))
+        .ok_or_else(|| "candidate_content.category が必要です".to_string())?;
+    let category = parse_itinerary_category(&text)
+        .map_err(|error| format!("candidate_content.category が不正です: {error}"))?;
+    Ok(Some(UpdateFieldPatch { value: category }))
+}
+
+fn parse_update_start_time_field(
+    candidate: &Map<String, Value>,
+) -> Result<Option<UpdateFieldPatch<String>>, String> {
+    let has_start_time = candidate.contains_key("start_time");
+    let has_time = candidate.contains_key("time");
+    if !has_start_time && !has_time {
+        return Ok(None);
+    }
+
+    let start_time = read_optional_time_value(candidate.get("start_time"), "start_time")?;
+    let time = read_optional_time_value(candidate.get("time"), "time")?;
+    match (start_time, time) {
+        (Some(left), Some(right)) if left != right => {
+            Err("start_time と time が矛盾しています".to_string())
+        }
+        (Some(value), _) | (_, Some(value)) => Ok(Some(UpdateFieldPatch { value })),
+        (None, None) => Ok(Some(UpdateFieldPatch {
+            value: String::new(),
+        })),
+    }
+}
+
+fn read_optional_time_value(value: Option<&Value>, field: &str) -> Result<Option<String>, String> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let text = non_empty_string(Some(value))
+        .ok_or_else(|| format!("candidate_content.{field} が必要です"))?;
+    parse_time_hhmm(&text).map_err(|error| error.to_string())?;
+    Ok(Some(text))
+}
+
+fn parse_update_duration_minutes_field(
+    candidate: &Map<String, Value>,
+) -> Result<Option<i64>, String> {
+    let duration_minutes =
+        parse_optional_non_negative_i64(candidate.get("duration_minutes"), "duration_minutes")?;
+    let duration = parse_optional_non_negative_i64(candidate.get("duration"), "duration")?;
+    match (duration_minutes, duration) {
+        (Some(left), Some(right)) if left != right => {
+            Err("duration_minutes と duration が矛盾しています".to_string())
+        }
+        (Some(value), _) | (_, Some(value)) => Ok(Some(value)),
+        (None, None) => Ok(None),
+    }
+}
+
+fn parse_update_travel_minutes_field(
+    candidate: &Map<String, Value>,
+) -> Result<Option<i64>, String> {
+    let travel_minutes =
+        parse_optional_non_negative_i64(candidate.get("travel_minutes"), "travel_minutes")?;
+    let travel_time_minutes = parse_optional_non_negative_i64(
+        candidate.get("travel_time_minutes"),
+        "travel_time_minutes",
+    )?;
+    let travel = parse_optional_non_negative_i64(candidate.get("travel"), "travel")?;
+    let values = [travel_minutes, travel_time_minutes, travel]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    if values.is_empty() {
+        return Ok(None);
+    }
+    let first = values[0];
+    if values.iter().any(|value| *value != first) {
+        return Err("travel_minutes / travel_time_minutes / travel が矛盾しています".to_string());
+    }
+    Ok(Some(first))
+}
+
+fn warn_unsupported_update_itinerary_candidate_keys(
+    candidate: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    const SUPPORTED: &[&str] = &[
+        "title",
+        "note",
+        "location",
+        "category",
+        "start_time",
+        "time",
+        "duration_minutes",
+        "duration",
+        "travel_minutes",
+        "travel_time_minutes",
+        "travel",
+        "expected_title",
+        "expected_note",
+        "expected_location",
+        "expected_category",
+        "expected_start_time",
+        "expected_duration_minutes",
+        "expected_travel_minutes",
+    ];
+    for key in candidate.keys() {
+        if SUPPORTED.contains(&key.as_str()) {
+            continue;
+        }
+        push_unique(
+            &mut report.warnings,
+            format!(
+                "unsupported_field: candidate_content.{key} は update_itinerary では未反映です"
+            ),
+        );
+    }
+}
+
+fn fmt_diff_option_str(value: &Option<String>) -> String {
+    value.as_deref().unwrap_or("-").to_string()
+}
+
+fn fmt_diff_option_i64(value: Option<i64>) -> String {
+    value
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "-".to_string())
+}
+
+fn fmt_diff_option_category(value: Option<ItineraryCategory>) -> String {
+    value
+        .map(|category| category.as_str().to_string())
+        .unwrap_or_else(|| "-".to_string())
+}
+
+fn detect_update_itinerary_baseline_conflicts(
+    candidate: &Map<String, Value>,
+    current: &ExportItineraryV3,
+) -> Result<(), String> {
+    let checks = [
+        ("expected_title", current.title.clone()),
+        ("expected_note", fmt_diff_option_str(&current.note)),
+        ("expected_location", fmt_diff_option_str(&current.location)),
+        (
+            "expected_category",
+            fmt_diff_option_category(current.category),
+        ),
+        (
+            "expected_start_time",
+            fmt_diff_option_str(&current.start_time),
+        ),
+        (
+            "expected_duration_minutes",
+            fmt_diff_option_i64(current.duration_minutes),
+        ),
+        (
+            "expected_travel_minutes",
+            fmt_diff_option_i64(current.travel_minutes),
+        ),
+    ];
+
+    for (expected_key, current_value) in checks {
+        let Some(expected_text) = non_empty_string(candidate.get(expected_key)) else {
+            continue;
+        };
+        if expected_text != current_value {
+            return Err(format!(
+                "baseline mismatch: {expected_key} ({expected_text}) が現行値 ({current_value}) と一致しません"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn build_update_itinerary_field_changes(
+    current: &ExportItineraryV3,
+    fields: &ParsedUpdateItineraryFields,
+) -> Result<Vec<FragmentApplyItineraryFieldChange>, String> {
+    let mut changes = Vec::new();
+
+    if let Some(title) = &fields.title {
+        push_itinerary_field_change(&mut changes, "title", &current.title, title);
+    }
+    if let Some(note) = &fields.note {
+        let after = if note.value.is_empty() {
+            "-".to_string()
+        } else {
+            note.value.clone()
+        };
+        push_itinerary_field_change(
+            &mut changes,
+            "note",
+            &fmt_diff_option_str(&current.note),
+            &after,
+        );
+    }
+    if let Some(location) = &fields.location {
+        let after = if location.value.is_empty() {
+            "-".to_string()
+        } else {
+            location.value.clone()
+        };
+        push_itinerary_field_change(
+            &mut changes,
+            "location",
+            &fmt_diff_option_str(&current.location),
+            &after,
+        );
+    }
+    if let Some(category) = &fields.category {
+        push_itinerary_field_change(
+            &mut changes,
+            "category",
+            &fmt_diff_option_category(current.category),
+            &fmt_diff_option_category(Some(category.value)),
+        );
+    }
+    if let Some(start_time) = &fields.start_time {
+        let after = if start_time.value.is_empty() {
+            "-".to_string()
+        } else {
+            start_time.value.clone()
+        };
+        push_itinerary_field_change(
+            &mut changes,
+            "start_time",
+            &fmt_diff_option_str(&current.start_time),
+            &after,
+        );
+    }
+    if let Some(duration_minutes) = fields.duration_minutes {
+        push_itinerary_field_change(
+            &mut changes,
+            "duration_minutes",
+            &fmt_diff_option_i64(current.duration_minutes),
+            &duration_minutes.to_string(),
+        );
+    }
+    if let Some(travel_minutes) = fields.travel_minutes {
+        push_itinerary_field_change(
+            &mut changes,
+            "travel_minutes",
+            &fmt_diff_option_i64(current.travel_minutes),
+            &travel_minutes.to_string(),
+        );
+    }
+
+    if changes.is_empty() {
+        return Err(
+            "有効な itinerary 更新がありません — 現行値と同一のため no-op です".to_string(),
+        );
+    }
+    Ok(changes)
+}
+
+fn push_itinerary_field_change(
+    changes: &mut Vec<FragmentApplyItineraryFieldChange>,
+    field: &str,
+    before: &str,
+    after: &str,
+) {
+    if before == after {
+        return;
+    }
+    changes.push(FragmentApplyItineraryFieldChange {
+        field: field.to_string(),
+        before: before.to_string(),
+        after: after.to_string(),
+    });
+}
+
+fn apply_update_itinerary_patch(
+    itinerary: &mut ExportItineraryV3,
+    fields: &ParsedUpdateItineraryFields,
+) {
+    if let Some(title) = &fields.title {
+        itinerary.title = title.clone();
+    }
+    if let Some(note) = &fields.note {
+        itinerary.note = if note.value.is_empty() {
+            None
+        } else {
+            Some(note.value.clone())
+        };
+    }
+    if let Some(location) = &fields.location {
+        itinerary.location = if location.value.is_empty() {
+            None
+        } else {
+            Some(location.value.clone())
+        };
+    }
+    if let Some(category) = &fields.category {
+        itinerary.category = Some(category.value);
+    }
+    if let Some(start_time) = &fields.start_time {
+        itinerary.start_time = if start_time.value.is_empty() {
+            None
+        } else {
+            Some(start_time.value.clone())
+        };
+    }
+    if let Some(duration_minutes) = fields.duration_minutes {
+        itinerary.duration_minutes = Some(duration_minutes);
+    }
+    if let Some(travel_minutes) = fields.travel_minutes {
+        itinerary.travel_minutes = Some(travel_minutes);
+    }
+}
+
+fn apply_update_itinerary_preview(
+    export: &mut TripExportV3,
+    resolved: &ResolvedApplyTarget,
+    fragment: &Map<String, Value>,
+    intent: &str,
+    itineraries_before: usize,
+    report: &mut FragmentApplyDryRunReport,
+) -> Result<FragmentApplyPreviewSummary, String> {
+    if resolved.target_type != "itinerary" {
+        return Err(
+            "update_itinerary は itinerary target のみサポートしています（trip / day は未対応）"
+                .to_string(),
+        );
+    }
+    if resolved.resolution == "ambiguous" {
+        return Err("target が曖昧です — apply preview を続行しません".to_string());
+    }
+
+    let day_number = resolved.day_number.ok_or_else(|| {
+        "update_itinerary の Itinerary target が解決されていません（day）".to_string()
+    })?;
+    let itinerary_sort_order = resolved.itinerary_sort_order.ok_or_else(|| {
+        "update_itinerary の Itinerary target が解決されていません（sort_order）".to_string()
+    })?;
+    ensure_day_in_range(export, day_number)?;
+
+    let fields = parse_update_itinerary_fields(fragment, Some(report))?;
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    let current = lookup_itinerary_in_export(export, day_number, itinerary_sort_order)
+        .ok_or_else(|| {
+            format!(
+                "preview 内に itinerary (day {day_number}, sort_order {itinerary_sort_order}) が見つかりません"
+            )
+        })?
+        .clone();
+
+    detect_update_itinerary_baseline_conflicts(candidate, &current)?;
+    let changes = build_update_itinerary_field_changes(&current, &fields)?;
+
+    let day = find_or_create_day(export, day_number);
+    let itinerary = find_itinerary_mut_in_export_day(day, itinerary_sort_order).ok_or_else(|| {
+        format!(
+            "preview 内に itinerary (day {day_number}, sort_order {itinerary_sort_order}) が見つかりません"
+        )
+    })?;
+    apply_update_itinerary_patch(itinerary, &fields);
+
+    Ok(FragmentApplyPreviewSummary {
+        intent: intent.to_string(),
+        action: "update_itinerary".to_string(),
+        candidate_title: fields
+            .title
+            .clone()
+            .or_else(|| resolved.itinerary_title.clone()),
+        itineraries_before,
+        itineraries_after: itineraries_before,
+        notes_before: None,
+        notes_after: None,
+        expenses_before: None,
+        expenses_after: None,
+        expense_preview: None,
+        reservations_before: None,
+        reservations_after: None,
+        reservation_preview: None,
+        itinerary_field_changes: Some(changes),
+    })
+}
+
 fn append_sort_order_for_export_itinerary(itinerary: &ExportItineraryV3) -> i64 {
     itinerary
         .expenses
@@ -1592,6 +2091,7 @@ fn simulate_apply_preview(
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
+                itinerary_field_changes: None,
             })
         }
         "add_note" => {
@@ -1613,6 +2113,7 @@ fn simulate_apply_preview(
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
+                itinerary_field_changes: None,
             })
         }
         "add_expense" => {
@@ -1660,6 +2161,7 @@ fn simulate_apply_preview(
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
+                itinerary_field_changes: None,
             })
         }
         "add_reservation" => {
@@ -1710,8 +2212,17 @@ fn simulate_apply_preview(
                     start_at: fields.start_at,
                     end_at: fields.end_at,
                 }),
+                itinerary_field_changes: None,
             })
         }
+        "update_itinerary" => apply_update_itinerary_preview(
+            export,
+            resolved,
+            fragment,
+            intent,
+            itineraries_before,
+            report,
+        ),
         "enrich" => {
             if let Some(day_number) = resolved.day_number {
                 ensure_day_in_range(export, day_number)?;
@@ -1747,6 +2258,7 @@ fn simulate_apply_preview(
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
+                itinerary_field_changes: None,
             })
         }
         "warning" => Ok(FragmentApplyPreviewSummary {
@@ -1763,6 +2275,7 @@ fn simulate_apply_preview(
             reservations_before: None,
             reservations_after: None,
             reservation_preview: None,
+            itinerary_field_changes: None,
         }),
         "replace_candidate" | "reorder_hint" => {
             report.warnings.push(format!(
@@ -1782,6 +2295,7 @@ fn simulate_apply_preview(
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
+                itinerary_field_changes: None,
             })
         }
         other => Err(format!("未対応の intent です: {other}")),
@@ -1916,6 +2430,14 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
             }
             if let Some(end_at) = &reservation_preview.end_at {
                 println!("  reservation_preview.end_at: {end_at}");
+            }
+        }
+        if let Some(changes) = &preview.itinerary_field_changes {
+            for change in changes {
+                println!(
+                    "  itinerary_field_change.{}: {} -> {}",
+                    change.field, change.before, change.after
+                );
             }
         }
     }
@@ -2363,5 +2885,110 @@ mod tests {
             .unwrap()
             .len();
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn update_itinerary_parse_requires_update_field() {
+        let fragment: Map<String, Value> = serde_json::from_str(
+            r#"{
+          "intent": "update_itinerary",
+          "candidate_content": { "expected_title": "Morning temple" }
+        }"#,
+        )
+        .unwrap();
+        let error = parse_update_itinerary_fields(&fragment, None).unwrap_err();
+        assert!(error.contains("更新フィールド"));
+    }
+
+    #[test]
+    fn update_itinerary_baseline_conflict_detected() {
+        let current = ExportItineraryV3 {
+            title: "Morning temple".to_string(),
+            note: None,
+            start_time: None,
+            sort_order: 1000,
+            duration_minutes: None,
+            travel_minutes: None,
+            location: None,
+            category: None,
+            expenses: Vec::new(),
+            estimates: Vec::new(),
+            reservations: Vec::new(),
+        };
+        let candidate: Map<String, Value> =
+            serde_json::from_str(r#"{"expected_title": "Wrong title"}"#).unwrap();
+        let error = detect_update_itinerary_baseline_conflicts(&candidate, &current).unwrap_err();
+        assert!(error.contains("baseline mismatch"));
+    }
+
+    #[test]
+    fn update_itinerary_dry_run_preview_patches_export_without_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "update_itinerary",
+            "candidate_content": {
+              "title": "Morning temple visit",
+              "category": "museum"
+            }
+          },
+          "adoption_hints": { "required_decisions": [] }
+        }"#;
+
+        let item_before = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.title == "Morning temple")
+            .expect("seed itinerary");
+
+        let (report, preview_json) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        let preview = report.preview.expect("preview summary");
+        assert_eq!(preview.action, "update_itinerary");
+        let changes = preview.itinerary_field_changes.expect("field changes");
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0].field, "title");
+        assert_eq!(changes[1].field, "category");
+
+        let preview_json = preview_json.expect("preview json");
+        let export: TripExportV3 = serde_json::from_str(&preview_json).unwrap();
+        let item = export
+            .days
+            .iter()
+            .flat_map(|day| day.itineraries.iter())
+            .find(|item| item.title == "Morning temple visit")
+            .expect("patched itinerary");
+        assert_eq!(item.category, Some(ItineraryCategory::Museum));
+
+        let item_after = crate::itinerary::list_itinerary_items(&conn, trip_id)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == item_before.id)
+            .expect("db itinerary");
+        assert_eq!(item_after.title, "Morning temple");
+        assert_eq!(item_after.category, None);
     }
 }
