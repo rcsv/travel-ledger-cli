@@ -83,6 +83,8 @@ pub struct FragmentApplyDryRunReport {
     pub inserted_itinerary_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inserted_note_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inserted_expense_id: Option<i64>,
 }
 
 impl FragmentApplyDryRunReport {
@@ -103,6 +105,7 @@ impl FragmentApplyDryRunReport {
             preview: None,
             inserted_itinerary_id: None,
             inserted_note_id: None,
+            inserted_expense_id: None,
         }
     }
 }
@@ -155,6 +158,7 @@ struct ParsedAddExpenseFields {
 enum ConfirmInsertResult {
     Itinerary(i64),
     Note(i64),
+    Expense(i64),
 }
 
 pub fn run_fragment_apply(
@@ -194,6 +198,8 @@ pub fn run_fragment_apply(
                 }
                 "add_note" => execute_confirm_add_note(conn, options.trip_id, &json, &report)
                     .map(ConfirmInsertResult::Note),
+                "add_expense" => execute_confirm_add_expense(conn, options.trip_id, &json, &report)
+                    .map(ConfirmInsertResult::Expense),
                 other => Err(anyhow::anyhow!("未対応の confirm action です: {other}")),
             };
             match confirm_result {
@@ -223,6 +229,25 @@ pub fn run_fragment_apply(
                             println!("  タイトル     : {title}");
                         }
                         println!("  body         : {}", note.body);
+                    }
+                }
+                Ok(ConfirmInsertResult::Expense(expense_id)) => {
+                    report.inserted_expense_id = Some(expense_id);
+                    let expense = crate::expense::get_expense(conn, expense_id)?;
+                    if !options.json {
+                        println!();
+                        println!("Expense を DB に追加しました（fragment apply --confirm）");
+                        println!("  expense ID   : {expense_id}");
+                        println!("  旅行 ID      : {}", options.trip_id);
+                        println!("  itinerary ID : {}", expense.itinerary_id);
+                        println!("  amount       : {}", expense.amount);
+                        println!("  currency     : {}", expense.currency);
+                        if let Some(title) = &expense.title {
+                            println!("  タイトル     : {title}");
+                        }
+                        if let Some(note) = &expense.note {
+                            println!("  note         : {note}");
+                        }
                     }
                 }
                 Err(error) => {
@@ -481,9 +506,19 @@ fn validate_confirm_scope(
             }
             true
         }
+        ("add_expense", "add_expense") => {
+            if resolved.target_type != "itinerary" {
+                report.errors.push(format!(
+                    "v4.7.25 --confirm は itinerary target + add_expense のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            true
+        }
         _ => {
             report.errors.push(format!(
-                "v4.7.23 --confirm は intent add (add_itinerary)、add_note、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
+                "v4.7.25 --confirm は intent add (add_itinerary)、add_note、add_expense、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
                 preview.action
             ));
             false
@@ -552,6 +587,74 @@ fn execute_confirm_add_note(
         parse_add_note_fields(fragment_body, None).map_err(|error| anyhow::anyhow!(error))?;
     let owner = resolve_note_owner_for_apply_target(conn, trip_id, target)?;
     crate::note::add_note(conn, owner, fields.title.as_deref(), &fields.body)
+}
+
+fn execute_confirm_add_expense(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let root: Value =
+        serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+    let root_obj = root
+        .as_object()
+        .context("トップレベルが JSON object ではありません")?;
+    let fragment_body = root_obj
+        .get("fragment")
+        .and_then(Value::as_object)
+        .context("fragment object が必要です")?;
+    let target = report
+        .resolved_target
+        .as_ref()
+        .context("target が解決されていません")?;
+    let fields =
+        parse_add_expense_fields(fragment_body, None).map_err(|error| anyhow::anyhow!(error))?;
+    let itinerary_id = resolve_itinerary_id_for_apply_target(conn, trip_id, target)?;
+    let result = crate::services::expense_add::add_expense(
+        conn,
+        crate::services::expense_add::ExpenseAddParams {
+            itinerary: itinerary_id,
+            amount: fields.amount.to_string(),
+            currency: fields.currency,
+            title: fields.title,
+            note: fields.note,
+            paid_by_name: None,
+            paid_by_participant: None,
+            beneficiary: vec![],
+            shared_with: None,
+            expense_date: None,
+        },
+    )?;
+    Ok(result.id)
+}
+
+fn resolve_itinerary_id_for_apply_target(
+    conn: &Connection,
+    trip_id: i64,
+    target: &FragmentApplyResolvedTarget,
+) -> Result<i64> {
+    if target.target_type != "itinerary" {
+        anyhow::bail!(
+            "add_expense は itinerary target のみサポートしています（現在: {}）",
+            target.target_type
+        );
+    }
+    let day_number = target
+        .day_number
+        .context("add_expense の Itinerary target が解決されていません（day）")?;
+    let sort_order = target
+        .itinerary_sort_order
+        .context("add_expense の Itinerary target が解決されていません（sort_order）")?;
+    let item = crate::itinerary::list_itinerary_items_for_day(conn, trip_id, day_number)?
+        .into_iter()
+        .find(|item| item.sort_order == sort_order)
+        .with_context(|| {
+            format!(
+                "itinerary_reference (sort_order {sort_order}) が Day {day_number} に見つかりません"
+            )
+        })?;
+    Ok(item.id)
 }
 
 fn resolve_note_owner_for_apply_target(
@@ -1515,6 +1618,10 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
         println!("  inserted_note_id: {note_id}");
     }
 
+    if let Some(expense_id) = report.inserted_expense_id {
+        println!("  inserted_expense_id: {expense_id}");
+    }
+
     if !report.required_decisions.is_empty() {
         println!("Required decisions:");
         for item in &report.required_decisions {
@@ -1688,6 +1795,65 @@ mod tests {
         std::fs::write(&path, json).unwrap();
         run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
         let after = crate::note::list_all_notes_for_trip(&conn, trip_id)
+            .unwrap()
+            .len();
+        assert_eq!(after, before + 1);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn confirm_add_expense_writes_db() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let itinerary_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "add_expense",
+            "candidate_content": {
+              "title": "Temple admission",
+              "amount": 500,
+              "currency": "JPY",
+              "note": "Cash only."
+            }
+          }
+        }"#;
+        let before = crate::expense::list_expenses_for_itinerary(&conn, itinerary_id)
+            .unwrap()
+            .len();
+        let options = FragmentApplyOptions {
+            dry_run: false,
+            confirm: true,
+            trip_id,
+            output: None,
+            json: true,
+        };
+        let path = std::env::temp_dir().join(format!(
+            "caglla-fragment-add-expense-confirm-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, json).unwrap();
+        run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
+        let after = crate::expense::list_expenses_for_itinerary(&conn, itinerary_id)
             .unwrap()
             .len();
         assert_eq!(after, before + 1);

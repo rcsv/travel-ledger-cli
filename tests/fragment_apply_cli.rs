@@ -1238,9 +1238,88 @@ fn cli_fragment_apply_add_expense_required_decisions_invalid_without_db_write() 
 }
 
 #[test]
-fn cli_fragment_apply_add_expense_confirm_not_supported() {
+fn cli_fragment_apply_add_expense_itinerary_confirm_inserts_expense() {
     let dir = temp_workdir();
     let fragment = fixture_path("apply-add-expense-itinerary-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before = itinerary_expense_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["preview"]["action"], "add_expense");
+    let inserted_id = parsed["inserted_expense_id"]
+        .as_i64()
+        .expect("inserted_expense_id");
+
+    let show = run_cli_in(
+        &dir,
+        &["expense", "show", &inserted_id.to_string(), "--json"],
+    );
+    assert!(show.status.success());
+    let expense: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
+    assert_eq!(expense["amount"], 500);
+    assert_eq!(expense["currency"], "JPY");
+    assert_eq!(expense["title"], "Temple admission");
+    assert_eq!(expense["note"], "Cash only at gate.");
+
+    assert_eq!(itinerary_expense_count(&dir, "1"), before + 1);
+    let list = run_cli_in(&dir, &["expense", "list", "--itinerary", "1", "--json"]);
+    assert!(list.status.success());
+    let list_parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&list.stdout)).unwrap();
+    let expenses = list_parsed["expenses"].as_array().expect("expenses");
+    assert_eq!(expenses.len(), 1);
+    assert_eq!(expenses[0]["id"], inserted_id);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_expense_confirm_required_decisions_block_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-expense-required-decisions-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let before = itinerary_expense_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(itinerary_expense_count(&dir, "1"), before);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_expense_trip_target_confirm_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-expense-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
     let before = itinerary_expense_count(&dir, "1");
