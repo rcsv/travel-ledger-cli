@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.26](docs/releases/v4.7.26-notes.md) — P-6h add_reservation dry-run。
+**最新:** [v4.7.27](docs/releases/v4.7.27-notes.md) — P-6h add_reservation --confirm。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.27](docs/releases/v4.7.27-notes.md) | minor | Fragment apply add_reservation --confirm (P-6h) |
 | [v4.7.26](docs/releases/v4.7.26-notes.md) | minor | Fragment apply add_reservation dry-run (P-6h) |
 | [v4.7.25](docs/releases/v4.7.25-notes.md) | minor | Fragment apply add_expense --confirm (P-6g) |
 | [v4.7.24](docs/releases/v4.7.24-notes.md) | minor | Fragment apply add_expense dry-run (P-6g) |

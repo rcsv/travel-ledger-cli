@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.26 released — P-6h add_reservation dry-run
+v4.7.27 released — P-6h add_reservation --confirm
 
 ## Latest completed
 
+- v4.7.27 Fragment apply add_reservation --confirm (P-6h) — **released**
 - v4.7.26 Fragment apply add_reservation dry-run (P-6h) — **released**
 - v4.7.25 Fragment apply add_expense --confirm (P-6g) — **released**
 - v4.7.24 Fragment apply add_expense dry-run (P-6g) — **released**
@@ -15,9 +16,9 @@ v4.7.26 released — P-6h add_reservation dry-run
 
 ## Repository state
 
-- Cargo version: `4.7.26`
-- Latest release: **v4.7.26** — [v4.7.26-notes.md](releases/v4.7.26-notes.md)
-- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense`（itinerary）
+- Cargo version: `4.7.27`
+- Latest release: **v4.7.27** — [v4.7.27-notes.md](releases/v4.7.27-notes.md)
+- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation`（itinerary）
 
 ## v4.7.x Proposal 実装
 
@@ -25,11 +26,12 @@ v4.7.26 released — P-6h add_reservation dry-run
 P-6g add_expense dry-run — v4.7.24 完了
 P-6g add_expense --confirm — v4.7.25 完了
 P-6h add_reservation dry-run — v4.7.26 完了
+P-6h add_reservation --confirm — v4.7.27 完了
 ```
 
 ## Next action
 
-**v4.7.27** — P-6h `add_reservation --confirm`
+**Candidate:** P-6i `update_itinerary` or file-only `fragment show` / `fragment inspect`
 
 ## Defer
 

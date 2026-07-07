@@ -76,6 +76,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.7.27-fragment-apply-add-reservation-confirm.md](v4.7.27-fragment-apply-add-reservation-confirm.md) | v4.7.27 Fragment apply add_reservation --confirm（P-6h） |
 | [v4.7.26-fragment-apply-add-reservation-dry-run.md](v4.7.26-fragment-apply-add-reservation-dry-run.md) | v4.7.26 Fragment apply add_reservation dry-run（P-6h） |
 | [v4.7.26-p6h-add-reservation-implementation-plan.md](v4.7.26-p6h-add-reservation-implementation-plan.md) | P-6h add_reservation implementation plan（planning） |
 | [v4.7.25-fragment-apply-add-expense-confirm.md](v4.7.25-fragment-apply-add-expense-confirm.md) | v4.7.25 Fragment apply add_expense --confirm（P-6g） |

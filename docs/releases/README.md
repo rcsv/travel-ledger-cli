@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.27 | Fragment apply add_reservation --confirm (P-6h) | [v4.7.27-notes.md](v4.7.27-notes.md) |
 | v4.7.26 | Fragment apply add_reservation dry-run (P-6h) | [v4.7.26-notes.md](v4.7.26-notes.md) |
 | v4.7.25 | Fragment apply add_expense --confirm (P-6g) | [v4.7.25-notes.md](v4.7.25-notes.md) |
 | v4.7.24 | Fragment apply add_expense dry-run (P-6g) | [v4.7.24-notes.md](v4.7.24-notes.md) |

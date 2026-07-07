@@ -108,6 +108,8 @@ pub struct FragmentApplyDryRunReport {
     pub inserted_note_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inserted_expense_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inserted_reservation_id: Option<i64>,
 }
 
 impl FragmentApplyDryRunReport {
@@ -129,6 +131,7 @@ impl FragmentApplyDryRunReport {
             inserted_itinerary_id: None,
             inserted_note_id: None,
             inserted_expense_id: None,
+            inserted_reservation_id: None,
         }
     }
 }
@@ -193,6 +196,7 @@ enum ConfirmInsertResult {
     Itinerary(i64),
     Note(i64),
     Expense(i64),
+    Reservation(i64),
 }
 
 pub fn run_fragment_apply(
@@ -234,6 +238,10 @@ pub fn run_fragment_apply(
                     .map(ConfirmInsertResult::Note),
                 "add_expense" => execute_confirm_add_expense(conn, options.trip_id, &json, &report)
                     .map(ConfirmInsertResult::Expense),
+                "add_reservation" => {
+                    execute_confirm_add_reservation(conn, options.trip_id, &json, &report)
+                        .map(ConfirmInsertResult::Reservation)
+                }
                 other => Err(anyhow::anyhow!("未対応の confirm action です: {other}")),
             };
             match confirm_result {
@@ -281,6 +289,25 @@ pub fn run_fragment_apply(
                         }
                         if let Some(note) = &expense.note {
                             println!("  note         : {note}");
+                        }
+                    }
+                }
+                Ok(ConfirmInsertResult::Reservation(reservation_id)) => {
+                    report.inserted_reservation_id = Some(reservation_id);
+                    let reservation = crate::reservation::get_reservation(conn, reservation_id)?;
+                    if !options.json {
+                        println!();
+                        println!("Reservation を DB に追加しました（fragment apply --confirm）");
+                        println!("  reservation ID : {reservation_id}");
+                        println!("  旅行 ID        : {}", options.trip_id);
+                        println!("  itinerary ID   : {}", reservation.itinerary_id);
+                        println!("  type           : {}", reservation.reservation_type);
+                        println!("  provider       : {}", reservation.provider_name);
+                        if let Some(code) = &reservation.confirmation_code {
+                            println!("  confirmation   : {code}");
+                        }
+                        if let Some(remark) = &reservation.remark {
+                            println!("  remark         : {remark}");
                         }
                     }
                 }
@@ -552,9 +579,19 @@ fn validate_confirm_scope(
             }
             true
         }
+        ("add_reservation", "add_reservation") => {
+            if resolved.target_type != "itinerary" {
+                report.errors.push(format!(
+                    "v4.7.27 --confirm は itinerary target + add_reservation のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            true
+        }
         _ => {
             report.errors.push(format!(
-                "v4.7.25 --confirm は intent add (add_itinerary)、add_note、add_expense、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
+                "v4.7.27 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
                 preview.action
             ));
             false
@@ -665,6 +702,44 @@ fn execute_confirm_add_expense(
     Ok(result.id)
 }
 
+fn execute_confirm_add_reservation(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let root: Value =
+        serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+    let root_obj = root
+        .as_object()
+        .context("トップレベルが JSON object ではありません")?;
+    let fragment_body = root_obj
+        .get("fragment")
+        .and_then(Value::as_object)
+        .context("fragment object が必要です")?;
+    let target = report
+        .resolved_target
+        .as_ref()
+        .context("target が解決されていません")?;
+    let fields = parse_add_reservation_fields(fragment_body, None)
+        .map_err(|error| anyhow::anyhow!(error))?;
+    let itinerary_id = resolve_itinerary_id_for_apply_target(conn, trip_id, target)?;
+    let result = crate::services::reservation_add::add_reservation(
+        conn,
+        crate::services::reservation_add::ReservationAddParams {
+            itinerary: itinerary_id,
+            reservation_type: fields.reservation_type,
+            provider: fields.provider_name,
+            confirmation: fields.confirmation_code,
+            site_url: fields.reservation_site_url,
+            remark: fields.remark,
+            start_at: fields.start_at,
+            end_at: fields.end_at,
+        },
+    )?;
+    Ok(result.id)
+}
+
 fn resolve_itinerary_id_for_apply_target(
     conn: &Connection,
     trip_id: i64,
@@ -672,16 +747,16 @@ fn resolve_itinerary_id_for_apply_target(
 ) -> Result<i64> {
     if target.target_type != "itinerary" {
         anyhow::bail!(
-            "add_expense は itinerary target のみサポートしています（現在: {}）",
+            "itinerary target の apply のみサポートしています（現在: {}）",
             target.target_type
         );
     }
     let day_number = target
         .day_number
-        .context("add_expense の Itinerary target が解決されていません（day）")?;
+        .context("Itinerary target が解決されていません（day）")?;
     let sort_order = target
         .itinerary_sort_order
-        .context("add_expense の Itinerary target が解決されていません（sort_order）")?;
+        .context("Itinerary target が解決されていません（sort_order）")?;
     let item = crate::itinerary::list_itinerary_items_for_day(conn, trip_id, day_number)?
         .into_iter()
         .find(|item| item.sort_order == sort_order)
@@ -1855,6 +1930,10 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
 
     if let Some(expense_id) = report.inserted_expense_id {
         println!("  inserted_expense_id: {expense_id}");
+    }
+
+    if let Some(reservation_id) = report.inserted_reservation_id {
+        println!("  inserted_reservation_id: {reservation_id}");
     }
 
     if !report.required_decisions.is_empty() {
