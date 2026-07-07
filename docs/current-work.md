@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.30 released — P-6j destructive / structural apply operations policy
+v4.7.31 released — P-6j `delete_itinerary` dry-run
 
 ## Latest completed
 
+- v4.7.31 Fragment apply delete_itinerary dry-run (P-6j) — **released**
 - v4.7.30 P-6j destructive / structural apply operations policy — **released** (documentation-only)
 - v4.7.29 Fragment apply update_itinerary --confirm (P-6i) — **released**
 - v4.7.28 Fragment apply update_itinerary dry-run (P-6i) — **released**
@@ -19,10 +20,11 @@ v4.7.30 released — P-6j destructive / structural apply operations policy
 
 ## Repository state
 
-- Cargo version: `4.7.30`
-- Latest release: **v4.7.30** — [v4.7.30-notes.md](releases/v4.7.30-notes.md)
-- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）
-- **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 実装前の方針正本
+- Cargo version: `4.7.31`
+- Latest release: **v4.7.31** — [v4.7.31-notes.md](releases/v4.7.31-notes.md)
+- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）
+- **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 方針正本
+- **P-6j delete dry-run:** [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) — **released**（Venue / Place は delete blocker 外）
 
 ## v4.7.x Proposal 実装
 
@@ -34,20 +36,19 @@ P-6h add_reservation --confirm — v4.7.27 完了
 P-6i update_itinerary dry-run — v4.7.28 完了
 P-6i update_itinerary --confirm — v4.7.29 完了
 P-6j destructive / structural policy — v4.7.30 完了（docs only）
+P-6j delete_itinerary dry-run — v4.7.31 完了
 ```
 
 ## Next action
 
-**Candidate:** v4.7.31 — P-6j `delete_itinerary` dry-run
-
-Planning: [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md)（Venue / Place は delete blocker 外 — [v4.7.30 policy §2.2.1](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md#221-venue--place--not-a-delete-blocker)）
+**Candidate:** v4.7.32 — P-6j `delete_itinerary --confirm`
 
 ## Defer
 
 - P-6j `reorder_itinerary` 実装（v4.7.33+ planning / 実装候補）
 - P-6i day / sort_order 拡張（reorder 設計後）
 - **Venue model 実装** — [venue-model-introduction-policy.md](specifications/venue-model-introduction-policy.md)（planning 済み、v4.8+ 候補）
-- safety test hardening（negative travel_minutes / ambiguous target / estimate 不変の専用 test）
+- safety / UX hardening（blocking 時 structured `delete_preview`、Estimate blocking integration test、inline `itinerary.note` 非 blocking 専用 test、ambiguous / not-found delete 専用 test、`delete_itinerary --confirm` unsupported 専用 test）
 - doctor / advisor finding schema / AI Fragment generation
 - DB proposal storage / import / list
 - fragment show / inspect

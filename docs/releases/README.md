@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.31 | Fragment apply delete_itinerary dry-run (P-6j) | [v4.7.31-notes.md](v4.7.31-notes.md) |
 | v4.7.30 | P-6j destructive / structural apply policy | [v4.7.30-notes.md](v4.7.30-notes.md) |
 | v4.7.29 | Fragment apply update_itinerary --confirm (P-6i) | [v4.7.29-notes.md](v4.7.29-notes.md) |
 | v4.7.28 | Fragment apply update_itinerary dry-run (P-6i) | [v4.7.28-notes.md](v4.7.28-notes.md) |

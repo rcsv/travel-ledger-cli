@@ -2332,6 +2332,320 @@ fn cli_fragment_apply_update_itinerary_negative_duration_confirm_blocks_db_write
 }
 
 #[test]
+fn cli_fragment_apply_delete_itinerary_basic_dry_run_preview_keeps_db_unchanged() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
+    let preview_path = dir.join("delete-itinerary-preview.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["preview"]["action"], "delete_itinerary");
+    assert_eq!(parsed["preview"]["itineraries_before"], 1);
+    assert_eq!(parsed["preview"]["itineraries_after"], 0);
+    let delete_preview = &parsed["preview"]["delete_preview"];
+    assert_eq!(delete_preview["target_type"], "itinerary");
+    assert_eq!(delete_preview["itinerary_id"], 1);
+    assert_eq!(delete_preview["title"], "Morning temple");
+    assert_eq!(delete_preview["day_number"], 1);
+    assert_eq!(delete_preview["blocking_children"]["expenses"], 0);
+    assert_eq!(delete_preview["blocking_children"]["estimates"], 0);
+    assert_eq!(delete_preview["blocking_children"]["reservations"], 0);
+    assert_eq!(delete_preview["blocking_children"]["notes"], 0);
+
+    let preview_json = std::fs::read_to_string(&preview_path).expect("preview json");
+    let export: serde_json::Value = serde_json::from_str(&preview_json).expect("parse preview");
+    let day = export["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|day| day["day_number"] == 1)
+        .expect("day 1");
+    assert!(day["itineraries"].as_array().unwrap().is_empty());
+
+    assert!(run_cli_in(
+        &dir,
+        &["trip", "validate-export", preview_path.to_str().unwrap()],
+    )
+    .status
+    .success());
+
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_delete_itinerary_expense_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
+    seed_trip_with_itinerary(&dir);
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "expense",
+            "add",
+            "--itinerary",
+            "1",
+            "--amount",
+            "500",
+            "--currency",
+            "JPY",
+            "--title",
+            "Temple admission",
+        ],
+    )
+    .status
+    .success());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("blocking child"));
+    assert!(combined.contains("expenses: 1"));
+    let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
+    assert!(list.status.success());
+    assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_delete_itinerary_reservation_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
+    seed_trip_with_itinerary(&dir);
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "reservation",
+            "add",
+            "--itinerary",
+            "1",
+            "--reservation-type",
+            "hotel",
+            "--provider",
+            "Example Hotel",
+        ],
+    )
+    .status
+    .success());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("blocking child"));
+    assert!(combined.contains("reservations: 1"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_delete_itinerary_note_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
+    let note_fragment = fixture_path("apply-add-note-itinerary-fragment.json");
+    seed_trip_with_itinerary(&dir);
+    assert!(run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            note_fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+        ],
+    )
+    .status
+    .success());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("blocking child"));
+    assert!(combined.contains("notes: 1"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_delete_itinerary_trip_target_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-trip-target-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("itinerary target"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_delete_itinerary_day_target_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-day-target-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("itinerary target"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_delete_itinerary_required_decisions_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-required-decisions-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("required decisions"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_delete_itinerary_conflict_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-delete-itinerary-conflict-fragment.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("required decisions"));
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    let required = parsed["required_decisions"]
+        .as_array()
+        .expect("required_decisions");
+    assert!(!required.is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn cli_fragment_validate_remains_file_only() {
     let fragment = fixture_path("valid-fragment.json");
     let temp_dir = std::env::temp_dir().join(format!(

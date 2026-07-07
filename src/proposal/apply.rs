@@ -66,6 +66,8 @@ pub struct FragmentApplyPreviewSummary {
     pub reservation_preview: Option<FragmentApplyReservationPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub itinerary_field_changes: Option<Vec<FragmentApplyItineraryFieldChange>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_preview: Option<FragmentApplyDeletePreview>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,6 +78,26 @@ pub struct FragmentApplyExpensePreview {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyBlockingChildren {
+    pub expenses: usize,
+    pub estimates: usize,
+    pub reservations: usize,
+    pub notes: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyDeletePreview {
+    pub target_type: String,
+    pub itinerary_id: i64,
+    pub title: String,
+    pub day_number: i64,
+    pub sort_order: i64,
+    pub blocking_children: FragmentApplyBlockingChildren,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub non_blocking_relations: Option<Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -522,6 +544,8 @@ fn fragment_apply_gate_json(
     let reservations_before = count_reservations(&preview_export);
     let mut simulated = preview_export;
     let preview_summary = match simulate_apply_preview(
+        conn,
+        trip_id,
         &mut simulated,
         &resolved,
         fragment_body,
@@ -1429,6 +1453,163 @@ fn count_reservations(export: &TripExportV3) -> usize {
         .sum()
 }
 
+fn blocking_children_total(children: &FragmentApplyBlockingChildren) -> usize {
+    children.expenses + children.estimates + children.reservations + children.notes
+}
+
+fn matches_itinerary_note(note: &ExportNote, day_number: i64, sort_order: i64) -> bool {
+    matches!(
+        note,
+        ExportNote::Itinerary { itinerary_key, .. }
+            if itinerary_key.day_number == day_number && itinerary_key.sort_order == sort_order
+    )
+}
+
+fn count_itinerary_notes_in_export(
+    export: &TripExportV3,
+    day_number: i64,
+    sort_order: i64,
+) -> usize {
+    export
+        .notes()
+        .iter()
+        .filter(|note| matches_itinerary_note(note, day_number, sort_order))
+        .count()
+}
+
+fn remove_itinerary_from_export(
+    export: &mut TripExportV3,
+    day_number: i64,
+    sort_order: i64,
+) -> Result<(), String> {
+    let day = export
+        .days
+        .iter_mut()
+        .find(|day| day.day_number == day_number)
+        .ok_or_else(|| format!("preview 内に Day {day_number} が見つかりません"))?;
+    let before = day.itineraries.len();
+    day.itineraries.retain(|item| item.sort_order != sort_order);
+    if day.itineraries.len() + 1 == before {
+        Ok(())
+    } else {
+        Err(format!(
+            "preview 内に itinerary (day {day_number}, sort_order {sort_order}) が見つかりません"
+        ))
+    }
+}
+
+fn remove_itinerary_notes_from_export(export: &mut TripExportV3, day_number: i64, sort_order: i64) {
+    if let Some(notes) = export.notes.as_mut() {
+        notes.retain(|note| !matches_itinerary_note(note, day_number, sort_order));
+    }
+}
+
+fn resolved_apply_target_to_fragment_target(
+    resolved: &ResolvedApplyTarget,
+) -> FragmentApplyResolvedTarget {
+    FragmentApplyResolvedTarget {
+        target_type: resolved.target_type.clone(),
+        trip_id: resolved.trip_id,
+        trip_name: resolved.trip_name.clone(),
+        day_number: resolved.day_number,
+        itinerary_sort_order: resolved.itinerary_sort_order,
+        itinerary_title: resolved.itinerary_title.clone(),
+        resolution: resolved.resolution.clone(),
+    }
+}
+
+fn apply_delete_itinerary_preview(
+    conn: &Connection,
+    trip_id: i64,
+    export: &mut TripExportV3,
+    resolved: &ResolvedApplyTarget,
+    intent: &str,
+    itineraries_before: usize,
+) -> Result<FragmentApplyPreviewSummary, String> {
+    if resolved.target_type != "itinerary" {
+        return Err(
+            "delete_itinerary は itinerary target のみサポートしています（trip / day は未対応）"
+                .to_string(),
+        );
+    }
+    if resolved.resolution == "ambiguous" {
+        return Err("target が曖昧です — apply preview を続行しません".to_string());
+    }
+
+    let day_number = resolved.day_number.ok_or_else(|| {
+        "delete_itinerary の Itinerary target が解決されていません（day）".to_string()
+    })?;
+    let itinerary_sort_order = resolved.itinerary_sort_order.ok_or_else(|| {
+        "delete_itinerary の Itinerary target が解決されていません（sort_order）".to_string()
+    })?;
+    ensure_day_in_range(export, day_number)?;
+
+    let itinerary_id = resolve_itinerary_id_for_apply_target(
+        conn,
+        trip_id,
+        &resolved_apply_target_to_fragment_target(resolved),
+    )
+    .map_err(|error| error.to_string())?;
+
+    let current = lookup_itinerary_in_export(export, day_number, itinerary_sort_order)
+        .ok_or_else(|| {
+            format!(
+                "preview 内に itinerary (day {day_number}, sort_order {itinerary_sort_order}) が見つかりません"
+            )
+        })?;
+
+    let blocking_children = FragmentApplyBlockingChildren {
+        expenses: current.expenses.len(),
+        estimates: current.estimates.len(),
+        reservations: current.reservations.len(),
+        notes: count_itinerary_notes_in_export(export, day_number, itinerary_sort_order),
+    };
+
+    if blocking_children_total(&blocking_children) > 0 {
+        return Err(format!(
+            "delete_itinerary は blocking child が存在します（expenses: {}, estimates: {}, reservations: {}, notes: {}）— apply preview を続行しません",
+            blocking_children.expenses,
+            blocking_children.estimates,
+            blocking_children.reservations,
+            blocking_children.notes,
+        ));
+    }
+
+    let title = current.title.clone();
+    let sort_order = current.sort_order;
+
+    remove_itinerary_from_export(export, day_number, itinerary_sort_order)?;
+    remove_itinerary_notes_from_export(export, day_number, itinerary_sort_order);
+
+    let itineraries_after = count_itineraries(export);
+
+    Ok(FragmentApplyPreviewSummary {
+        intent: intent.to_string(),
+        action: "delete_itinerary".to_string(),
+        candidate_title: resolved.itinerary_title.clone(),
+        itineraries_before,
+        itineraries_after,
+        notes_before: None,
+        notes_after: None,
+        expenses_before: None,
+        expenses_after: None,
+        expense_preview: None,
+        reservations_before: None,
+        reservations_after: None,
+        reservation_preview: None,
+        itinerary_field_changes: None,
+        delete_preview: Some(FragmentApplyDeletePreview {
+            target_type: "itinerary".to_string(),
+            itinerary_id,
+            title,
+            day_number,
+            sort_order,
+            blocking_children,
+            non_blocking_relations: None,
+        }),
+    })
+}
+
 fn parse_add_expense_fields(
     fragment: &Map<String, Value>,
     report: Option<&mut FragmentApplyDryRunReport>,
@@ -2061,6 +2242,7 @@ fn apply_update_itinerary_preview(
         reservations_after: None,
         reservation_preview: None,
         itinerary_field_changes: Some(changes),
+        delete_preview: None,
     })
 }
 
@@ -2217,6 +2399,8 @@ fn lookup_itinerary_in_export(
 
 #[allow(clippy::too_many_arguments)]
 fn simulate_apply_preview(
+    conn: &Connection,
+    trip_id: i64,
     export: &mut TripExportV3,
     resolved: &ResolvedApplyTarget,
     fragment: &Map<String, Value>,
@@ -2263,6 +2447,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                delete_preview: None,
             })
         }
         "add_note" => {
@@ -2285,6 +2470,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                delete_preview: None,
             })
         }
         "add_expense" => {
@@ -2333,6 +2519,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                delete_preview: None,
             })
         }
         "add_reservation" => {
@@ -2384,6 +2571,7 @@ fn simulate_apply_preview(
                     end_at: fields.end_at,
                 }),
                 itinerary_field_changes: None,
+                delete_preview: None,
             })
         }
         "update_itinerary" => apply_update_itinerary_preview(
@@ -2393,6 +2581,14 @@ fn simulate_apply_preview(
             intent,
             itineraries_before,
             report,
+        ),
+        "delete_itinerary" => apply_delete_itinerary_preview(
+            conn,
+            trip_id,
+            export,
+            resolved,
+            intent,
+            itineraries_before,
         ),
         "enrich" => {
             if let Some(day_number) = resolved.day_number {
@@ -2430,6 +2626,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                delete_preview: None,
             })
         }
         "warning" => Ok(FragmentApplyPreviewSummary {
@@ -2447,6 +2644,7 @@ fn simulate_apply_preview(
             reservations_after: None,
             reservation_preview: None,
             itinerary_field_changes: None,
+            delete_preview: None,
         }),
         "replace_candidate" | "reorder_hint" => {
             report.warnings.push(format!(
@@ -2467,6 +2665,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                delete_preview: None,
             })
         }
         other => Err(format!("未対応の intent です: {other}")),
@@ -2610,6 +2809,31 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
                     change.field, change.before, change.after
                 );
             }
+        }
+        if let Some(delete_preview) = &preview.delete_preview {
+            println!(
+                "  delete_preview.itinerary_id: {}",
+                delete_preview.itinerary_id
+            );
+            println!("  delete_preview.title: {}", delete_preview.title);
+            println!("  delete_preview.day_number: {}", delete_preview.day_number);
+            println!("  delete_preview.sort_order: {}", delete_preview.sort_order);
+            println!(
+                "  delete_preview.blocking_children.expenses: {}",
+                delete_preview.blocking_children.expenses
+            );
+            println!(
+                "  delete_preview.blocking_children.estimates: {}",
+                delete_preview.blocking_children.estimates
+            );
+            println!(
+                "  delete_preview.blocking_children.reservations: {}",
+                delete_preview.blocking_children.reservations
+            );
+            println!(
+                "  delete_preview.blocking_children.notes: {}",
+                delete_preview.blocking_children.notes
+            );
         }
     }
 
@@ -3279,5 +3503,144 @@ mod tests {
         let item = crate::itinerary::get_itinerary_item(&conn, item_id).unwrap();
         assert_eq!(item.title, "Changed by another writer");
         assert_eq!(item.category, None);
+    }
+
+    const DELETE_ITINERARY_FRAGMENT: &str = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "delete_itinerary"
+          },
+          "adoption_hints": { "required_decisions": [] }
+        }"#;
+
+    #[test]
+    fn delete_itinerary_dry_run_preview_removes_itinerary_without_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let item_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", DELETE_ITINERARY_FRAGMENT, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        let preview = report.preview.expect("preview summary");
+        assert_eq!(preview.action, "delete_itinerary");
+        assert_eq!(preview.itineraries_before, 1);
+        assert_eq!(preview.itineraries_after, 0);
+        let delete_preview = preview.delete_preview.expect("delete_preview");
+        assert_eq!(delete_preview.itinerary_id, item_id);
+        assert_eq!(delete_preview.title, "Morning temple");
+        assert_eq!(delete_preview.blocking_children.expenses, 0);
+        assert_eq!(delete_preview.blocking_children.estimates, 0);
+        assert_eq!(delete_preview.blocking_children.reservations, 0);
+        assert_eq!(delete_preview.blocking_children.notes, 0);
+        assert!(delete_preview.non_blocking_relations.is_none());
+
+        let preview_json = preview_json.expect("preview json");
+        let export: TripExportV3 = serde_json::from_str(&preview_json).unwrap();
+        assert_eq!(count_itineraries(&export), 0);
+
+        let items = crate::itinerary::list_itinerary_items(&conn, trip_id).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, item_id);
+        assert_eq!(items[0].title, "Morning temple");
+    }
+
+    #[test]
+    fn delete_itinerary_blocking_children_block_preview() {
+        use crate::expense::ExpenseSharedOptions;
+
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let item_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::expense::add_expense(
+            &conn,
+            item_id,
+            "500",
+            "JPY",
+            Some("Admission"),
+            None,
+            None,
+            None,
+            &ExpenseSharedOptions::default(),
+        )
+        .unwrap();
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", DELETE_ITINERARY_FRAGMENT, trip_id);
+        assert!(!report.valid);
+        assert!(preview_json.is_none());
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("blocking child") && error.contains("expenses: 1")));
+    }
+
+    #[test]
+    fn delete_itinerary_trip_target_blocks_preview() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": { "target_type": "trip" },
+          "fragment": { "intent": "delete_itinerary" },
+          "adoption_hints": { "required_decisions": [] }
+        }"#;
+
+        let (report, preview_json) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(!report.valid);
+        assert!(preview_json.is_none());
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("itinerary target")));
     }
 }

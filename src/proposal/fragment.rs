@@ -13,6 +13,7 @@ const VALID_INTENTS: &[&str] = &[
     "add_expense",
     "add_reservation",
     "update_itinerary",
+    "delete_itinerary",
     "enrich",
     "replace_candidate",
     "reorder_hint",
@@ -265,7 +266,7 @@ fn validate_fragment_fields(
         None => report.errors.push("fragment.intent が必要です".to_string()),
         Some(value) if !VALID_INTENTS.contains(&value.as_str()) => {
             report.errors.push(format!(
-                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_reservation / update_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
+                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_reservation / update_itinerary / delete_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
             ));
         }
         _ => {}
@@ -293,6 +294,9 @@ fn fragment_body_nearly_empty(
     }
     if intent == Some("update_itinerary") {
         return update_itinerary_body_nearly_empty(fragment);
+    }
+    if intent == Some("delete_itinerary") {
+        return false;
     }
     let has_notes = non_empty_string(fragment.get("notes")).is_some();
     let candidate = fragment.get("candidate_content");
