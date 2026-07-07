@@ -20,7 +20,8 @@ Caglla CLI のドキュメント索引です。GitHub トップの [README.md](.
 |---|---|
 | [long-term-version-strategy.md](long-term-version-strategy.md) | Caglla.Travel メジャーバージョン戦略（v1 Planning Foundation 〜 v9 Platform）— 設計判断用参考 |
 | [future-roadmap-planning-memo.md](future-roadmap-planning-memo.md) | v4.6.x 完了後の将来方向性（Travel Data Ledger / Proposal / Calendar / 避けたい方向）— **現行 v4.6.x 作業とは別軸** |
-| [specifications/v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) | P-6j delete / reorder policy（planning — destructive / structural apply） |
+| [specifications/v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) | P-6j delete_itinerary dry-run planning（Venue 前提補足） |
+| [specifications/v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) | P-6j delete / reorder policy（destructive / structural apply） |
 
 ## Public documentation
 

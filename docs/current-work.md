@@ -40,6 +40,8 @@ P-6j destructive / structural policy — v4.7.30 完了（docs only）
 
 **Candidate:** v4.7.31 — P-6j `delete_itinerary` dry-run
 
+Planning: [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md)（Venue / Place は delete blocker 外 — [v4.7.30 policy §2.2.1](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md#221-venue--place--not-a-delete-blocker)）
+
 ## Defer
 
 - P-6j `reorder_itinerary` 実装（v4.7.33+ planning / 実装候補）
