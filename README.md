@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.34](docs/releases/v4.7.34-notes.md) — P-6k reorder_itinerary planning（documentation-only）。
+**最新:** [v4.7.35](docs/releases/v4.7.35-notes.md) — P-6k reorder_itinerary dry-run（same-day）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.35](docs/releases/v4.7.35-notes.md) | minor | P-6k reorder_itinerary dry-run（same-day） |
 | [v4.7.34](docs/releases/v4.7.34-notes.md) | docs | P-6k reorder_itinerary planning |
 | [v4.7.33](docs/releases/v4.7.33-notes.md) | minor | P-6j safety / UX hardening for delete_itinerary |
 | [v4.7.32](docs/releases/v4.7.32-notes.md) | minor | Fragment apply delete_itinerary --confirm (P-6j) |
