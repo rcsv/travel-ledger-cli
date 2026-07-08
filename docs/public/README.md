@@ -135,6 +135,7 @@ AI / provider（将来）
 | **v4.7.26** | **Fragment apply add_reservation dry-run (P-6h)** |
 | **v4.7.31** | **Fragment apply delete_itinerary dry-run (P-6j)** |
 | **v4.7.32** | **Fragment apply delete_itinerary --confirm (P-6j)** |
+| **v4.7.33** | **P-6j safety / UX hardening for delete_itinerary** |
 | **v4.7.30** | **P-6j destructive / structural apply policy** |
 | **v4.7.29** | **Fragment apply update_itinerary --confirm (P-6i)** |
 | **v4.7.28** | **Fragment apply update_itinerary dry-run (P-6i)** |

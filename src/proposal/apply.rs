@@ -602,6 +602,13 @@ fn fragment_apply_gate_json(
         return (report, None);
     }
 
+    // v4.7.33: delete_itinerary の blocking child 等により errors が追加されうる。
+    // preview.delete_preview を返したうえで valid=false とし、preview JSON は書き出さない。
+    if !report.errors.is_empty() {
+        report.preview = Some(preview_summary);
+        return (report, None);
+    }
+
     if confirm && !validate_confirm_scope(&resolved, &intent, &preview_summary, &mut report) {
         report.preview = Some(preview_summary);
         return (report, None);
@@ -1663,6 +1670,7 @@ fn apply_delete_itinerary_preview(
     resolved: &ResolvedApplyTarget,
     intent: &str,
     itineraries_before: usize,
+    report: &mut FragmentApplyDryRunReport,
 ) -> Result<FragmentApplyPreviewSummary, String> {
     if resolved.target_type != "itinerary" {
         return Err(
@@ -1704,8 +1712,8 @@ fn apply_delete_itinerary_preview(
     };
 
     if blocking_children_total(&blocking_children) > 0 {
-        return Err(format!(
-            "delete_itinerary は blocking child が存在します（expenses: {}, estimates: {}, reservations: {}, notes: {}）— apply preview を続行しません",
+        report.errors.push(format!(
+            "delete_itinerary は blocking child が存在します（expenses: {}, estimates: {}, reservations: {}, notes: {}）— DB 更新しません",
             blocking_children.expenses,
             blocking_children.estimates,
             blocking_children.reservations,
@@ -1716,10 +1724,13 @@ fn apply_delete_itinerary_preview(
     let title = current.title.clone();
     let sort_order = current.sort_order;
 
-    remove_itinerary_from_export(export, day_number, itinerary_sort_order)?;
-    remove_itinerary_notes_from_export(export, day_number, itinerary_sort_order);
-
-    let itineraries_after = count_itineraries(export);
+    let itineraries_after = if blocking_children_total(&blocking_children) == 0 {
+        remove_itinerary_from_export(export, day_number, itinerary_sort_order)?;
+        remove_itinerary_notes_from_export(export, day_number, itinerary_sort_order);
+        count_itineraries(export)
+    } else {
+        itineraries_before
+    };
 
     Ok(FragmentApplyPreviewSummary {
         intent: intent.to_string(),
@@ -2727,6 +2738,7 @@ fn simulate_apply_preview(
             resolved,
             intent,
             itineraries_before,
+            report,
         ),
         "enrich" => {
             if let Some(day_number) = resolved.day_number {

@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.33 | P-6j safety / UX hardening for delete_itinerary | [v4.7.33-notes.md](v4.7.33-notes.md) |
 | v4.7.32 | Fragment apply delete_itinerary --confirm (P-6j) | [v4.7.32-notes.md](v4.7.32-notes.md) |
 | v4.7.31 | Fragment apply delete_itinerary dry-run (P-6j) | [v4.7.31-notes.md](v4.7.31-notes.md) |
 | v4.7.30 | P-6j destructive / structural apply policy | [v4.7.30-notes.md](v4.7.30-notes.md) |
