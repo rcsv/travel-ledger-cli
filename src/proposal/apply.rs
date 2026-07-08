@@ -67,6 +67,8 @@ pub struct FragmentApplyPreviewSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub itinerary_field_changes: Option<Vec<FragmentApplyItineraryFieldChange>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub reorder_preview: Option<FragmentApplyReorderPreview>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub delete_preview: Option<FragmentApplyDeletePreview>,
 }
 
@@ -98,6 +100,20 @@ pub struct FragmentApplyDeletePreview {
     pub blocking_children: FragmentApplyBlockingChildren,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub non_blocking_relations: Option<Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyReorderPreview {
+    pub day_number: i64,
+    pub itinerary_order_changes: Vec<FragmentApplyItineraryOrderChange>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyItineraryOrderChange {
+    pub itinerary_id: i64,
+    pub title: String,
+    pub before_sort_order: i64,
+    pub after_sort_order: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -252,6 +268,12 @@ enum ConfirmInsertResult {
     Reservation(i64),
     UpdatedItinerary(i64),
     DeletedItinerary(i64),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ItineraryRefKey {
+    Number(i64),
+    Title(String),
 }
 
 pub fn run_fragment_apply(
@@ -713,6 +735,13 @@ fn validate_confirm_scope(
                 return false;
             }
             true
+        }
+        ("reorder_itinerary", "reorder_itinerary") => {
+            report.errors.push(
+                "reorder_itinerary --confirm は未実装です（v4.7.36+ 予定）— DB 更新しません"
+                    .to_string(),
+            );
+            false
         }
         _ => {
             report.errors.push(format!(
@@ -1747,6 +1776,7 @@ fn apply_delete_itinerary_preview(
         reservations_after: None,
         reservation_preview: None,
         itinerary_field_changes: None,
+        reorder_preview: None,
         delete_preview: Some(FragmentApplyDeletePreview {
             target_type: "itinerary".to_string(),
             itinerary_id,
@@ -1757,6 +1787,365 @@ fn apply_delete_itinerary_preview(
             non_blocking_relations: None,
         }),
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_reorder_itinerary_preview(
+    conn: &Connection,
+    trip_id: i64,
+    export: &mut TripExportV3,
+    resolved: &ResolvedApplyTarget,
+    fragment: &Map<String, Value>,
+    intent: &str,
+    itineraries_before: usize,
+    _report: &mut FragmentApplyDryRunReport,
+) -> Result<FragmentApplyPreviewSummary, String> {
+    if resolved.target_type != "day" {
+        return Err(format!(
+            "reorder_itinerary は day target のみサポートしています（現在: {}）",
+            resolved.target_type
+        ));
+    }
+    let day_number = resolved
+        .day_number
+        .ok_or_else(|| "reorder_itinerary の Day target が解決されていません".to_string())?;
+    ensure_day_in_range(export, day_number)?;
+
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    let expected = candidate
+        .get("expected_order")
+        .ok_or_else(|| "candidate_content.expected_order が必要です".to_string())?;
+    let after = candidate
+        .get("after_order")
+        .ok_or_else(|| "candidate_content.after_order が必要です".to_string())?;
+
+    let expected_refs = parse_reorder_order_refs(expected, "expected_order")?;
+    let after_refs = parse_reorder_order_refs(after, "after_order")?;
+
+    if expected_refs.is_empty() {
+        return Err("candidate_content.expected_order は空にできません".to_string());
+    }
+    if after_refs.is_empty() {
+        return Err("candidate_content.after_order は空にできません".to_string());
+    }
+
+    let day_items = crate::itinerary::list_itinerary_items_for_day(conn, trip_id, day_number)
+        .map_err(|e| e.to_string())?;
+    if day_items.is_empty() {
+        return Err(format!(
+            "reorder_itinerary: Day {day_number} に itinerary がありません"
+        ));
+    }
+
+    let day_count = {
+        let start = export
+            .trip
+            .start_date
+            .as_deref()
+            .ok_or_else(|| "trip.start_date が必要です".to_string())?;
+        let end = export
+            .trip
+            .end_date
+            .as_deref()
+            .ok_or_else(|| "trip.end_date が必要です".to_string())?;
+        validate_trip_date_range(start, end).map_err(|e| e.to_string())?
+    };
+
+    let expected_resolved = resolve_reorder_order_in_day(
+        conn,
+        trip_id,
+        day_number,
+        day_count,
+        &day_items,
+        &expected_refs,
+        "expected_order",
+    )?;
+    let after_resolved = resolve_reorder_order_in_day(
+        conn,
+        trip_id,
+        day_number,
+        day_count,
+        &day_items,
+        &after_refs,
+        "after_order",
+    )?;
+
+    // full-day baseline: expected_order は「当該 Day の全 itinerary」を現在順で完全列挙する
+    let mut current_ids: Vec<i64> = day_items.iter().map(|i| i.id).collect();
+    current_ids.sort_by_key(|id| {
+        day_items
+            .iter()
+            .find(|i| i.id == *id)
+            .map(|i| i.sort_order)
+            .unwrap_or(i64::MAX)
+    });
+    if expected_resolved.iter().map(|r| r.id).collect::<Vec<_>>() != current_ids {
+        return Err("reorder_itinerary: expected_order が現行 Day の順序と一致しません（baseline mismatch）— DB 更新しません".to_string());
+    }
+
+    let expected_set = expected_resolved
+        .iter()
+        .map(|r| r.id)
+        .collect::<std::collections::HashSet<_>>();
+    let after_set = after_resolved
+        .iter()
+        .map(|r| r.id)
+        .collect::<std::collections::HashSet<_>>();
+    if expected_set != after_set {
+        return Err(
+            "reorder_itinerary: after_order は expected_order と同じ itinerary 集合を含む必要があります"
+                .to_string(),
+        );
+    }
+    let expected_ids = expected_resolved.iter().map(|r| r.id).collect::<Vec<_>>();
+    let after_ids = after_resolved.iter().map(|r| r.id).collect::<Vec<_>>();
+    if expected_ids == after_ids {
+        return Err("reorder_itinerary: no-op reorder は許可されません".to_string());
+    }
+
+    // sparse sort_order を維持する: 現行 Day の sort_order スロットに after_order を割り当てる
+    let mut slots: Vec<i64> = day_items.iter().map(|i| i.sort_order).collect();
+    slots.sort();
+    if slots.len() != after_ids.len() {
+        return Err("reorder_itinerary: internal mismatch（slot length）".to_string());
+    }
+
+    let mut id_to_after_sort: std::collections::HashMap<i64, i64> =
+        std::collections::HashMap::new();
+    for (idx, id) in after_ids.iter().enumerate() {
+        id_to_after_sort.insert(*id, slots[idx]);
+    }
+
+    let mut changes: Vec<FragmentApplyItineraryOrderChange> = Vec::new();
+    for resolved_item in &after_resolved {
+        let after_sort = *id_to_after_sort
+            .get(&resolved_item.id)
+            .expect("after sort assigned");
+        changes.push(FragmentApplyItineraryOrderChange {
+            itinerary_id: resolved_item.id,
+            title: resolved_item.title.clone(),
+            before_sort_order: resolved_item.sort_order,
+            after_sort_order: after_sort,
+        });
+    }
+
+    // preview export にも sort_order を反映（DB は更新しない）
+    if let Some(day) = export.days.iter_mut().find(|d| d.day_number == day_number) {
+        let mut sort_order_to_id: std::collections::HashMap<i64, i64> =
+            std::collections::HashMap::new();
+        for item in &day_items {
+            sort_order_to_id.insert(item.sort_order, item.id);
+        }
+        for it in &mut day.itineraries {
+            let Some(id) = sort_order_to_id.get(&it.sort_order).copied() else {
+                continue;
+            };
+            if let Some(new_sort) = id_to_after_sort.get(&id).copied() {
+                it.sort_order = new_sort;
+            }
+        }
+        day.itineraries.sort_by_key(|i| i.sort_order);
+    }
+
+    Ok(FragmentApplyPreviewSummary {
+        intent: intent.to_string(),
+        action: "reorder_itinerary".to_string(),
+        candidate_title: None,
+        itineraries_before,
+        itineraries_after: itineraries_before,
+        notes_before: None,
+        notes_after: None,
+        expenses_before: None,
+        expenses_after: None,
+        expense_preview: None,
+        reservations_before: None,
+        reservations_after: None,
+        reservation_preview: None,
+        itinerary_field_changes: None,
+        reorder_preview: Some(FragmentApplyReorderPreview {
+            day_number,
+            itinerary_order_changes: changes,
+        }),
+        delete_preview: None,
+    })
+}
+
+#[derive(Clone, Debug)]
+struct ResolvedDayItinerary {
+    id: i64,
+    title: String,
+    sort_order: i64,
+}
+
+fn parse_reorder_order_refs(value: &Value, field: &str) -> Result<Vec<ItineraryRefKey>, String> {
+    let arr = value
+        .as_array()
+        .ok_or_else(|| format!("candidate_content.{field} は配列である必要があります"))?;
+    let mut out: Vec<ItineraryRefKey> = Vec::new();
+    for item in arr {
+        match item {
+            Value::Number(n) => {
+                let Some(v) = n.as_i64() else {
+                    return Err(format!(
+                        "candidate_content.{field} の要素は整数（sort_order）または文字列（title）である必要があります"
+                    ));
+                };
+                out.push(ItineraryRefKey::Number(v));
+            }
+            Value::String(s) => {
+                let needle = s.trim();
+                if needle.is_empty() {
+                    return Err(format!(
+                        "candidate_content.{field} に空文字が含まれています"
+                    ));
+                }
+                out.push(ItineraryRefKey::Title(needle.to_string()));
+            }
+            _ => {
+                return Err(format!(
+                    "candidate_content.{field} の要素は整数（sort_order）または文字列（title）である必要があります"
+                ));
+            }
+        }
+    }
+    // duplicate check（入力自体の重複）
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for key in &out {
+        let k = match key {
+            ItineraryRefKey::Number(v) => format!("number:{v}"),
+            ItineraryRefKey::Title(t) => format!("title:{t}"),
+        };
+        if !seen.insert(k) {
+            return Err(format!("candidate_content.{field} に重複が含まれています"));
+        }
+    }
+    Ok(out)
+}
+
+fn resolve_reorder_order_in_day(
+    conn: &Connection,
+    trip_id: i64,
+    day_number: i64,
+    day_count: i64,
+    day_items: &[crate::domain::models::ItineraryItem],
+    refs: &[ItineraryRefKey],
+    field: &str,
+) -> Result<Vec<ResolvedDayItinerary>, String> {
+    let mut out: Vec<ResolvedDayItinerary> = Vec::new();
+    for key in refs {
+        match key {
+            ItineraryRefKey::Number(v) => {
+                // GUI 想定: itinerary_id の配列（推奨）
+                // CLI 想定: sort_order selector（数値）
+                // v4.7.35 では number を id 優先で解釈し、id 不一致なら sort_order として解釈する。
+                let id_matches: Vec<_> = day_items.iter().filter(|item| item.id == *v).collect();
+                let sort_matches: Vec<_> = day_items
+                    .iter()
+                    .filter(|item| item.sort_order == *v)
+                    .collect();
+
+                if !id_matches.is_empty() && !sort_matches.is_empty() {
+                    // 極端にまれだが、同一数値が id と sort_order の双方に一致する場合は曖昧として reject
+                    return Err(format!(
+                        "reorder_itinerary: {field} の数値 selector ({v}) が itinerary_id と sort_order の両方に一致し曖昧です — DB 更新しません"
+                    ));
+                }
+
+                let picked = if !id_matches.is_empty() {
+                    if id_matches.len() > 1 {
+                        return Err(format!(
+                            "reorder_itinerary: {field} の itinerary_id ({v}) が Day {day_number} で曖昧です"
+                        ));
+                    }
+                    id_matches[0]
+                } else {
+                    if sort_matches.is_empty() {
+                        return Err(format!(
+                            "reorder_itinerary: {field} の itinerary_reference (id/sort_order {v}) が Day {day_number} に見つかりません"
+                        ));
+                    }
+                    if sort_matches.len() > 1 {
+                        return Err(format!(
+                            "reorder_itinerary: {field} の itinerary_reference (sort_order {v}) が Day {day_number} で曖昧です"
+                        ));
+                    }
+                    sort_matches[0]
+                };
+
+                out.push(ResolvedDayItinerary {
+                    id: picked.id,
+                    title: picked.title.clone(),
+                    sort_order: picked.sort_order,
+                });
+            }
+            ItineraryRefKey::Title(title) => {
+                let matches: Vec<_> = day_items
+                    .iter()
+                    .filter(|item| item.title.trim() == title.trim())
+                    .collect();
+                if matches.is_empty() {
+                    // cross-day move attempt hint: same title exists in another Day
+                    if itinerary_title_exists_in_other_day(
+                        conn, trip_id, day_number, day_count, title,
+                    ) {
+                        return Err(format!(
+                            "reorder_itinerary: cross-day move は未対応です（別 intent として defer）。{field} の itinerary_reference (title \"{title}\") は Day {day_number} ではなく別 Day に存在します — DB 更新しません"
+                        ));
+                    }
+                    return Err(format!(
+                        "reorder_itinerary: {field} の itinerary_reference (title \"{title}\") が Day {day_number} に見つかりません"
+                    ));
+                }
+                if matches.len() > 1 {
+                    return Err(format!(
+                        "reorder_itinerary: {field} の itinerary_reference (title \"{title}\") が Day {day_number} で曖昧です"
+                    ));
+                }
+                out.push(ResolvedDayItinerary {
+                    id: matches[0].id,
+                    title: matches[0].title.clone(),
+                    sort_order: matches[0].sort_order,
+                });
+            }
+        }
+    }
+    // resolved duplicate（同一 itinerary を異なる selector で二重参照した場合）
+    let mut seen_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    for item in &out {
+        if !seen_ids.insert(item.id) {
+            return Err(format!(
+                "reorder_itinerary: {field} に同一 itinerary の重複参照が含まれています"
+            ));
+        }
+    }
+    Ok(out)
+}
+
+fn itinerary_title_exists_in_other_day(
+    conn: &Connection,
+    trip_id: i64,
+    day_number: i64,
+    day_count: i64,
+    title: &str,
+) -> bool {
+    // 低コストな cross-day 検出（title 一致のみ）。ID ベース authoring 前提の過渡期向け。
+    for other_day in 1..=day_count {
+        if other_day == day_number {
+            continue;
+        }
+        let Ok(items) = crate::itinerary::list_itinerary_items_for_day(conn, trip_id, other_day)
+        else {
+            continue;
+        };
+        if items.iter().any(|i| i.title.trim() == title.trim()) {
+            return true;
+        }
+    }
+    false
 }
 
 fn parse_add_expense_fields(
@@ -2391,6 +2780,7 @@ fn apply_update_itinerary_preview(
         reservations_after: None,
         reservation_preview: None,
         itinerary_field_changes: Some(changes),
+        reorder_preview: None,
         delete_preview: None,
     })
 }
@@ -2596,6 +2986,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                reorder_preview: None,
                 delete_preview: None,
             })
         }
@@ -2619,6 +3010,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                reorder_preview: None,
                 delete_preview: None,
             })
         }
@@ -2668,6 +3060,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                reorder_preview: None,
                 delete_preview: None,
             })
         }
@@ -2720,6 +3113,7 @@ fn simulate_apply_preview(
                     end_at: fields.end_at,
                 }),
                 itinerary_field_changes: None,
+                reorder_preview: None,
                 delete_preview: None,
             })
         }
@@ -2776,9 +3170,20 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                reorder_preview: None,
                 delete_preview: None,
             })
         }
+        "reorder_itinerary" => apply_reorder_itinerary_preview(
+            conn,
+            trip_id,
+            export,
+            resolved,
+            fragment,
+            intent,
+            itineraries_before,
+            report,
+        ),
         "warning" => Ok(FragmentApplyPreviewSummary {
             intent: intent.to_string(),
             action: "none".to_string(),
@@ -2794,6 +3199,7 @@ fn simulate_apply_preview(
             reservations_after: None,
             reservation_preview: None,
             itinerary_field_changes: None,
+            reorder_preview: None,
             delete_preview: None,
         }),
         "replace_candidate" | "reorder_hint" => {
@@ -2815,6 +3221,7 @@ fn simulate_apply_preview(
                 reservations_after: None,
                 reservation_preview: None,
                 itinerary_field_changes: None,
+                reorder_preview: None,
                 delete_preview: None,
             })
         }
@@ -2957,6 +3364,21 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
                 println!(
                     "  itinerary_field_change.{}: {} -> {}",
                     change.field, change.before, change.after
+                );
+            }
+        }
+        if let Some(reorder_preview) = &preview.reorder_preview {
+            println!(
+                "  reorder_preview.day_number: {}",
+                reorder_preview.day_number
+            );
+            for change in &reorder_preview.itinerary_order_changes {
+                println!(
+                    "  reorder.itinerary_id {}: {} ({} -> {})",
+                    change.itinerary_id,
+                    change.title,
+                    change.before_sort_order,
+                    change.after_sort_order
                 );
             }
         }

@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.35 reorder_itinerary dry-run — same-day only（candidate）
+v4.7.35 reorder_itinerary dry-run — same-day only（in progress）
 
 ## Latest completed
 
