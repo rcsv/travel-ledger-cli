@@ -869,6 +869,20 @@ pub(crate) fn update_itinerary_item(
     Ok(())
 }
 
+/// 日程を削除する（子 entity の cascade なし — fragment apply delete_itinerary --confirm 用）
+pub(crate) fn delete_itinerary_item_row_only(conn: &Connection, id: i64) -> Result<()> {
+    get_itinerary_item(conn, id)?;
+    crate::storage::db::with_transaction(conn, "itinerary row-only delete", |tx| {
+        let deleted = tx
+            .execute("DELETE FROM itinerary_items WHERE id = ?1", params![id])
+            .context("日程の削除に失敗しました")?;
+        if deleted != 1 {
+            anyhow::bail!("itinerary DELETE が 1 行ではありません（{deleted}）— DB 更新しません");
+        }
+        Ok(())
+    })
+}
+
 /// 日程を削除する
 pub(crate) fn delete_itinerary_item(conn: &Connection, id: i64) -> Result<()> {
     get_itinerary_item(conn, id)?;

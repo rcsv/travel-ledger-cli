@@ -143,6 +143,8 @@ pub struct FragmentApplyDryRunReport {
     pub inserted_reservation_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_itinerary_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deleted_itinerary_id: Option<i64>,
 }
 
 impl FragmentApplyDryRunReport {
@@ -166,6 +168,7 @@ impl FragmentApplyDryRunReport {
             inserted_expense_id: None,
             inserted_reservation_id: None,
             updated_itinerary_id: None,
+            deleted_itinerary_id: None,
         }
     }
 }
@@ -248,6 +251,7 @@ enum ConfirmInsertResult {
     Expense(i64),
     Reservation(i64),
     UpdatedItinerary(i64),
+    DeletedItinerary(i64),
 }
 
 pub fn run_fragment_apply(
@@ -296,6 +300,10 @@ pub fn run_fragment_apply(
                 "update_itinerary" => {
                     execute_confirm_update_itinerary(conn, options.trip_id, &json, &report)
                         .map(ConfirmInsertResult::UpdatedItinerary)
+                }
+                "delete_itinerary" => {
+                    execute_confirm_delete_itinerary(conn, options.trip_id, &report)
+                        .map(ConfirmInsertResult::DeletedItinerary)
                 }
                 other => Err(anyhow::anyhow!("未対応の confirm action です: {other}")),
             };
@@ -382,6 +390,15 @@ pub fn run_fragment_apply(
                         if let Some(note) = &item.note {
                             println!("  note         : {note}");
                         }
+                    }
+                }
+                Ok(ConfirmInsertResult::DeletedItinerary(itinerary_id)) => {
+                    report.deleted_itinerary_id = Some(itinerary_id);
+                    if !options.json {
+                        println!();
+                        println!("Itinerary を DB から削除しました（fragment apply --confirm）");
+                        println!("  deleted_itinerary_id : {itinerary_id}");
+                        println!("  旅行 ID              : {}", options.trip_id);
                     }
                 }
                 Err(error) => {
@@ -674,9 +691,25 @@ fn validate_confirm_scope(
             }
             true
         }
+        ("delete_itinerary", "delete_itinerary") => {
+            if resolved.target_type != "itinerary" {
+                report.errors.push(format!(
+                    "v4.7.32 --confirm は itinerary target + delete_itinerary のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            if preview.delete_preview.is_none() {
+                report
+                    .errors
+                    .push("delete_itinerary confirm には delete_preview が必要です".to_string());
+                return false;
+            }
+            true
+        }
         _ => {
             report.errors.push(format!(
-                "v4.7.29 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、update_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
+                "v4.7.32 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、update_itinerary、delete_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
                 preview.action
             ));
             false
@@ -901,6 +934,111 @@ fn execute_confirm_update_itinerary(
         location,
         category,
     )?;
+
+    Ok(itinerary_id)
+}
+
+fn count_blocking_children_for_itinerary_db(
+    conn: &Connection,
+    itinerary_id: i64,
+) -> Result<FragmentApplyBlockingChildren> {
+    use crate::domain::models::NoteOwnerType;
+
+    Ok(FragmentApplyBlockingChildren {
+        expenses: crate::expense::list_expenses_for_itinerary(conn, itinerary_id)?.len(),
+        estimates: crate::estimate::list_estimates_for_itinerary(conn, itinerary_id)?.len(),
+        reservations: crate::reservation::list_reservations_for_itinerary(conn, itinerary_id)?
+            .len(),
+        notes: crate::note::list_notes_for_owner(conn, NoteOwnerType::Itinerary, itinerary_id)?
+            .len(),
+    })
+}
+
+fn revalidate_delete_itinerary_before_write(
+    conn: &Connection,
+    trip_id: i64,
+    expected: &FragmentApplyDeletePreview,
+) -> Result<(), String> {
+    let item = crate::itinerary::get_itinerary_item(conn, expected.itinerary_id)
+        .map_err(|error| error.to_string())?;
+
+    if item.trip_id != trip_id {
+        return Err(
+            "TOCTOU mismatch: itinerary の trip_id が gate と一致しません — DB 更新しません"
+                .to_string(),
+        );
+    }
+    if item.day != expected.day_number {
+        return Err(format!(
+            "TOCTOU mismatch: day_number の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            expected.day_number, item.day
+        ));
+    }
+    if item.sort_order != expected.sort_order {
+        return Err(format!(
+            "TOCTOU mismatch: sort_order の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            expected.sort_order, item.sort_order
+        ));
+    }
+    if item.title != expected.title {
+        return Err(format!(
+            "TOCTOU mismatch: title の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            expected.title, item.title
+        ));
+    }
+
+    let blocking_children = count_blocking_children_for_itinerary_db(conn, expected.itinerary_id)
+        .map_err(|error| error.to_string())?;
+    if blocking_children_total(&blocking_children) > 0 {
+        return Err(format!(
+            "TOCTOU mismatch: blocking child が存在します（expenses: {}, estimates: {}, reservations: {}, notes: {}）— DB 更新しません",
+            blocking_children.expenses,
+            blocking_children.estimates,
+            blocking_children.reservations,
+            blocking_children.notes,
+        ));
+    }
+
+    if blocking_children != expected.blocking_children {
+        return Err(
+            "TOCTOU mismatch: blocking_children の件数が gate preview と一致しません — DB 更新しません"
+                .to_string(),
+        );
+    }
+
+    Ok(())
+}
+
+fn execute_confirm_delete_itinerary(
+    conn: &Connection,
+    trip_id: i64,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let preview = report
+        .preview
+        .as_ref()
+        .context("delete_itinerary confirm には preview が必要です")?;
+    let delete_preview = preview
+        .delete_preview
+        .as_ref()
+        .context("delete_itinerary confirm には delete_preview が必要です")?;
+    let target = report
+        .resolved_target
+        .as_ref()
+        .context("target が解決されていません")?;
+
+    let itinerary_id = resolve_itinerary_id_for_apply_target(conn, trip_id, target)?;
+    if itinerary_id != delete_preview.itinerary_id {
+        anyhow::bail!(
+            "TOCTOU mismatch: resolved itinerary_id ({itinerary_id}) が delete_preview.itinerary_id ({}) と一致しません — DB 更新しません",
+            delete_preview.itinerary_id
+        );
+    }
+
+    revalidate_delete_itinerary_before_write(conn, trip_id, delete_preview)
+        .map_err(|error| anyhow::anyhow!(error))?;
+
+    crate::itinerary::delete_itinerary_item_row_only(conn, itinerary_id)?;
 
     Ok(itinerary_id)
 }
@@ -2857,6 +2995,10 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
         println!("  updated_itinerary_id: {itinerary_id}");
     }
 
+    if let Some(itinerary_id) = report.deleted_itinerary_id {
+        println!("  deleted_itinerary_id: {itinerary_id}");
+    }
+
     if !report.required_decisions.is_empty() {
         println!("Required decisions:");
         for item in &report.required_decisions {
@@ -3642,5 +3784,134 @@ mod tests {
             .errors
             .iter()
             .any(|error| error.contains("itinerary target")));
+    }
+
+    #[test]
+    fn confirm_delete_itinerary_writes_db() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let item_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let path = std::env::temp_dir().join(format!(
+            "caglla-fragment-delete-confirm-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, DELETE_ITINERARY_FRAGMENT).unwrap();
+        let options = FragmentApplyOptions {
+            dry_run: false,
+            confirm: true,
+            trip_id,
+            output: None,
+            json: false,
+        };
+        run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
+
+        assert!(crate::itinerary::get_itinerary_item(&conn, item_id).is_err());
+        let items = crate::itinerary::list_itinerary_items(&conn, trip_id).unwrap();
+        assert!(items.is_empty());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn confirm_delete_itinerary_toctou_blocks_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let item_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let (report, _) = fragment_apply_gate_json(
+            &conn,
+            "test.json",
+            DELETE_ITINERARY_FRAGMENT,
+            trip_id,
+            false,
+            true,
+        );
+        assert!(report.valid, "errors: {:?}", report.errors);
+
+        crate::itinerary::update_itinerary_item(
+            &conn,
+            item_id,
+            None,
+            Some("Changed by another writer"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let error = execute_confirm_delete_itinerary(&conn, trip_id, &report).unwrap_err();
+        assert!(error.to_string().contains("TOCTOU"));
+
+        let item = crate::itinerary::get_itinerary_item(&conn, item_id).unwrap();
+        assert_eq!(item.title, "Changed by another writer");
+    }
+
+    #[test]
+    fn confirm_delete_itinerary_inline_note_does_not_block() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let item_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            Some("Inline memo only"),
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let path = std::env::temp_dir().join(format!(
+            "caglla-fragment-delete-inline-note-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, DELETE_ITINERARY_FRAGMENT).unwrap();
+        let options = FragmentApplyOptions {
+            dry_run: false,
+            confirm: true,
+            trip_id,
+            output: None,
+            json: false,
+        };
+        run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
+        assert!(crate::itinerary::get_itinerary_item(&conn, item_id).is_err());
+        let _ = std::fs::remove_file(path);
     }
 }
