@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.33 released — P-6j safety / UX hardening
+v4.7.35 reorder_itinerary dry-run — same-day only（candidate）
 
 ## Latest completed
 
+- v4.7.34 P-6k reorder_itinerary planning — **released** (documentation-only)
 - v4.7.33 P-6j safety / UX hardening for delete_itinerary — **released**
 - v4.7.32 Fragment apply delete_itinerary --confirm (P-6j) — **released**
 - v4.7.31 Fragment apply delete_itinerary dry-run (P-6j) — **released**
@@ -22,8 +23,8 @@ v4.7.33 released — P-6j safety / UX hardening
 
 ## Repository state
 
-- Cargo version: `4.7.33`
-- Latest release: **v4.7.33** — [v4.7.33-notes.md](releases/v4.7.33-notes.md)
+- Cargo version: `4.7.34`
+- Latest release: **v4.7.34** — [v4.7.34-notes.md](releases/v4.7.34-notes.md)
 - **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）
 - **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 方針正本
 - **P-6j delete dry-run:** [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) — **released**（Venue / Place は delete blocker 外）
@@ -41,15 +42,16 @@ P-6j destructive / structural policy — v4.7.30 完了（docs only）
 P-6j delete_itinerary dry-run — v4.7.31 完了
 P-6j delete_itinerary --confirm — v4.7.32 完了
 P-6j safety / UX hardening — v4.7.33 完了
+P-6k reorder planning — v4.7.34 完了（docs only）
 ```
 
 ## Next action
 
-**Candidate:** v4.7.34 — reorder planning
+**Candidate:** v4.7.35 — reorder_itinerary dry-run（same-day）
 
 ## Defer
 
-- P-6j `reorder_itinerary` 実装（v4.7.33+ planning / 実装候補）
+- P-6k reorder_itinerary cross-day move（別 intent、v4.7.37+ planning 候補）
 - P-6i day / sort_order 拡張（reorder 設計後）
 - **Venue model 実装** — [venue-model-introduction-policy.md](specifications/venue-model-introduction-policy.md)（planning 済み、v4.8+ 候補）
 - safety / UX hardening（blocking 時 structured `delete_preview`、Estimate blocking integration test、inline `itinerary.note` 非 blocking 専用 test、ambiguous / not-found delete 専用 test、`delete_itinerary --confirm` unsupported 専用 test）
