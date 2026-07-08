@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.36 reorder_itinerary --confirm — same-day only（candidate）
+v4.7.36 reorder_itinerary --confirm — same-day only（in progress）
 
 ## Latest completed
 

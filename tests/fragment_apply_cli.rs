@@ -794,6 +794,49 @@ fn seed_trip_two_days_with_itineraries(dir: &std::path::Path) {
     .success());
 }
 
+fn seed_trip_day_with_ambiguous_number_selector(dir: &std::path::Path) {
+    // Day 1 に id=2 が存在する状態で、別の itinerary に sort_order=2 を与え「数値 selector が id と sort_order に一致」するケースを作る
+    assert!(run_cli_in(
+        dir,
+        &[
+            "trip",
+            "add",
+            "Ambiguous Selector Trip",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-01",
+        ],
+    )
+    .status
+    .success());
+    assert!(
+        run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "One"])
+            .status
+            .success()
+    );
+    assert!(
+        run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "Two (id=2)"])
+            .status
+            .success()
+    );
+    assert!(run_cli_in(
+        dir,
+        &[
+            "itinerary",
+            "add",
+            "1",
+            "--day",
+            "1",
+            "--order",
+            "2",
+            "SortOrder=2 (ambiguous)",
+        ],
+    )
+    .status
+    .success());
+}
+
 fn note_count(dir: &std::path::Path, trip_id: &str) -> usize {
     let output = run_cli_in(dir, &["note", "list", "--trip", trip_id, "--json"]);
     assert!(output.status.success());
@@ -3044,9 +3087,180 @@ fn cli_fragment_apply_reorder_itinerary_unknown_is_rejected_and_keeps_db_unchang
 }
 
 #[test]
-fn cli_fragment_apply_reorder_itinerary_confirm_is_unsupported_and_does_not_mutate_db() {
+fn cli_fragment_apply_reorder_itinerary_confirm_is_supported() {
     let dir = temp_workdir();
     let fragment = fixture_path("apply-reorder-itinerary-basic-fragment.json");
+    seed_trip_two_days_with_itineraries(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(parsed["preview"]["action"], "reorder_itinerary");
+    assert!(parsed["reordered_itineraries"].as_u64().unwrap() >= 1);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_reorder_itinerary_confirm_updates_sort_order_in_db() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-reorder-itinerary-basic-fragment.json");
+    seed_trip_two_days_with_itineraries(&dir);
+
+    let before = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(before.status.success());
+    let before_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&before.stdout)).unwrap();
+    let before_titles: Vec<String> = before_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 1)
+        .map(|it| it["title"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(before_titles, vec!["Breakfast", "Aquarium", "Dinner"]);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(parsed["preview"]["action"], "reorder_itinerary");
+    assert_eq!(parsed["preview"]["reorder_preview"]["day_number"], 1);
+    assert!(parsed["reordered_itineraries"].as_u64().unwrap() >= 1);
+
+    let after = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(after.status.success());
+    let after_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&after.stdout)).unwrap();
+    let after_day1: Vec<&serde_json::Value> = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 1)
+        .collect();
+    let after_titles: Vec<String> = after_day1
+        .iter()
+        .map(|it| it["title"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(after_titles, vec!["Aquarium", "Breakfast", "Dinner"]);
+
+    // sparse slot を維持していること（1000/2000/3000 を並べ替え）
+    let orders: Vec<i64> = after_day1
+        .iter()
+        .map(|it| it["sort_order"].as_i64().unwrap())
+        .collect();
+    assert_eq!(orders, vec![1000, 2000, 3000]);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_reorder_itinerary_confirm_id_selector_succeeds() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-reorder-itinerary-id-fragment.json");
+    seed_trip_two_days_with_itineraries(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+
+    let after = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(after.status.success());
+    let after_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&after.stdout)).unwrap();
+    let after_titles: Vec<String> = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 1)
+        .map(|it| it["title"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(after_titles, vec!["Aquarium", "Breakfast", "Dinner"]);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_reorder_itinerary_confirm_missing_after_order_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-reorder-itinerary-missing-after-order-fragment.json");
+    seed_trip_two_days_with_itineraries(&dir);
+
+    let before_day = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(before_day.status.success());
+    let before_stdout = String::from_utf8_lossy(&before_day.stdout).to_string();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+
+    let after_day = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(after_day.status.success());
+    let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
+    assert_eq!(before_stdout, after_stdout);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_reorder_itinerary_confirm_baseline_mismatch_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-reorder-itinerary-baseline-mismatch-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
     let before_day = run_cli_in(&dir, &["day", "show", "1", "1"]);
@@ -3071,12 +3285,93 @@ fn cli_fragment_apply_reorder_itinerary_confirm_is_unsupported_and_does_not_muta
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(combined.contains("未実装") || combined.contains("v4.7.36"));
+    assert!(combined.contains("baseline mismatch") || combined.contains("TOCTOU"));
 
     let after_day = run_cli_in(&dir, &["day", "show", "1", "1"]);
     assert!(after_day.status.success());
     let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
     assert_eq!(before_stdout, after_stdout);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_reorder_itinerary_confirm_set_mismatch_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-reorder-itinerary-set-mismatch-fragment.json");
+    seed_trip_two_days_with_itineraries(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("集合") || combined.contains("same itinerary"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_reorder_itinerary_confirm_noop_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-reorder-itinerary-noop-fragment.json");
+    seed_trip_two_days_with_itineraries(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_reorder_itinerary_confirm_ambiguous_number_selector_is_rejected() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-reorder-itinerary-ambiguous-number-fragment.json");
+    seed_trip_day_with_ambiguous_number_selector(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("曖昧"));
 
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -161,6 +161,8 @@ pub struct FragmentApplyDryRunReport {
     pub updated_itinerary_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_itinerary_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reordered_itineraries: Option<usize>,
 }
 
 impl FragmentApplyDryRunReport {
@@ -185,6 +187,7 @@ impl FragmentApplyDryRunReport {
             inserted_reservation_id: None,
             updated_itinerary_id: None,
             deleted_itinerary_id: None,
+            reordered_itineraries: None,
         }
     }
 }
@@ -268,6 +271,7 @@ enum ConfirmInsertResult {
     Reservation(i64),
     UpdatedItinerary(i64),
     DeletedItinerary(i64),
+    ReorderedItineraries(usize),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -326,6 +330,10 @@ pub fn run_fragment_apply(
                 "delete_itinerary" => {
                     execute_confirm_delete_itinerary(conn, options.trip_id, &report)
                         .map(ConfirmInsertResult::DeletedItinerary)
+                }
+                "reorder_itinerary" => {
+                    execute_confirm_reorder_itinerary(conn, options.trip_id, &json, &report)
+                        .map(ConfirmInsertResult::ReorderedItineraries)
                 }
                 other => Err(anyhow::anyhow!("未対応の confirm action です: {other}")),
             };
@@ -421,6 +429,17 @@ pub fn run_fragment_apply(
                         println!("Itinerary を DB から削除しました（fragment apply --confirm）");
                         println!("  deleted_itinerary_id : {itinerary_id}");
                         println!("  旅行 ID              : {}", options.trip_id);
+                    }
+                }
+                Ok(ConfirmInsertResult::ReorderedItineraries(updated)) => {
+                    report.reordered_itineraries = Some(updated);
+                    if !options.json {
+                        println!();
+                        println!(
+                            "Itinerary の並び順を DB に反映しました（fragment apply --confirm）"
+                        );
+                        println!("  updated_rows : {updated}");
+                        println!("  旅行 ID      : {}", options.trip_id);
                     }
                 }
                 Err(error) => {
@@ -737,11 +756,20 @@ fn validate_confirm_scope(
             true
         }
         ("reorder_itinerary", "reorder_itinerary") => {
-            report.errors.push(
-                "reorder_itinerary --confirm は未実装です（v4.7.36+ 予定）— DB 更新しません"
-                    .to_string(),
-            );
-            false
+            if resolved.target_type != "day" {
+                report.errors.push(format!(
+                    "v4.7.36 --confirm は day target + reorder_itinerary のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            if preview.reorder_preview.is_none() {
+                report
+                    .errors
+                    .push("reorder_itinerary confirm には reorder_preview が必要です".to_string());
+                return false;
+            }
+            true
         }
         _ => {
             report.errors.push(format!(
@@ -1077,6 +1105,206 @@ fn execute_confirm_delete_itinerary(
     crate::itinerary::delete_itinerary_item_row_only(conn, itinerary_id)?;
 
     Ok(itinerary_id)
+}
+
+fn execute_confirm_reorder_itinerary(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<usize> {
+    let preview = report
+        .preview
+        .as_ref()
+        .context("reorder_itinerary confirm には preview が必要です")?;
+    let reorder_preview = preview
+        .reorder_preview
+        .as_ref()
+        .context("reorder_itinerary confirm には reorder_preview が必要です")?;
+    let target = report
+        .resolved_target
+        .as_ref()
+        .context("target が解決されていません")?;
+    if target.target_type != "day" {
+        anyhow::bail!(
+            "reorder_itinerary confirm は day target のみサポートしています（現在: {}）",
+            target.target_type
+        );
+    }
+    let day_number = target
+        .day_number
+        .context("reorder_itinerary の Day target が解決されていません")?;
+
+    let root: Value =
+        serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+    let root_obj = root
+        .as_object()
+        .context("トップレベルが JSON object ではありません")?;
+    let fragment_body = root_obj
+        .get("fragment")
+        .and_then(Value::as_object)
+        .context("fragment object が必要です")?;
+    let candidate = fragment_body
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .context("candidate_content object が必要です")?;
+
+    let expected = candidate
+        .get("expected_order")
+        .context("candidate_content.expected_order が必要です")?;
+    let after = candidate
+        .get("after_order")
+        .context("candidate_content.after_order が必要です")?;
+    let expected_refs =
+        parse_reorder_order_refs(expected, "expected_order").map_err(|e| anyhow::anyhow!(e))?;
+    let after_refs =
+        parse_reorder_order_refs(after, "after_order").map_err(|e| anyhow::anyhow!(e))?;
+
+    if expected_refs.is_empty() {
+        anyhow::bail!("candidate_content.expected_order は空にできません");
+    }
+    if after_refs.is_empty() {
+        anyhow::bail!("candidate_content.after_order は空にできません");
+    }
+
+    let mut updated_rows: usize = 0;
+    crate::storage::db::with_transaction(conn, "reorder_itinerary confirm", |tx| {
+        // TOCTOU: 現行 DB を読み直して再解決・再検証
+        let day_items = crate::itinerary::list_itinerary_items_for_day(tx, trip_id, day_number)
+            .context("Day itinerary の取得に失敗しました")?;
+        if day_items.is_empty() {
+            anyhow::bail!("reorder_itinerary: Day {day_number} に itinerary がありません");
+        }
+
+        let trip = crate::trip::get_trip(tx, trip_id)?;
+        let start = trip
+            .start_date
+            .as_deref()
+            .context("trip.start_date が必要です")?;
+        let end = trip
+            .end_date
+            .as_deref()
+            .context("trip.end_date が必要です")?;
+        let day_count =
+            validate_trip_date_range(start, end).context("trip date range の検証に失敗しました")?;
+
+        let expected_resolved = resolve_reorder_order_in_day(
+            tx,
+            trip_id,
+            day_number,
+            day_count,
+            &day_items,
+            &expected_refs,
+            "expected_order",
+        )
+        .map_err(|e| anyhow::anyhow!(e))?;
+        let after_resolved = resolve_reorder_order_in_day(
+            tx,
+            trip_id,
+            day_number,
+            day_count,
+            &day_items,
+            &after_refs,
+            "after_order",
+        )
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+        let current_ids: Vec<i64> = day_items.iter().map(|i| i.id).collect();
+        if expected_resolved.iter().map(|r| r.id).collect::<Vec<_>>() != current_ids {
+            anyhow::bail!(
+                "TOCTOU mismatch: expected_order が現行 Day の順序と一致しません（baseline mismatch）— DB 更新しません"
+            );
+        }
+
+        let expected_set = expected_resolved
+            .iter()
+            .map(|r| r.id)
+            .collect::<std::collections::HashSet<_>>();
+        let after_set = after_resolved
+            .iter()
+            .map(|r| r.id)
+            .collect::<std::collections::HashSet<_>>();
+        if expected_set != after_set {
+            anyhow::bail!(
+                "reorder_itinerary: after_order は expected_order と同じ itinerary 集合を含む必要があります"
+            );
+        }
+        let expected_ids = expected_resolved.iter().map(|r| r.id).collect::<Vec<_>>();
+        let after_ids = after_resolved.iter().map(|r| r.id).collect::<Vec<_>>();
+        if expected_ids == after_ids {
+            anyhow::bail!("reorder_itinerary: no-op reorder は許可されません");
+        }
+
+        // dry-run と同じ: sparse sort_order slot を after_order に割り当てる
+        let mut slots: Vec<i64> = day_items.iter().map(|i| i.sort_order).collect();
+        slots.sort();
+        if slots.len() != after_ids.len() {
+            anyhow::bail!("reorder_itinerary: internal mismatch（slot length）");
+        }
+        let mut id_to_after_sort: std::collections::HashMap<i64, i64> =
+            std::collections::HashMap::new();
+        for (idx, id) in after_ids.iter().enumerate() {
+            id_to_after_sort.insert(*id, slots[idx]);
+        }
+
+        // preview と一致確認（TOCTOU guard）
+        for change in &reorder_preview.itinerary_order_changes {
+            let Some(expected_after) = id_to_after_sort.get(&change.itinerary_id) else {
+                anyhow::bail!(
+                    "TOCTOU mismatch: itinerary_id {} が after_order に存在しません — DB 更新しません",
+                    change.itinerary_id
+                );
+            };
+            if *expected_after != change.after_sort_order {
+                anyhow::bail!(
+                    "TOCTOU mismatch: after_sort_order が gate preview と一致しません（itinerary_id {}）— DB 更新しません",
+                    change.itinerary_id
+                );
+            }
+        }
+
+        let now = crate::storage::db::now_string();
+        let mut expected_updates: Vec<(i64, i64)> = Vec::new();
+        for item in &day_items {
+            let Some(new_sort) = id_to_after_sort.get(&item.id).copied() else {
+                continue;
+            };
+            if new_sort != item.sort_order {
+                expected_updates.push((item.id, new_sort));
+            }
+        }
+        if expected_updates.is_empty() {
+            anyhow::bail!("reorder_itinerary: no-op reorder は許可されません");
+        }
+
+        let mut actual_updated = 0usize;
+        for (id, new_sort) in &expected_updates {
+            let changed = tx
+                .execute(
+                    "UPDATE itinerary_items SET sort_order = ?1, updated_at = ?2 WHERE id = ?3 AND trip_id = ?4 AND day = ?5",
+                    rusqlite::params![new_sort, now, id, trip_id, day_number],
+                )
+                .context("itinerary_items.sort_order の更新に失敗しました")?;
+            if changed != 1 {
+                anyhow::bail!(
+                    "row count mismatch: itinerary_items UPDATE が 1 行ではありません（{changed}）— DB 更新しません"
+                );
+            }
+            actual_updated += 1;
+        }
+
+        if actual_updated != expected_updates.len() {
+            anyhow::bail!(
+                "row count mismatch: updated rows ({actual_updated}) が想定 ({}) と一致しません — DB 更新しません",
+                expected_updates.len()
+            );
+        }
+
+        updated_rows = actual_updated;
+        Ok(())
+    })?;
+
+    Ok(updated_rows)
 }
 
 fn itinerary_item_to_export_snapshot(
@@ -3431,6 +3659,9 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
 
     if let Some(itinerary_id) = report.deleted_itinerary_id {
         println!("  deleted_itinerary_id: {itinerary_id}");
+    }
+    if let Some(count) = report.reordered_itineraries {
+        println!("  reordered_itineraries: {count}");
     }
 
     if !report.required_decisions.is_empty() {
