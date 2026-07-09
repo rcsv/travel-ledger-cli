@@ -137,6 +137,7 @@ AI / provider（将来）
 | **v4.7.32** | **Fragment apply delete_itinerary --confirm (P-6j)** |
 | **v4.7.36** | **P-6k reorder_itinerary --confirm（same-day）** |
 | **v4.7.35** | **P-6k reorder_itinerary dry-run（same-day）** |
+| **v4.7.38** | **P-6l move_itinerary dry-run（cross-day）** |
 | **v4.7.37** | **P-6l cross-day move planning（documentation-only）** |
 | **v4.7.34** | **P-6k reorder_itinerary planning（documentation-only）** |
 | **v4.7.33** | **P-6j safety / UX hardening for delete_itinerary** |
