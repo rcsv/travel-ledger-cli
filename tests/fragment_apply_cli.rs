@@ -839,6 +839,41 @@ fn seed_trip_two_days_with_itineraries_for_move(dir: &std::path::Path) {
     .success());
 }
 
+fn seed_trip_single_source_itinerary_for_move(dir: &std::path::Path) {
+    assert!(run_cli_in(
+        dir,
+        &[
+            "trip",
+            "add",
+            "Okinawa Single Source (move)",
+            "--start",
+            "2026-05-01",
+            "--end",
+            "2026-05-02",
+        ],
+    )
+    .status
+    .success());
+
+    assert!(
+        run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "Aquarium"])
+            .status
+            .success()
+    );
+    assert!(run_cli_in(
+        dir,
+        &["itinerary", "add", "1", "--day", "2", "Museum (Day 2)"]
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        dir,
+        &["itinerary", "add", "1", "--day", "2", "Beach (Day 2)"]
+    )
+    .status
+    .success());
+}
+
 fn seed_trip_day_with_ambiguous_number_selector(dir: &std::path::Path) {
     // Day 1 に id=2 が存在する状態で、別の itinerary に sort_order=2 を与え「数値 selector が id と sort_order に一致」するケースを作る
     assert!(run_cli_in(
@@ -3718,17 +3753,205 @@ fn cli_fragment_apply_move_itinerary_same_day_is_rejected_and_keeps_db_unchanged
 }
 
 #[test]
-fn cli_fragment_apply_move_itinerary_confirm_is_unsupported_and_does_not_mutate_db() {
+fn cli_fragment_apply_move_itinerary_confirm_is_supported() {
     let dir = temp_workdir();
     let fragment = fixture_path("apply-move-itinerary-basic-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(parsed["preview"]["action"], "move_itinerary");
+    assert!(parsed["moved_itinerary_id"].as_i64().unwrap() >= 1);
+    assert!(parsed["moved_itinerary_updated_rows"].as_u64().unwrap() >= 1);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_updates_db() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-basic-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let before = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(before.status.success());
+    let before_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&before.stdout)).unwrap();
+    assert_eq!(before_json.as_array().unwrap().len(), 5);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+
+    let after = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(after.status.success());
+    let after_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&after.stdout)).unwrap();
+    assert_eq!(after_json.as_array().unwrap().len(), 5);
+
+    let day1_titles: Vec<String> = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 1)
+        .map(|it| it["title"].as_str().unwrap().to_string())
+        .collect();
+    let day2_titles: Vec<String> = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 2)
+        .map(|it| it["title"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(day1_titles, vec!["Breakfast", "Dinner"]);
+    assert_eq!(
+        day2_titles,
+        vec!["Museum (Day 2)", "Aquarium", "Beach (Day 2)"]
+    );
+
+    let aquarium = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|it| it["title"] == "Aquarium")
+        .expect("aquarium");
+    assert_eq!(aquarium["day"], 2);
+
+    let day1_orders: Vec<i64> = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 1)
+        .map(|it| it["sort_order"].as_i64().unwrap())
+        .collect();
+    assert_eq!(day1_orders, vec![1000, 2000]);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_id_selector_succeeds() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-id-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+
+    let after = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(after.status.success());
+    let after_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&after.stdout)).unwrap();
+    let day2_titles: Vec<String> = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 2)
+        .map(|it| it["title"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        day2_titles,
+        vec!["Museum (Day 2)", "Aquarium", "Beach (Day 2)"]
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_empty_source_day_succeeds() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-empty-source-fragment.json");
+    seed_trip_single_source_itinerary_for_move(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+
+    let after = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(after.status.success());
+    let after_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&after.stdout)).unwrap();
+    let day1_count = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 1)
+        .count();
+    assert_eq!(day1_count, 0);
+    let day2_titles: Vec<String> = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| it["day"] == 2)
+        .map(|it| it["title"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        day2_titles,
+        vec!["Museum (Day 2)", "Aquarium", "Beach (Day 2)"]
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_same_day_is_rejected_and_keeps_db_unchanged() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-same-day-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
     let before_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
     assert!(before_day1.status.success());
     let before_day1_stdout = String::from_utf8_lossy(&before_day1.stdout).to_string();
-    let before_day2 = run_cli_in(&dir, &["day", "show", "1", "2"]);
-    assert!(before_day2.status.success());
-    let before_day2_stdout = String::from_utf8_lossy(&before_day2.stdout).to_string();
 
     let output = run_cli_in(
         &dir,
@@ -3748,8 +3971,7 @@ fn cli_fragment_apply_move_itinerary_confirm_is_unsupported_and_does_not_mutate_
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(combined.contains("move_itinerary"));
-    assert!(combined.contains("--confirm"));
+    assert!(combined.contains("reorder_itinerary"));
 
     let after_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
     assert!(after_day1.status.success());
@@ -3757,11 +3979,262 @@ fn cli_fragment_apply_move_itinerary_confirm_is_unsupported_and_does_not_mutate_
         before_day1_stdout,
         String::from_utf8_lossy(&after_day1.stdout).to_string()
     );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_baseline_mismatch_source_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-baseline-mismatch-source-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let before_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(before_day1.status.success());
+    let before_stdout = String::from_utf8_lossy(&before_day1.stdout).to_string();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("baseline mismatch") || combined.contains("TOCTOU"));
+
+    let after_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(after_day1.status.success());
+    assert_eq!(
+        before_stdout,
+        String::from_utf8_lossy(&after_day1.stdout).to_string()
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_baseline_mismatch_destination_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-baseline-mismatch-destination-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let before_day2 = run_cli_in(&dir, &["day", "show", "1", "2"]);
+    assert!(before_day2.status.success());
+    let before_stdout = String::from_utf8_lossy(&before_day2.stdout).to_string();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("baseline mismatch") || combined.contains("TOCTOU"));
+
     let after_day2 = run_cli_in(&dir, &["day", "show", "1", "2"]);
     assert!(after_day2.status.success());
     assert_eq!(
-        before_day2_stdout,
+        before_stdout,
         String::from_utf8_lossy(&after_day2.stdout).to_string()
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_moved_in_after_source_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-moved-in-after-source-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let before_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(before_day1.status.success());
+    let before_stdout = String::from_utf8_lossy(&before_day1.stdout).to_string();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("after_source_order"));
+
+    let after_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(after_day1.status.success());
+    assert_eq!(
+        before_stdout,
+        String::from_utf8_lossy(&after_day1.stdout).to_string()
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_duplicate_selector_blocks_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-duplicate-selector-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let before_day2 = run_cli_in(&dir, &["day", "show", "1", "2"]);
+    assert!(before_day2.status.success());
+    let before_stdout = String::from_utf8_lossy(&before_day2.stdout).to_string();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("重複"));
+
+    let after_day2 = run_cli_in(&dir, &["day", "show", "1", "2"]);
+    assert!(after_day2.status.success());
+    assert_eq!(
+        before_stdout,
+        String::from_utf8_lossy(&after_day2.stdout).to_string()
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_ambiguous_number_selector_is_rejected() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-ambiguous-number-fragment.json");
+    seed_trip_two_days_with_ambiguous_move_number_selector(&dir);
+
+    let before_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(before_day1.status.success());
+    let before_day1_stdout = String::from_utf8_lossy(&before_day1.stdout).to_string();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("曖昧"));
+
+    let after_day1 = run_cli_in(&dir, &["day", "show", "1", "1"]);
+    assert!(after_day1.status.success());
+    assert_eq!(
+        before_day1_stdout,
+        String::from_utf8_lossy(&after_day1.stdout).to_string()
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_move_itinerary_confirm_mutation_boundary() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-move-itinerary-basic-fragment.json");
+    seed_trip_two_days_with_itineraries_for_move(&dir);
+
+    let before = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(before.status.success());
+    let before_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&before.stdout)).unwrap();
+    let aquarium_before = before_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|it| it["title"] == "Aquarium")
+        .expect("aquarium before")
+        .clone();
+    let aquarium_id = aquarium_before["id"].as_i64().unwrap();
+    let aquarium_title = aquarium_before["title"].as_str().unwrap().to_string();
+    let before_count = before_json.as_array().unwrap().len();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+
+    let after = run_cli_in(&dir, &["itinerary", "list", "1", "--json"]);
+    assert!(after.status.success());
+    let after_json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&after.stdout)).unwrap();
+    assert_eq!(after_json.as_array().unwrap().len(), before_count);
+
+    let aquarium_after = after_json
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|it| it["id"] == aquarium_id)
+        .expect("aquarium after move");
+    assert_eq!(aquarium_after["title"].as_str().unwrap(), aquarium_title);
+    assert_eq!(aquarium_after["day"], 2);
+    assert_ne!(
+        aquarium_after["sort_order"].as_i64().unwrap(),
+        aquarium_before["sort_order"].as_i64().unwrap()
     );
 
     let _ = std::fs::remove_dir_all(&dir);

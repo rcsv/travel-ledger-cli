@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.38 move_itinerary dry-run — P-6l cross-day move (dry-run only)
+v4.7.39 move_itinerary --confirm — P-6l cross-day move (confirm)
 
 ## Latest completed
 
@@ -29,7 +29,7 @@ v4.7.38 move_itinerary dry-run — P-6l cross-day move (dry-run only)
 
 - Cargo version: `4.7.38`
 - Latest release: **v4.7.38** — [v4.7.38-notes.md](releases/v4.7.38-notes.md)
-- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）/ `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）
+- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）/ `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）
 - **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 方針正本
 - **P-6j delete dry-run:** [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) — **released**（Venue / Place は delete blocker 外）
 
@@ -49,11 +49,12 @@ P-6j safety / UX hardening — v4.7.33 完了
 P-6k reorder planning — v4.7.34 完了（docs only）
 P-6l move_itinerary planning — v4.7.37 完了（docs only）
 P-6l move_itinerary dry-run — v4.7.38 完了
+P-6l move_itinerary --confirm — v4.7.39 実装中
 ```
 
 ## Next action
 
-**Candidate:** v4.7.39 — move_itinerary --confirm（P-6l）
+**Candidate:** v4.7.39 formal release — move_itinerary --confirm（P-6l）
 
 ## Defer
 
