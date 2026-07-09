@@ -77,6 +77,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.7-travel-book-presentation-helpers-final-review.md](v4.4.7-travel-book-presentation-helpers-final-review.md) | v4.4.7 Travel Book Presentation Helpers Final Review（**released**） |
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
+| [v4.7.37-p6l-cross-day-move-planning.md](v4.7.37-p6l-cross-day-move-planning.md) | P-6l cross-day itinerary move planning（documentation-only） |
 | [v4.7.34-p6k-reorder-itinerary-planning.md](v4.7.34-p6k-reorder-itinerary-planning.md) | P-6k reorder_itinerary planning（documentation-only） |
 | [v4.7.31-p6j-delete-itinerary-dry-run.md](v4.7.31-p6j-delete-itinerary-dry-run.md) | P-6j delete_itinerary dry-run（**v4.7.31** — Venue 前提補足含む） |
 | [v4.7.30-p6j-destructive-structural-apply-policy.md](v4.7.30-p6j-destructive-structural-apply-policy.md) | P-6j delete / reorder policy（planning — 実装前） |

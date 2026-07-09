@@ -2,7 +2,7 @@
 
 ## Current phase
 
-v4.7.36 released — P-6k reorder_itinerary --confirm (same-day)
+v4.7.37 cross-day move planning — P-6l move_itinerary（documentation-only）
 
 ## Latest completed
 
@@ -49,7 +49,7 @@ P-6k reorder planning — v4.7.34 完了（docs only）
 
 ## Next action
 
-**Candidate:** v4.7.37+ — reorder_itinerary cross-day move planning（別 intent）
+**Candidate:** v4.7.37 — cross-day move planning（P-6l）
 
 ## Defer
 
