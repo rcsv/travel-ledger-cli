@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.36](docs/releases/v4.7.36-notes.md) — P-6k reorder_itinerary --confirm（same-day）。
+**最新:** [v4.7.37](docs/releases/v4.7.37-notes.md) — P-6l cross-day move planning（documentation-only）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.37](docs/releases/v4.7.37-notes.md) | docs | P-6l cross-day move planning |
 | [v4.7.36](docs/releases/v4.7.36-notes.md) | minor | P-6k reorder_itinerary --confirm（same-day） |
 | [v4.7.35](docs/releases/v4.7.35-notes.md) | minor | P-6k reorder_itinerary dry-run（same-day） |
 | [v4.7.34](docs/releases/v4.7.34-notes.md) | docs | P-6k reorder_itinerary planning |
