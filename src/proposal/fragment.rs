@@ -15,6 +15,7 @@ const VALID_INTENTS: &[&str] = &[
     "update_itinerary",
     "delete_itinerary",
     "reorder_itinerary",
+    "move_itinerary",
     "enrich",
     "replace_candidate",
     "reorder_hint",
@@ -267,7 +268,7 @@ fn validate_fragment_fields(
         None => report.errors.push("fragment.intent が必要です".to_string()),
         Some(value) if !VALID_INTENTS.contains(&value.as_str()) => {
             report.errors.push(format!(
-                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_reservation / update_itinerary / delete_itinerary / reorder_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
+                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_reservation / update_itinerary / delete_itinerary / reorder_itinerary / move_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
             ));
         }
         _ => {}

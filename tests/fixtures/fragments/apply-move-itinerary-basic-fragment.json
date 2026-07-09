@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "fragment_id": "frag-fixture-move-itinerary-basic",
+    "created_at": "2026-07-09T10:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Aquarium"
+  },
+  "fragment": {
+    "intent": "move_itinerary",
+    "candidate_content": {
+      "from_day": 1,
+      "to_day": 2,
+      "expected_source_order": ["Breakfast", "Aquarium", "Dinner"],
+      "expected_destination_order": ["Museum (Day 2)", "Beach (Day 2)"],
+      "after_source_order": ["Breakfast", "Dinner"],
+      "after_destination_order": ["Museum (Day 2)", "Aquarium", "Beach (Day 2)"]
+    }
+  },
+  "adoption_hints": {
+    "required_decisions": []
+  }
+}
+
