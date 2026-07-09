@@ -24,6 +24,52 @@ fn run_cli_in(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
         .expect("failed to run CLI")
 }
 
+fn query_itinerary_day_columns(db_path: &std::path::Path, itinerary_id: i64) -> (i64, i64) {
+    let sql = format!("SELECT day_id, day FROM itinerary_items WHERE id = {itinerary_id};");
+    let output = Command::new("sqlite3")
+        .arg(db_path)
+        .arg(&sql)
+        .output()
+        .expect("sqlite3 required for raw itinerary_items column check");
+    assert!(
+        output.status.success(),
+        "sqlite3 query failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let line = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let mut parts = line.split('|');
+    let day_id: i64 = parts
+        .next()
+        .expect("day_id column")
+        .parse()
+        .expect("day_id parse");
+    let day: i64 = parts
+        .next()
+        .expect("day column")
+        .parse()
+        .expect("day parse");
+    (day_id, day)
+}
+
+fn query_day_id_for_trip_day(db_path: &std::path::Path, trip_id: i64, day_number: i64) -> i64 {
+    let sql =
+        format!("SELECT id FROM days WHERE trip_id = {trip_id} AND day_number = {day_number};");
+    let output = Command::new("sqlite3")
+        .arg(db_path)
+        .arg(&sql)
+        .output()
+        .expect("sqlite3 required for days.id lookup");
+    assert!(
+        output.status.success(),
+        "sqlite3 query failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .parse()
+        .expect("days.id parse")
+}
+
 #[test]
 fn cli_fragment_apply_dry_run_writes_preview_and_keeps_db_unchanged() {
     let dir = temp_workdir();
@@ -4236,6 +4282,12 @@ fn cli_fragment_apply_move_itinerary_confirm_mutation_boundary() {
         aquarium_after["sort_order"].as_i64().unwrap(),
         aquarium_before["sort_order"].as_i64().unwrap()
     );
+
+    let db_path = dir.join("caglla.db");
+    let destination_day_id = query_day_id_for_trip_day(&db_path, 1, 2);
+    let (raw_day_id, raw_day) = query_itinerary_day_columns(&db_path, aquarium_id);
+    assert_eq!(raw_day_id, destination_day_id);
+    assert_eq!(raw_day, 2);
 
     let _ = std::fs::remove_dir_all(&dir);
 }
