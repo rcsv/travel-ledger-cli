@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.43 P-6n add_estimate --confirm — **implementation in progress**
+v4.7.43 P-6n add_estimate --confirm — **released**
 
 ## Latest completed
 
+- v4.7.43 P-6n add_estimate --confirm — **released**
 - v4.7.42 P-6n add_estimate dry-run — **released**
 - v4.7.38 P-6l move_itinerary dry-run — **released**
 - v4.7.37 P-6l cross-day move planning — **released** (documentation-only)
@@ -28,8 +29,8 @@ v4.7.43 P-6n add_estimate --confirm — **implementation in progress**
 
 ## Repository state
 
-- Cargo version: `4.7.42`
-- Latest release: **v4.7.42** — [v4.7.42-notes.md](releases/v4.7.42-notes.md)
+- Cargo version: `4.7.43`
+- Latest release: **v4.7.43** — [v4.7.43-notes.md](releases/v4.7.43-notes.md)
 - **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_estimate` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_estimate` / `add_reservation` / `update_itinerary`（itinerary）/ `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）
 - **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 方針正本
 - **P-6j delete dry-run:** [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) — **released**（Venue / Place は delete blocker 外）
@@ -54,12 +55,12 @@ P-6l move_itinerary --confirm — v4.7.39 完了
 P-6m reorder / move post-release review — v4.7.40 完了（docs only）
 P-6n add_estimate planning — v4.7.41 完了（docs only）
 P-6n add_estimate dry-run — v4.7.42 完了
-P-6n add_estimate --confirm — v4.7.43 実装中
+P-6n add_estimate --confirm — v4.7.43 完了
 ```
 
 ## Next action
 
-**In progress:** v4.7.43 `add_estimate --confirm`（[confirm spec](specifications/v4.7.43-fragment-apply-add-estimate-confirm.md)）
+（このリリース作業では次の作業は開始しません）
 
 ## Defer
 
