@@ -137,6 +137,7 @@ AI / provider（将来）
 | **v4.7.32** | **Fragment apply delete_itinerary --confirm (P-6j)** |
 | **v4.7.36** | **P-6k reorder_itinerary --confirm（same-day）** |
 | **v4.7.35** | **P-6k reorder_itinerary dry-run（same-day）** |
+| **v4.7.41** | **P-6n add_estimate Proposal Fragment planning（documentation-only）** |
 | **v4.7.40** | **P-6m reorder / move post-release review（documentation-only）** |
 | **v4.7.39** | **P-6l move_itinerary --confirm（cross-day）** |
 | **v4.7.38** | **P-6l move_itinerary dry-run（cross-day）** |
