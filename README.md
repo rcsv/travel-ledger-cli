@@ -132,12 +132,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.43](docs/releases/v4.7.43-notes.md) — P-6n Fragment apply add_estimate --confirm。
+**最新:** [v4.7.44](docs/releases/v4.7.44-notes.md) — P-6n Planned Money post-release review（documentation-only）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.44](docs/releases/v4.7.44-notes.md) | docs | P-6n Planned Money post-release review |
 | [v4.7.43](docs/releases/v4.7.43-notes.md) | minor | P-6n Fragment apply add_estimate --confirm |
 | [v4.7.42](docs/releases/v4.7.42-notes.md) | minor | P-6n Fragment apply add_estimate dry-run |
 | [v4.7.41](docs/releases/v4.7.41-notes.md) | docs | P-6n add_estimate Proposal Fragment planning |

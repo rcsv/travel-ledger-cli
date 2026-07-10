@@ -2,10 +2,11 @@
 
 ## Current phase
 
-v4.7.43 P-6n add_estimate --confirm — **released**
+v4.7.44 P-6n Planned Money post-release review — **released** (documentation-only)
 
 ## Latest completed
 
+- v4.7.44 P-6n Planned Money post-release review — **released** (documentation-only)
 - v4.7.43 P-6n add_estimate --confirm — **released**
 - v4.7.42 P-6n add_estimate dry-run — **released**
 - v4.7.38 P-6l move_itinerary dry-run — **released**
@@ -56,11 +57,12 @@ P-6m reorder / move post-release review — v4.7.40 完了（docs only）
 P-6n add_estimate planning — v4.7.41 完了（docs only）
 P-6n add_estimate dry-run — v4.7.42 完了
 P-6n add_estimate --confirm — v4.7.43 完了
+P-6n Planned Money post-release review — v4.7.44 完了（docs only）
 ```
 
 ## Next action
 
-（このリリース作業では次の作業は開始しません）
+**Candidate:** v4.7.45 P-6o update_estimate planning（documentation-only）
 
 ## Defer
 

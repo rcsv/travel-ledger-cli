@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.44 | P-6n Planned Money post-release review (documentation-only) | [v4.7.44-notes.md](v4.7.44-notes.md) |
 | v4.7.43 | P-6n Fragment apply add_estimate --confirm | [v4.7.43-notes.md](v4.7.43-notes.md) |
 | v4.7.42 | P-6n Fragment apply add_estimate dry-run | [v4.7.42-notes.md](v4.7.42-notes.md) |
 | v4.7.41 | P-6n add_estimate Proposal Fragment planning (documentation-only) | [v4.7.41-notes.md](v4.7.41-notes.md) |
