@@ -74,6 +74,14 @@ cargo run -- itinerary timeline 1
 | Diagnostics | `trip doctor`, `trip advisor` |
 | Dev | `db path`, `db status`, `db reset`, `db use`（`--db` / `CAGLLA_DB` / `caglla.toml` で DB パス指定可） |
 
+
+## Local-first Database
+
+<img src="https://cdn.simpleicons.org/sqlite/003B57" alt="SQLite" width="42">
+
+Travel data is stored in a local SQLite database.
+No account or cloud connection is required, and the database remains under the user's control.
+
 ### Database path（`caglla.toml`）
 
 プロジェクトごとに既定の DB を記録するには:
