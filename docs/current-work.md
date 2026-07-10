@@ -2,11 +2,11 @@
 
 ## Current phase
 
-v4.7.39 move_itinerary --confirm — **released**
+v4.7.40 P-6m itinerary ordering / move post-release review — **complete**（documentation-only）
 
 ## Latest completed
 
-- v4.7.39 P-6l move_itinerary --confirm — **released**
+- v4.7.40 P-6m reorder / move post-release review — **documentation complete**
 - v4.7.38 P-6l move_itinerary dry-run — **released**
 - v4.7.37 P-6l cross-day move planning — **released** (documentation-only)
 - v4.7.36 P-6k reorder_itinerary --confirm（same-day）— **released**
@@ -51,11 +51,14 @@ P-6k reorder planning — v4.7.34 完了（docs only）
 P-6l move_itinerary planning — v4.7.37 完了（docs only）
 P-6l move_itinerary dry-run — v4.7.38 完了
 P-6l move_itinerary --confirm — v4.7.39 完了
+P-6m reorder / move post-release review — v4.7.40 完了（docs only）
 ```
 
 ## Next action
 
-**Candidate:** v4.7.40+ — see defer list（P-6l cross-day move は dry-run + confirm 完了）
+**Candidate:** v4.7.40 formal release — P-6m post-release review（documentation-only）
+
+その後: 次の Proposal Fragment intent、または [v4.7.40 review](specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) §11 の P2 follow-up（テスト補強 / plan 抽出）
 
 ## Defer
 
