@@ -54,7 +54,6 @@ pub fn add_expense(conn: &Connection, params: ExpenseAddParams) -> Result<Expens
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::expense::ExpenseSharedOptions;
     use crate::storage::db::open_db_at;
     use rusqlite::Connection;
 

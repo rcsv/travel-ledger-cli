@@ -1399,16 +1399,6 @@ fn first_itinerary_id(dir: &std::path::Path) -> i64 {
     items[0]["id"].as_i64().expect("itinerary id")
 }
 
-fn first_itinerary_sort_order(dir: &std::path::Path) -> i64 {
-    let output = run_cli_in(dir, &["itinerary", "list", "1", "--json"]);
-    assert!(output.status.success());
-    let items: Vec<serde_json::Value> =
-        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
-    items[0]["sort_order"]
-        .as_i64()
-        .expect("itinerary sort_order")
-}
-
 fn assert_add_estimate_invalid_dry_run(
     dir: &std::path::Path,
     fragment_path: &std::path::Path,
