@@ -2,11 +2,11 @@
 
 ## Current phase
 
-v4.7.40 P-6m itinerary ordering / move post-release review — **released**（documentation-only）
+v4.7.41 P-6n add_estimate Proposal Fragment planning — **complete**（documentation-only）
 
 ## Latest completed
 
-- v4.7.40 P-6m reorder / move post-release review — **released** (documentation-only)
+- v4.7.41 P-6n add_estimate planning — **documentation complete**
 - v4.7.38 P-6l move_itinerary dry-run — **released**
 - v4.7.37 P-6l cross-day move planning — **released** (documentation-only)
 - v4.7.36 P-6k reorder_itinerary --confirm（same-day）— **released**
@@ -52,11 +52,14 @@ P-6l move_itinerary planning — v4.7.37 完了（docs only）
 P-6l move_itinerary dry-run — v4.7.38 完了
 P-6l move_itinerary --confirm — v4.7.39 完了
 P-6m reorder / move post-release review — v4.7.40 完了（docs only）
+P-6n add_estimate planning — v4.7.41 完了（docs only）
 ```
 
 ## Next action
 
-**Candidate:** 次の Proposal Fragment intent、または [v4.7.40 review](specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) §11 の P2 follow-up（テスト補強 / plan 抽出）
+**Candidate:** v4.7.41 formal release — P-6n add_estimate planning（documentation-only）
+
+その後: v4.7.42 `add_estimate` dry-run（[planning spec](specifications/v4.7.41-p6n-add-estimate-planning.md)）、または [v4.7.40 review](specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) §11 の P2 follow-up
 
 ## Defer
 
