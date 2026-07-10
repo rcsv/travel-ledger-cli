@@ -332,22 +332,58 @@ pub(crate) fn update_estimate(
     }
 
     let now = crate::storage::db::now_string();
-    conn.execute(
-        "UPDATE estimates
-         SET title = ?1, amount = ?2, currency = ?3, note = ?4, sort_order = ?5, updated_at = ?6
-         WHERE id = ?7",
-        params![
-            estimate.title,
-            estimate.amount,
-            estimate.currency,
-            estimate.note,
-            estimate.sort_order,
-            &now,
-            id,
-        ],
+    update_estimate_row_scoped(
+        conn,
+        id,
+        estimate.itinerary_id,
+        estimate.title.as_deref(),
+        estimate.amount,
+        &estimate.currency,
+        estimate.note.as_deref(),
+        estimate.sort_order,
+        &now,
     )
-    .context("Estimate の更新に失敗しました")?;
-    Ok(())
+}
+
+/// Proposal Fragment confirm 用。親 Itinerary 境界を WHERE で守り、exactly one row を要求する。
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn update_estimate_row_scoped(
+    conn: &Connection,
+    estimate_id: i64,
+    itinerary_id: i64,
+    title: Option<&str>,
+    amount: i64,
+    currency: &str,
+    note: Option<&str>,
+    sort_order: i64,
+    updated_at: &str,
+) -> Result<()> {
+    let affected = conn
+        .execute(
+            "UPDATE estimates
+             SET title = ?1, amount = ?2, currency = ?3, note = ?4, sort_order = ?5, updated_at = ?6
+             WHERE id = ?7 AND itinerary_id = ?8",
+            params![
+                title,
+                amount,
+                currency,
+                note,
+                sort_order,
+                updated_at,
+                estimate_id,
+                itinerary_id,
+            ],
+        )
+        .context("Estimate の更新に失敗しました")?;
+    match affected {
+        0 => anyhow::bail!(
+            "Estimate {estimate_id} は Itinerary {itinerary_id} 配下で更新できませんでした — DB 更新しません"
+        ),
+        1 => Ok(()),
+        rows => anyhow::bail!(
+            "Estimate 更新が {rows} 行に影響しました — exactly one row contract 違反のため DB 更新しません"
+        ),
+    }
 }
 
 pub(crate) fn delete_estimate(conn: &Connection, id: i64) -> Result<()> {
@@ -657,6 +693,55 @@ mod tests {
         assert_eq!(trip_estimates.len(), 2);
         assert_eq!(trip_estimates[0].itinerary_id, itin_day1);
         assert_eq!(trip_estimates[1].itinerary_id, itin_day2);
+    }
+
+    #[test]
+    fn update_estimate_row_scoped_rejects_zero_rows_for_missing_estimate() {
+        let conn = test_db();
+        let itinerary_id = setup_itinerary(&conn);
+
+        let error = update_estimate_row_scoped(
+            &conn,
+            9_999,
+            itinerary_id,
+            None,
+            1_500,
+            "JPY",
+            None,
+            1,
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("更新できませんでした"));
+    }
+
+    #[test]
+    fn update_estimate_row_scoped_rejects_zero_rows_for_wrong_itinerary_id() {
+        let conn = test_db();
+        let itinerary_id = setup_itinerary(&conn);
+        let estimate_id =
+            add_estimate(&conn, itinerary_id, "10000", "JPY", None, None, None).unwrap();
+        let before = get_estimate(&conn, estimate_id).unwrap();
+
+        let error = update_estimate_row_scoped(
+            &conn,
+            estimate_id,
+            itinerary_id + 9_999,
+            None,
+            15_000,
+            "JPY",
+            None,
+            1,
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("更新できませんでした"));
+        let after = get_estimate(&conn, estimate_id).unwrap();
+        assert_eq!(after.amount, before.amount);
+        assert_eq!(after.currency, before.currency);
+        assert_eq!(after.updated_at, before.updated_at);
     }
 
     #[test]

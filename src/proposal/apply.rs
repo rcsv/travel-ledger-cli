@@ -366,6 +366,7 @@ enum ConfirmInsertResult {
     Reservation(i64),
     Estimate(i64),
     UpdatedItinerary(i64),
+    UpdatedEstimate(i64),
     DeletedItinerary(i64),
     ReorderedItineraries(usize),
     MovedItinerary {
@@ -430,6 +431,10 @@ pub fn run_fragment_apply(
                 "update_itinerary" => {
                     execute_confirm_update_itinerary(conn, options.trip_id, &json, &report)
                         .map(ConfirmInsertResult::UpdatedItinerary)
+                }
+                "update_estimate" => {
+                    execute_confirm_update_estimate(conn, options.trip_id, &json, &report)
+                        .map(ConfirmInsertResult::UpdatedEstimate)
                 }
                 "delete_itinerary" => {
                     execute_confirm_delete_itinerary(conn, options.trip_id, &report)
@@ -550,6 +555,26 @@ pub fn run_fragment_apply(
                             println!("  category     : {}", category.as_str());
                         }
                         if let Some(note) = &item.note {
+                            println!("  note         : {note}");
+                        }
+                    }
+                }
+                Ok(ConfirmInsertResult::UpdatedEstimate(estimate_id)) => {
+                    report.updated_estimate_id = Some(estimate_id);
+                    let estimate = crate::estimate::get_estimate(conn, estimate_id)?;
+                    if !options.json {
+                        println!();
+                        println!("Estimate を DB に更新しました（fragment apply --confirm）");
+                        println!("  estimate ID  : {estimate_id}");
+                        println!("  旅行 ID      : {}", options.trip_id);
+                        println!("  itinerary ID : {}", estimate.itinerary_id);
+                        println!("  amount       : {}", estimate.amount);
+                        println!("  currency     : {}", estimate.currency);
+                        println!("  sort_order   : {}", estimate.sort_order);
+                        if let Some(title) = &estimate.title {
+                            println!("  タイトル     : {title}");
+                        }
+                        if let Some(note) = &estimate.note {
                             println!("  note         : {note}");
                         }
                     }
@@ -907,6 +932,32 @@ fn validate_confirm_scope(
             }
             true
         }
+        ("update_estimate", "update_estimate") => {
+            if resolved.target_type != "itinerary" {
+                report.errors.push(format!(
+                    "v4.7.48 --confirm は itinerary target + update_estimate のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            if preview.estimate_update_preview.is_none() {
+                report.errors.push(
+                    "update_estimate confirm には estimate_update_preview が必要です".to_string(),
+                );
+                return false;
+            }
+            if preview
+                .estimate_field_changes
+                .as_ref()
+                .is_none_or(|changes| changes.is_empty())
+            {
+                report.errors.push(
+                    "update_estimate confirm には estimate_field_changes が必要です".to_string(),
+                );
+                return false;
+            }
+            true
+        }
         ("delete_itinerary", "delete_itinerary") => {
             if resolved.target_type != "itinerary" {
                 report.errors.push(format!(
@@ -957,7 +1008,7 @@ fn validate_confirm_scope(
         }
         _ => {
             report.errors.push(format!(
-                "v4.7.32 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、update_itinerary、delete_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
+                "v4.7.32 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、add_estimate、update_itinerary、update_estimate、delete_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
                 preview.action
             ));
             false
@@ -1367,6 +1418,262 @@ fn execute_confirm_update_itinerary(
     )?;
 
     Ok(itinerary_id)
+}
+
+fn verify_update_estimate_gate_preview_matches(
+    gate_preview: &FragmentApplyEstimateUpdatePreview,
+    gate_changes: &[FragmentApplyEstimateFieldChange],
+    itinerary_id: i64,
+    fields: &ParsedUpdateEstimateFields,
+    proposed: &Estimate,
+    recomputed_changes: &[FragmentApplyEstimateFieldChange],
+) -> Result<(), String> {
+    if gate_preview.target_itinerary_id != itinerary_id {
+        return Err(format!(
+            "gate preview と target itinerary が一致しません（preview: {}, resolved: {itinerary_id}）— DB 更新しません",
+            gate_preview.target_itinerary_id
+        ));
+    }
+    if gate_preview.target_estimate_id != fields.estimate_id {
+        return Err(format!(
+            "gate preview と target estimate が一致しません（preview: {}, parsed: {}）— DB 更新しません",
+            gate_preview.target_estimate_id, fields.estimate_id
+        ));
+    }
+    if gate_changes != recomputed_changes {
+        return Err(
+            "gate preview と estimate_field_changes が一致しません — DB 更新しません".to_string(),
+        );
+    }
+    for change in gate_changes {
+        let expected_after = estimate_display_value_for_field(&change.field, proposed);
+        if change.after != expected_after {
+            return Err(format!(
+                "gate preview の after ({}) と proposed {} ({expected_after}) が一致しません — DB 更新しません",
+                change.after, change.field
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn revalidate_update_estimate_before_write(
+    conn: &Connection,
+    estimate_id: i64,
+    itinerary_id: i64,
+    candidate: &Map<String, Value>,
+    preview_changes: &[FragmentApplyEstimateFieldChange],
+) -> Result<(), String> {
+    let current = crate::estimate::get_estimate(conn, estimate_id)
+        .map_err(|error| format!("Estimate not found: {error}"))?;
+    if current.itinerary_id != itinerary_id {
+        return Err(format!(
+            "Estimate {estimate_id} は Itinerary {itinerary_id} 配下ではありません"
+        ));
+    }
+
+    detect_update_estimate_baseline_conflicts(candidate, &current)?;
+
+    for change in preview_changes {
+        let actual_before = estimate_display_value_for_field(&change.field, &current);
+        if actual_before != change.before {
+            return Err(format!(
+                "TOCTOU mismatch: estimate_field_changes.{} の before ({}) が現行 DB ({actual_before}) と一致しません — DB 更新しません",
+                change.field, change.before
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn verify_updated_estimate_matches_proposed(
+    stored: &Estimate,
+    itinerary_id: i64,
+    proposed: &Estimate,
+) -> Result<(), String> {
+    if stored.id != proposed.id {
+        return Err(format!(
+            "updated estimate ID ({}) が期待値 ({}) と一致しません — DB 更新しません",
+            stored.id, proposed.id
+        ));
+    }
+    if stored.itinerary_id != itinerary_id {
+        return Err(format!(
+            "updated estimate の itinerary_id ({}) が期待値 ({itinerary_id}) と一致しません — DB 更新しません",
+            stored.itinerary_id
+        ));
+    }
+    if stored.amount != proposed.amount {
+        return Err(format!(
+            "updated estimate の amount ({}) が期待値 ({}) と一致しません — DB 更新しません",
+            stored.amount, proposed.amount
+        ));
+    }
+    if stored.currency != proposed.currency {
+        return Err(format!(
+            "updated estimate の currency ({}) が期待値 ({}) と一致しません — DB 更新しません",
+            stored.currency, proposed.currency
+        ));
+    }
+    if stored.title != proposed.title {
+        return Err(
+            "updated estimate の title が期待値と一致しません — DB 更新しません".to_string(),
+        );
+    }
+    if stored.note != proposed.note {
+        return Err(
+            "updated estimate の note が期待値と一致しません — DB 更新しません".to_string(),
+        );
+    }
+    if stored.sort_order != proposed.sort_order {
+        return Err(format!(
+            "updated estimate の sort_order ({}) が期待値 ({}) と一致しません — DB 更新しません",
+            stored.sort_order, proposed.sort_order
+        ));
+    }
+    Ok(())
+}
+
+fn execute_confirm_update_estimate(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let preview = report
+        .preview
+        .as_ref()
+        .context("update_estimate confirm には preview が必要です")?;
+    if preview.action != "update_estimate" {
+        anyhow::bail!("gate preview の action が update_estimate ではありません — DB 更新しません");
+    }
+    let gate_preview = preview
+        .estimate_update_preview
+        .as_ref()
+        .context("update_estimate confirm には estimate_update_preview が必要です")?;
+    let gate_changes = preview
+        .estimate_field_changes
+        .as_ref()
+        .filter(|changes| !changes.is_empty())
+        .context("update_estimate confirm には estimate_field_changes が必要です")?;
+
+    let trip_name = report
+        .resolved_target
+        .as_ref()
+        .map(|target| target.trip_name.clone())
+        .or_else(|| {
+            crate::trip::get_trip(conn, trip_id)
+                .ok()
+                .map(|trip| trip.name)
+        })
+        .context("Trip 名の解決に失敗しました")?;
+
+    let mut updated_estimate_id = 0i64;
+    crate::storage::db::with_transaction(conn, "update_estimate confirm", |tx| {
+        let root: Value =
+            serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+        let root_obj = root
+            .as_object()
+            .context("トップレベルが JSON object ではありません")?;
+        let fragment_body = root_obj
+            .get("fragment")
+            .and_then(Value::as_object)
+            .context("fragment object が必要です")?;
+        let candidate = fragment_body
+            .get("candidate_content")
+            .and_then(Value::as_object)
+            .context("candidate_content object が必要です")?;
+        let intent = non_empty_string(fragment_body.get("intent"))
+            .ok_or_else(|| anyhow::anyhow!("fragment.intent が必要です"))?;
+        if intent != "update_estimate" {
+            anyhow::bail!("fragment.intent が update_estimate ではありません — DB 更新しません");
+        }
+
+        let fields = parse_update_estimate_fields(fragment_body, None)
+            .map_err(|error| anyhow::anyhow!(error))?;
+
+        let target_obj = root_obj
+            .get("target")
+            .and_then(Value::as_object)
+            .context("target object が必要です")?;
+        let mut resolve_report = FragmentApplyDryRunReport::new("", trip_id, false, true);
+        let resolved =
+            resolve_apply_target(tx, trip_id, &trip_name, target_obj, &mut resolve_report)
+                .map_err(|_| {
+                    anyhow::anyhow!(
+                        "target の再解決に失敗しました: {}",
+                        resolve_report.errors.join("; ")
+                    )
+                })?
+                .context("target が解決されていません")?;
+        if resolved.resolution == "ambiguous" {
+            anyhow::bail!("target が曖昧です — DB 更新しません");
+        }
+        if resolved.target_type != "itinerary" {
+            anyhow::bail!(
+                "update_estimate confirm は itinerary target のみサポートしています（現在: {}）",
+                resolved.target_type
+            );
+        }
+
+        let itinerary_id = lookup_itinerary_db_id_from_resolved(tx, trip_id, &resolved)
+            .map_err(|error| anyhow::anyhow!(error))?;
+
+        let current = crate::estimate::get_estimate(tx, fields.estimate_id)
+            .map_err(|error| anyhow::anyhow!("Estimate not found: {error}"))?;
+        if current.itinerary_id != itinerary_id {
+            anyhow::bail!(
+                "Estimate {} は Itinerary {} 配下ではありません",
+                fields.estimate_id,
+                itinerary_id
+            );
+        }
+
+        let proposed = compute_update_estimate_proposed(&current, &fields)
+            .map_err(|error| anyhow::anyhow!(error))?;
+        let recomputed_changes = build_update_estimate_field_changes(&current, &proposed, &fields);
+
+        verify_update_estimate_gate_preview_matches(
+            gate_preview,
+            gate_changes,
+            itinerary_id,
+            &fields,
+            &proposed,
+            &recomputed_changes,
+        )
+        .map_err(|error| anyhow::anyhow!(error))?;
+
+        revalidate_update_estimate_before_write(
+            tx,
+            fields.estimate_id,
+            itinerary_id,
+            candidate,
+            gate_changes,
+        )
+        .map_err(|error| anyhow::anyhow!(error))?;
+
+        let now = crate::storage::db::now_string();
+        crate::estimate::update_estimate_row_scoped(
+            tx,
+            fields.estimate_id,
+            itinerary_id,
+            proposed.title.as_deref(),
+            proposed.amount,
+            &proposed.currency,
+            proposed.note.as_deref(),
+            proposed.sort_order,
+            &now,
+        )?;
+
+        let stored = crate::estimate::get_estimate(tx, fields.estimate_id)?;
+        verify_updated_estimate_matches_proposed(&stored, itinerary_id, &proposed)
+            .map_err(|error| anyhow::anyhow!(error))?;
+
+        updated_estimate_id = fields.estimate_id;
+        Ok(())
+    })?;
+
+    Ok(updated_estimate_id)
 }
 
 fn count_blocking_children_for_itinerary_db(
@@ -6654,5 +6961,142 @@ mod tests {
         run_fragment_apply(path.to_str().unwrap(), &conn, &options).expect("confirm apply");
         assert!(crate::itinerary::get_itinerary_item(&conn, item_id).is_err());
         let _ = std::fs::remove_file(path);
+    }
+
+    fn seed_update_estimate_confirm_fixture(conn: &Connection) -> (i64, i64, i64) {
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let itinerary_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let estimate_id = crate::estimate::add_estimate(
+            &conn,
+            itinerary_id,
+            "10000",
+            "JPY",
+            Some("Lunch estimate"),
+            Some("Original note"),
+            None,
+        )
+        .unwrap();
+        (trip_id, itinerary_id, estimate_id)
+    }
+
+    const UPDATE_ESTIMATE_GATE_AMOUNT_1250_JSON: &str = r#"{
+      "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+      "target": {
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      },
+      "fragment": {
+        "intent": "update_estimate",
+        "candidate_content": {
+          "estimate_id": 1,
+          "amount": 1250,
+          "currency": "USD"
+        }
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+    const UPDATE_ESTIMATE_CONFIRM_AMOUNT_1300_JSON: &str = r#"{
+      "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+      "target": {
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      },
+      "fragment": {
+        "intent": "update_estimate",
+        "candidate_content": {
+          "estimate_id": 1,
+          "amount": 1300,
+          "currency": "USD"
+        }
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+    #[test]
+    fn confirm_update_estimate_candidate_preview_mismatch_blocks_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let before = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+        let before_expenses = crate::expense::list_expenses_for_itinerary(&conn, itinerary_id)
+            .unwrap()
+            .len();
+
+        let (gate_report, _) = fragment_apply_gate_json(
+            &conn,
+            "test.json",
+            UPDATE_ESTIMATE_GATE_AMOUNT_1250_JSON,
+            trip_id,
+            false,
+            true,
+        );
+        assert!(gate_report.valid, "errors: {:?}", gate_report.errors);
+
+        let error = execute_confirm_update_estimate(
+            &conn,
+            trip_id,
+            UPDATE_ESTIMATE_CONFIRM_AMOUNT_1300_JSON,
+            &gate_report,
+        )
+        .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("estimate_field_changes") || message.contains("gate preview"),
+            "got: {message}"
+        );
+        assert!(gate_report.updated_estimate_id.is_none());
+
+        let after = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+        assert_eq!(after.amount, before.amount);
+        assert_eq!(after.currency, before.currency);
+        assert_eq!(after.title, before.title);
+        assert_eq!(after.note, before.note);
+        assert_eq!(after.sort_order, before.sort_order);
+        assert_eq!(after.updated_at, before.updated_at);
+        assert_eq!(
+            crate::expense::list_expenses_for_itinerary(&conn, itinerary_id)
+                .unwrap()
+                .len(),
+            before_expenses
+        );
+    }
+
+    #[test]
+    fn verify_updated_estimate_matches_proposed_rejects_amount_mismatch() {
+        let stored = crate::domain::models::Estimate {
+            id: 1,
+            itinerary_id: 10,
+            title: Some("Title".to_string()),
+            amount: 1300,
+            currency: "USD".to_string(),
+            note: Some("Note".to_string()),
+            sort_order: 1,
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+        };
+        let proposed = crate::domain::models::Estimate {
+            amount: 1250,
+            ..stored.clone()
+        };
+
+        let error = verify_updated_estimate_matches_proposed(&stored, 10, &proposed).unwrap_err();
+        assert!(error.contains("amount"));
+        assert!(error.contains("DB 更新しません"));
     }
 }
