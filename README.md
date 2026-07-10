@@ -132,12 +132,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.49](docs/releases/v4.7.49-notes.md) — P-6o `update_estimate` post-release review（documentation-only）。v4.7 系列完了。次は **v4.8.0**。
+**最新:** [v4.8.0](docs/releases/v4.8.0-notes.md) — P-6p `delete_estimate` Proposal Fragment planning（documentation-only）。次は **v4.8.1** dry-run。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.8.0](docs/releases/v4.8.0-notes.md) | docs | P-6p delete_estimate Proposal Fragment planning |
 | [v4.7.49](docs/releases/v4.7.49-notes.md) | docs | P-6o update_estimate post-release review（v4.7 系列完了） |
 | [v4.7.48](docs/releases/v4.7.48-notes.md) | minor | P-6o Fragment apply update_estimate --confirm |
 | [v4.7.47](docs/releases/v4.7.47-notes.md) | minor | P-6o Fragment apply update_estimate dry-run |

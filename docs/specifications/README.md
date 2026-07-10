@@ -83,6 +83,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.7.46-p6o-update-estimate-planning.md](v4.7.46-p6o-update-estimate-planning.md) | P-6o update_estimate planning（documentation-only） |
 | [v4.7.47-p6o-update-estimate-dry-run.md](v4.7.47-p6o-update-estimate-dry-run.md) | P-6o update_estimate dry-run（**v4.7.47 released**） |
 | [v4.7.49-p6o-update-estimate-post-release-review.md](v4.7.49-p6o-update-estimate-post-release-review.md) | P-6o update_estimate post-release review（**v4.7.49 released** — documentation-only） |
+| [v4.8.0-p6p-delete-estimate-planning.md](v4.8.0-p6p-delete-estimate-planning.md) | P-6p delete_estimate Proposal Fragment planning（**v4.8.0 released** — documentation-only） |
 | [v4.7.48-p6o-update-estimate-confirm.md](v4.7.48-p6o-update-estimate-confirm.md) | P-6o update_estimate --confirm（**v4.7.48 released**） |
 | [v4.7.45-estimate-documentation-and-cli-usage-review.md](v4.7.45-estimate-documentation-and-cli-usage-review.md) | P-6n Estimate user docs / CLI usage review（documentation-only） |
 | [v4.7.44-p6n-planned-money-post-release-review.md](v4.7.44-p6n-planned-money-post-release-review.md) | P-6n Planned Money post-release review（documentation-only） |
