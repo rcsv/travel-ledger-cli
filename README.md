@@ -132,12 +132,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.41](docs/releases/v4.7.41-notes.md) — P-6n add_estimate Proposal Fragment planning（documentation-only）。
+**最新:** [v4.7.42](docs/releases/v4.7.42-notes.md) — P-6n Fragment apply add_estimate dry-run。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.42](docs/releases/v4.7.42-notes.md) | minor | P-6n Fragment apply add_estimate dry-run |
 | [v4.7.41](docs/releases/v4.7.41-notes.md) | docs | P-6n add_estimate Proposal Fragment planning |
 | [v4.7.40](docs/releases/v4.7.40-notes.md) | docs | P-6m reorder / move post-release review |
 | [v4.7.39](docs/releases/v4.7.39-notes.md) | minor | P-6l move_itinerary --confirm（cross-day） |
