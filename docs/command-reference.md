@@ -205,6 +205,12 @@ cargo run -- estimate delete 3
 Entity Design: [specifications/estimate-entity-design.md](specifications/estimate-entity-design.md)  
 Implementation Plan: [specifications/estimate-implementation-plan.md](specifications/estimate-implementation-plan.md)
 
+### Proposal Fragment `add_estimate`（Planned Money）
+
+Itinerary target のみ。`fragment apply --dry-run` で preview、`--confirm` で Estimate 1 件追加。通常 `estimate add` とは別入口です。
+
+利用者向け契約・CLI 例の正本: [v4.7.45 Estimate documentation and CLI usage review](specifications/v4.7.45-estimate-documentation-and-cli-usage-review.md)
+
 ## Receipt Inbox（metadata-only）
 
 Trip 直下の **Expense 化待ちの未整理支払い候補**（Receipt）。Expense（確定 Actual）ではありません。`image_path` / OCR / Attachment は **非対象**（将来の証憑画像は Receipt / Expense 共通の Evidence / Attachment レイヤーで検討）。
