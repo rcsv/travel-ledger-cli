@@ -5986,3 +5986,810 @@ fn cli_fragment_validate_remains_file_only() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+fn seed_trip_with_estimate(dir: &std::path::Path) -> (i64, i64) {
+    seed_trip_with_itinerary(dir);
+    let itinerary_id = first_itinerary_id(dir);
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            &itinerary_id.to_string(),
+            "--amount",
+            "10000",
+            "--currency",
+            "JPY",
+            "--title",
+            "Lunch estimate",
+            "--note",
+            "Original note",
+        ],
+    )
+    .status
+    .success());
+    let output = run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "list",
+            "--itinerary",
+            &itinerary_id.to_string(),
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    let estimate_id = parsed["estimates"][0]["id"].as_i64().expect("estimate id");
+    (itinerary_id, estimate_id)
+}
+
+fn estimate_show_json(dir: &std::path::Path, estimate_id: i64) -> serde_json::Value {
+    let output = run_cli_in(
+        dir,
+        &["estimate", "show", &estimate_id.to_string(), "--json"],
+    );
+    assert!(output.status.success());
+    serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap()
+}
+
+fn assert_update_estimate_invalid_dry_run(
+    dir: &std::path::Path,
+    fragment_path: &std::path::Path,
+    error_hint: &str,
+) {
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let before = estimate_show_json(dir, estimate_id);
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    let errors = parsed["errors"]
+        .as_array()
+        .expect("errors array")
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        errors.contains(error_hint),
+        "expected error containing {error_hint:?}, got: {errors}"
+    );
+    let after = estimate_show_json(dir, estimate_id);
+    assert_eq!(before, after);
+}
+
+fn write_update_estimate_inline_fragment(
+    dir: &std::path::Path,
+    filename: &str,
+    target_json: &str,
+    candidate_json: &str,
+) -> std::path::PathBuf {
+    let path = dir.join(filename);
+    let content = format!(
+        r#"{{
+  "target": {target_json},
+  "fragment": {{
+    "intent": "update_estimate",
+    "candidate_content": {candidate_json}
+  }},
+  "adoption_hints": {{ "required_decisions": [] }}
+}}"#
+    );
+    std::fs::write(&path, content).unwrap();
+    path
+}
+
+fn run_update_estimate_dry_run_json(
+    dir: &std::path::Path,
+    fragment_path: &std::path::Path,
+) -> serde_json::Value {
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report")
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_amount_only_dry_run_preview_keeps_db_unchanged() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = fixture_path("apply-update-estimate-amount-only.json");
+    let preview_path = dir.join("update-estimate-preview.json");
+    let (itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let before = estimate_show_json(dir, estimate_id);
+
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(parsed["preview"]["action"], "update_estimate");
+    assert_eq!(
+        parsed["preview"]["estimate_update_preview"]["target_itinerary_id"],
+        itinerary_id
+    );
+    assert_eq!(
+        parsed["preview"]["estimate_update_preview"]["target_estimate_id"],
+        estimate_id
+    );
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0]["field"], "amount");
+    assert_eq!(changes[0]["before"], "10000");
+    assert_eq!(changes[0]["after"], "15000");
+
+    let after = estimate_show_json(dir, estimate_id);
+    assert_eq!(before, after);
+    assert_eq!(after["amount"], 10000);
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_amount_currency_minor_units_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = fixture_path("apply-update-estimate-amount-currency.json");
+    seed_trip_with_estimate(dir);
+
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["after"], "1250");
+    assert_eq!(changes[1]["after"], "USD");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_clear_title_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = fixture_path("apply-update-estimate-clear-title.json");
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["field"], "title");
+    assert_eq!(changes[0]["before"], "Lunch estimate");
+    assert_eq!(changes[0]["after"], "-");
+    assert_eq!(
+        estimate_show_json(dir, estimate_id)["title"],
+        serde_json::Value::String("Lunch estimate".to_string()),
+        "dry-run must not mutate DB"
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_empty_title_normalizes_to_null() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment_path = dir.join("update-estimate-empty-title.json");
+    seed_trip_with_estimate(dir);
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "update_estimate",
+    "candidate_content": { "estimate_id": 1, "title": "" }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["after"], "-");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_noop_valid_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment_path = dir.join("update-estimate-noop.json");
+    seed_trip_with_estimate(dir);
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "update_estimate",
+    "candidate_content": { "estimate_id": 1, "amount": "10000" }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["before"], "10000");
+    assert_eq!(changes[0]["after"], "10000");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_currency_only_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert_update_estimate_invalid_dry_run(
+        dir,
+        &fixture_path("apply-update-estimate-currency-only.json"),
+        "amount も指定",
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_no_fields_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert_update_estimate_invalid_dry_run(
+        dir,
+        &fixture_path("apply-update-estimate-no-fields.json"),
+        "更新フィールド",
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_null_amount_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert_update_estimate_invalid_dry_run(
+        dir,
+        &fixture_path("apply-update-estimate-null-amount.json"),
+        "null",
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_title_clear_conflict_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert_update_estimate_invalid_dry_run(
+        dir,
+        &fixture_path("apply-update-estimate-title-clear-conflict.json"),
+        "clear_title",
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_baseline_mismatch_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert_update_estimate_invalid_dry_run(
+        dir,
+        &fixture_path("apply-update-estimate-baseline-mismatch.json"),
+        "baseline mismatch",
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_title_note_sort_order_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let before = estimate_show_json(dir, estimate_id);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-fields.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(
+            r#"{{ "estimate_id": {estimate_id}, "title": "Updated title", "note": "Updated note", "sort_order": 3 }}"#
+        ),
+    );
+    let parsed = run_update_estimate_dry_run_json(dir, &fragment);
+    assert_eq!(parsed["valid"], true);
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes.len(), 3);
+    assert_eq!(changes[0]["field"], "title");
+    assert_eq!(changes[0]["after"], "Updated title");
+    assert_eq!(changes[1]["field"], "note");
+    assert_eq!(changes[1]["after"], "Updated note");
+    assert_eq!(changes[2]["field"], "sort_order");
+    assert_eq!(changes[2]["after"], "3");
+    assert_eq!(
+        parsed["preview"]["estimate_update_preview"]["target_itinerary_id"],
+        itinerary_id
+    );
+    assert_eq!(before, estimate_show_json(dir, estimate_id));
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_clear_note_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let before = estimate_show_json(dir, estimate_id);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-clear-note.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(r#"{{ "estimate_id": {estimate_id}, "clear_note": true }}"#),
+    );
+    let parsed = run_update_estimate_dry_run_json(dir, &fragment);
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["field"], "note");
+    assert_eq!(changes[0]["before"], "Original note");
+    assert_eq!(changes[0]["after"], "-");
+    assert_eq!(before, estimate_show_json(dir, estimate_id));
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_empty_note_normalizes_to_null() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_estimate(dir);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-empty-note.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "note": "" }"#,
+    );
+    let parsed = run_update_estimate_dry_run_json(dir, &fragment);
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["after"], "-");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_string_amount_existing_currency_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_estimate(dir);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-string-amount.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "amount": "15000" }"#,
+    );
+    let parsed = run_update_estimate_dry_run_json(dir, &fragment);
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["after"], "15000");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_string_amount_new_currency_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_estimate(dir);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-string-amount-usd.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "amount": "12.50", "currency": "USD" }"#,
+    );
+    let parsed = run_update_estimate_dry_run_json(dir, &fragment);
+    let changes = parsed["preview"]["estimate_field_changes"]
+        .as_array()
+        .expect("estimate_field_changes");
+    assert_eq!(changes[0]["after"], "1250");
+    assert_eq!(changes[1]["after"], "USD");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_itinerary_id_target_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-id-target.json",
+        &format!(
+            r#"{{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": {itinerary_id} }}"#
+        ),
+        &format!(r#"{{ "estimate_id": {estimate_id}, "title": "ID target title" }}"#),
+    );
+    let parsed = run_update_estimate_dry_run_json(dir, &fragment);
+    assert_eq!(
+        parsed["preview"]["estimate_update_preview"]["target_itinerary_id"],
+        itinerary_id
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_sort_order_fallback_target_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-sort-order-target.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": 1000 }"#,
+        &format!(r#"{{ "estimate_id": {estimate_id}, "title": "Sort order target" }}"#),
+    );
+    let parsed = run_update_estimate_dry_run_json(dir, &fragment);
+    assert_eq!(
+        parsed["preview"]["estimate_update_preview"]["target_itinerary_id"],
+        itinerary_id
+    );
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_missing_estimate_id_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-missing-id.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "amount": "15000" }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "estimate_id");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_null_estimate_id_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-null-id.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": null, "amount": "15000" }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "null");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_wrong_itinerary_parent_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_itinerary(dir);
+    let first_itinerary = first_itinerary_id(dir);
+    assert!(
+        run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "Second stop"],)
+            .status
+            .success()
+    );
+    let second_output = run_cli_in(dir, &["itinerary", "list", "1", "--json"]);
+    let second_itineraries: Vec<serde_json::Value> =
+        serde_json::from_str(&String::from_utf8_lossy(&second_output.stdout)).unwrap();
+    let second_itinerary_id = second_itineraries[1]["id"]
+        .as_i64()
+        .expect("second itinerary id");
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            &second_itinerary_id.to_string(),
+            "--amount",
+            "5000",
+            "--currency",
+            "JPY",
+        ],
+    )
+    .status
+    .success());
+    let estimate_output = run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "list",
+            "--itinerary",
+            &second_itinerary_id.to_string(),
+            "--json",
+        ],
+    );
+    let estimate_parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&estimate_output.stdout)).unwrap();
+    let foreign_estimate_id = estimate_parsed["estimates"][0]["id"].as_i64().unwrap();
+    let before = estimate_show_json(dir, foreign_estimate_id);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-wrong-parent.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(r#"{{ "estimate_id": {foreign_estimate_id}, "amount": "9999" }}"#),
+    );
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    let errors = parsed["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(errors.contains("配下ではありません"), "got: {errors}");
+    assert_eq!(before, estimate_show_json(dir, foreign_estimate_id));
+    assert_eq!(first_itinerary, first_itinerary_id(dir));
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_ambiguous_target_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_day_with_ambiguous_number_selector(dir);
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            "1",
+            "--amount",
+            "10000",
+            "--currency",
+            "JPY",
+        ],
+    )
+    .status
+    .success());
+    let before = estimate_show_json(dir, 1);
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-ambiguous-target.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": 2 }"#,
+        r#"{ "estimate_id": 1, "amount": "15000" }"#,
+    );
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    let errors = parsed["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(errors.contains("曖昧"), "got: {errors}");
+    assert_eq!(before, estimate_show_json(dir, 1));
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_invalid_amount_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-invalid-amount.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "amount": "not-a-number" }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "amount");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_invalid_currency_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-invalid-currency.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "amount": "100", "currency": "JP" }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "currency");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_unsupported_clear_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-unsupported-clear.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "clear_amount": true, "amount": "15000" }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "clear_amount");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_unknown_field_only_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-unknown-only.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "foo": "bar" }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "更新フィールド");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_estimate_not_found_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-not-found.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 9999, "amount": "15000" }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "Estimate not found");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_note_clear_conflict_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-note-clear-conflict.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "note": "x", "clear_note": true }"#,
+    );
+    assert_update_estimate_invalid_dry_run(dir, &fragment, "clear_note");
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_trip_target_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_estimate(dir);
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-trip-target.json",
+        r#"{ "target_type": "trip" }"#,
+        r#"{ "estimate_id": 1, "amount": "15000" }"#,
+    );
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("itinerary target"));
+}

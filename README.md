@@ -132,12 +132,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.46](docs/releases/v4.7.46-notes.md) — P-6o update_estimate planning（documentation-only）。
+**最新:** [v4.7.47](docs/releases/v4.7.47-notes.md) — P-6o `update_estimate` dry-run（DB read-only、`--confirm` 未実装）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.47](docs/releases/v4.7.47-notes.md) | minor | P-6o Fragment apply update_estimate dry-run |
 | [v4.7.46](docs/releases/v4.7.46-notes.md) | docs | P-6o update_estimate planning |
 | [v4.7.45](docs/releases/v4.7.45-notes.md) | docs | Estimate documentation and CLI usage review |
 | [v4.7.44](docs/releases/v4.7.44-notes.md) | docs | P-6n Planned Money post-release review |

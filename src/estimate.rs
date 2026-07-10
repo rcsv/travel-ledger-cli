@@ -36,7 +36,7 @@ pub(crate) fn migrate_estimates(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn normalize_optional_text(value: Option<&str>) -> Option<String> {
+pub(crate) fn normalize_optional_text(value: Option<&str>) -> Option<String> {
     match value {
         None => None,
         Some(text) => {

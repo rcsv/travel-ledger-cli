@@ -12,6 +12,7 @@ const VALID_INTENTS: &[&str] = &[
     "add_note",
     "add_expense",
     "add_estimate",
+    "update_estimate",
     "add_reservation",
     "update_itinerary",
     "delete_itinerary",
@@ -269,7 +270,7 @@ fn validate_fragment_fields(
         None => report.errors.push("fragment.intent が必要です".to_string()),
         Some(value) if !VALID_INTENTS.contains(&value.as_str()) => {
             report.errors.push(format!(
-                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_estimate / add_reservation / update_itinerary / delete_itinerary / reorder_itinerary / move_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
+                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_estimate / update_estimate / add_reservation / update_itinerary / delete_itinerary / reorder_itinerary / move_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
             ));
         }
         _ => {}
@@ -294,6 +295,9 @@ fn fragment_body_nearly_empty(
     }
     if intent == Some("add_estimate") {
         return add_estimate_body_nearly_empty(fragment);
+    }
+    if intent == Some("update_estimate") {
+        return update_estimate_body_nearly_empty(fragment);
     }
     if intent == Some("add_reservation") {
         return add_reservation_body_nearly_empty(fragment);
@@ -339,6 +343,38 @@ fn add_expense_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> b
 
 fn add_estimate_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> bool {
     add_expense_body_nearly_empty(fragment)
+}
+
+fn update_estimate_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> bool {
+    let Some(candidate) = fragment.get("candidate_content").and_then(Value::as_object) else {
+        return true;
+    };
+    if candidate.is_empty() {
+        return true;
+    }
+    // estimate_id のみでも fragment body は有効。更新フィールド 0 件は dry-run で拒否する。
+    candidate.get("estimate_id").is_none()
+        && !candidate
+            .keys()
+            .any(|key| is_update_estimate_field_key(key.as_str()))
+}
+
+fn is_update_estimate_field_key(key: &str) -> bool {
+    matches!(
+        key,
+        "amount"
+            | "currency"
+            | "title"
+            | "note"
+            | "sort_order"
+            | "clear_title"
+            | "clear_note"
+            | "expected_amount"
+            | "expected_currency"
+            | "expected_title"
+            | "expected_note"
+            | "expected_sort_order"
+    )
 }
 
 fn update_itinerary_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> bool {

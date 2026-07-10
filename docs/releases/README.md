@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.47 | P-6o update_estimate dry-run | [v4.7.47-notes.md](v4.7.47-notes.md) |
 | v4.7.46 | P-6o update_estimate planning (documentation-only) | [v4.7.46-notes.md](v4.7.46-notes.md) |
 | v4.7.45 | Estimate documentation and CLI usage review (documentation-only) | [v4.7.45-notes.md](v4.7.45-notes.md) |
 | v4.7.44 | P-6n Planned Money post-release review (documentation-only) | [v4.7.44-notes.md](v4.7.44-notes.md) |

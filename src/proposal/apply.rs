@@ -5,10 +5,11 @@ use serde_json::{Map, Value};
 
 use crate::day::{find_day_by_trip_and_day_number, validate_trip_date_range};
 use crate::domain::models::{
-    parse_itinerary_category, ExportDayV3, ExportEstimateV3, ExportExpenseV3, ExportItineraryV3,
-    ExportNote, ExportReservationV3, ItineraryCategory, ItineraryNoteKey, TripExportV3,
-    TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
+    parse_itinerary_category, Estimate, ExportDayV3, ExportEstimateV3, ExportExpenseV3,
+    ExportItineraryV3, ExportNote, ExportReservationV3, ItineraryCategory, ItineraryNoteKey,
+    TripExportV3, TRIP_EXPORT_GENERATOR, TRIP_EXPORT_SCHEMA_VERSION,
 };
+use crate::estimate::{get_estimate, list_estimates_for_itinerary, normalize_optional_text};
 use crate::itinerary::{parse_time_hhmm, SORT_ORDER_STEP};
 use crate::money::{parse_amount_for_currency, validate_currency_code};
 use crate::output::json::print_json;
@@ -41,6 +42,20 @@ pub struct FragmentApplyItineraryFieldChange {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyEstimateFieldChange {
+    pub field: String,
+    pub before: String,
+    pub after: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyEstimateUpdatePreview {
+    pub target_itinerary_id: i64,
+    pub target_itinerary_title: String,
+    pub target_estimate_id: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FragmentApplyPreviewSummary {
     pub intent: String,
     pub action: String,
@@ -64,6 +79,10 @@ pub struct FragmentApplyPreviewSummary {
     pub estimates_after: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub estimate_preview: Option<FragmentApplyEstimatePreview>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimate_update_preview: Option<FragmentApplyEstimateUpdatePreview>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimate_field_changes: Option<Vec<FragmentApplyEstimateFieldChange>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reservations_before: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -201,6 +220,8 @@ pub struct FragmentApplyDryRunReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inserted_estimate_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_estimate_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_itinerary_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_itinerary_id: Option<i64>,
@@ -233,6 +254,7 @@ impl FragmentApplyDryRunReport {
             inserted_expense_id: None,
             inserted_reservation_id: None,
             inserted_estimate_id: None,
+            updated_estimate_id: None,
             updated_itinerary_id: None,
             deleted_itinerary_id: None,
             reordered_itineraries: None,
@@ -294,6 +316,20 @@ struct ParsedAddEstimateFields {
     currency: String,
     note: Option<String>,
     sort_order: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ParsedUpdateEstimateFields {
+    estimate_id: i64,
+    has_amount: bool,
+    amount_raw: Option<Value>,
+    has_currency: bool,
+    currency_text: Option<String>,
+    title: Option<UpdateFieldPatch<String>>,
+    note: Option<UpdateFieldPatch<String>>,
+    sort_order: Option<i64>,
+    clear_title: bool,
+    clear_note: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2366,6 +2402,8 @@ fn apply_delete_itinerary_preview(
         estimates_before: None,
         estimates_after: None,
         estimate_preview: None,
+        estimate_update_preview: None,
+        estimate_field_changes: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -2560,6 +2598,8 @@ fn apply_reorder_itinerary_preview(
         estimates_before: None,
         estimates_after: None,
         estimate_preview: None,
+        estimate_update_preview: None,
+        estimate_field_changes: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -2655,6 +2695,8 @@ fn apply_move_itinerary_preview(
         estimates_before: None,
         estimates_after: None,
         estimate_preview: None,
+        estimate_update_preview: None,
+        estimate_field_changes: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -4279,6 +4321,460 @@ fn apply_update_itinerary_patch(
     }
 }
 
+fn reject_explicit_null_candidate_field(
+    candidate: &Map<String, Value>,
+    key: &str,
+) -> Result<(), String> {
+    if candidate.get(key) == Some(&Value::Null) {
+        return Err(format!("candidate_content.{key} に null は指定できません"));
+    }
+    Ok(())
+}
+
+fn reject_explicit_null_update_estimate_keys(candidate: &Map<String, Value>) -> Result<(), String> {
+    for key in [
+        "estimate_id",
+        "amount",
+        "currency",
+        "title",
+        "note",
+        "sort_order",
+        "expected_amount",
+        "expected_currency",
+        "expected_title",
+        "expected_note",
+        "expected_sort_order",
+        "clear_title",
+        "clear_note",
+    ] {
+        reject_explicit_null_candidate_field(candidate, key)?;
+    }
+    Ok(())
+}
+
+fn parse_estimate_id_field(candidate: &Map<String, Value>) -> Result<i64, String> {
+    reject_explicit_null_candidate_field(candidate, "estimate_id")?;
+    match candidate.get("estimate_id") {
+        None => Err("candidate_content.estimate_id が必要です".to_string()),
+        Some(Value::Number(number)) => number
+            .as_i64()
+            .ok_or_else(|| "candidate_content.estimate_id は整数である必要があります".to_string()),
+        _ => Err("candidate_content.estimate_id は整数である必要があります".to_string()),
+    }
+}
+
+fn parse_clear_flag_field(candidate: &Map<String, Value>, key: &str) -> Result<bool, String> {
+    reject_explicit_null_candidate_field(candidate, key)?;
+    match candidate.get(key) {
+        None => Ok(false),
+        Some(Value::Bool(value)) => Ok(*value),
+        _ => Err(format!(
+            "candidate_content.{key} は真偽値である必要があります"
+        )),
+    }
+}
+
+fn patch_optional_estimate_text_field(
+    candidate: &Map<String, Value>,
+    key: &str,
+) -> Result<Option<UpdateFieldPatch<String>>, String> {
+    if !candidate.contains_key(key) {
+        return Ok(None);
+    }
+    reject_explicit_null_candidate_field(candidate, key)?;
+    let Value::String(text) = candidate.get(key).expect("contains key") else {
+        return Err(format!(
+            "candidate_content.{key} は文字列である必要があります"
+        ));
+    };
+    Ok(Some(UpdateFieldPatch {
+        value: text.clone(),
+    }))
+}
+
+fn parse_update_estimate_sort_order_field(value: Option<&Value>) -> Result<Option<i64>, String> {
+    match value {
+        None => Ok(None),
+        Some(Value::Null) => {
+            Err("candidate_content.sort_order に null は指定できません".to_string())
+        }
+        Some(Value::Number(number)) => Ok(Some(number.as_i64().ok_or_else(|| {
+            "candidate_content.sort_order は整数である必要があります".to_string()
+        })?)),
+        _ => Err("candidate_content.sort_order は整数である必要があります".to_string()),
+    }
+}
+
+fn warn_unsupported_update_estimate_candidate_keys(
+    candidate: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    const SUPPORTED: &[&str] = &[
+        "estimate_id",
+        "amount",
+        "currency",
+        "title",
+        "note",
+        "sort_order",
+        "clear_title",
+        "clear_note",
+        "expected_amount",
+        "expected_currency",
+        "expected_title",
+        "expected_note",
+        "expected_sort_order",
+    ];
+    for key in candidate.keys() {
+        if SUPPORTED.contains(&key.as_str()) {
+            continue;
+        }
+        push_unique(
+            &mut report.warnings,
+            format!("unsupported_field: candidate_content.{key} は update_estimate では未反映です"),
+        );
+    }
+}
+
+fn parse_update_estimate_fields(
+    fragment: &Map<String, Value>,
+    report: Option<&mut FragmentApplyDryRunReport>,
+) -> Result<ParsedUpdateEstimateFields, String> {
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    if let Some(report) = report {
+        warn_unsupported_update_estimate_candidate_keys(candidate, report);
+    }
+
+    reject_explicit_null_update_estimate_keys(candidate)?;
+
+    for unsupported_clear in ["clear_amount", "clear_currency", "clear_sort_order"] {
+        if candidate.contains_key(unsupported_clear) {
+            return Err(format!(
+                "candidate_content.{unsupported_clear} は update_estimate では未対応です"
+            ));
+        }
+    }
+
+    let estimate_id = parse_estimate_id_field(candidate)?;
+    let has_amount = candidate.contains_key("amount");
+    let has_currency = candidate.contains_key("currency");
+    let amount_raw = if has_amount {
+        Some(candidate.get("amount").cloned().expect("amount key"))
+    } else {
+        None
+    };
+    let currency_text = if has_currency {
+        Some(
+            non_empty_string(candidate.get("currency"))
+                .ok_or_else(|| "candidate_content.currency が必要です".to_string())?,
+        )
+    } else {
+        None
+    };
+
+    if has_currency && !has_amount {
+        return Err("currency を変更する場合は amount も指定してください".to_string());
+    }
+
+    let title = patch_optional_estimate_text_field(candidate, "title")?;
+    let note = patch_optional_estimate_text_field(candidate, "note")?;
+    let sort_order = parse_update_estimate_sort_order_field(candidate.get("sort_order"))?;
+    let clear_title = parse_clear_flag_field(candidate, "clear_title")?;
+    let clear_note = parse_clear_flag_field(candidate, "clear_note")?;
+
+    if title.is_some() && clear_title {
+        return Err("title と clear_title は同時に指定できません".to_string());
+    }
+    if note.is_some() && clear_note {
+        return Err("note と clear_note は同時に指定できません".to_string());
+    }
+
+    let has_update_field = has_amount
+        || has_currency
+        || title.is_some()
+        || note.is_some()
+        || sort_order.is_some()
+        || clear_title
+        || clear_note;
+    if !has_update_field {
+        return Err("update_estimate には少なくとも 1 つの更新フィールドが必要です".to_string());
+    }
+
+    Ok(ParsedUpdateEstimateFields {
+        estimate_id,
+        has_amount,
+        amount_raw,
+        has_currency,
+        currency_text,
+        title,
+        note,
+        sort_order,
+        clear_title,
+        clear_note,
+    })
+}
+
+fn parse_update_estimate_amount_value(value: &Value, currency: &str) -> Result<i64, String> {
+    match value {
+        Value::Number(number) => {
+            let amount = number
+                .as_i64()
+                .ok_or_else(|| "candidate_content.amount は整数である必要があります".to_string())?;
+            if amount < 0 {
+                return Err("candidate_content.amount は 0 以上である必要があります".to_string());
+            }
+            Ok(amount)
+        }
+        Value::String(text) => parse_amount_for_currency(text, currency)
+            .map_err(|error| format!("candidate_content.amount が不正です: {error}")),
+        _ => Err("candidate_content.amount は数値または文字列である必要があります".to_string()),
+    }
+}
+
+fn compute_update_estimate_proposed(
+    current: &Estimate,
+    fields: &ParsedUpdateEstimateFields,
+) -> Result<Estimate, String> {
+    let mut proposed = current.clone();
+
+    if fields.clear_title {
+        proposed.title = None;
+    } else if let Some(title) = &fields.title {
+        proposed.title = normalize_optional_text(Some(&title.value));
+    }
+
+    if fields.clear_note {
+        proposed.note = None;
+    } else if let Some(note) = &fields.note {
+        proposed.note = normalize_optional_text(Some(&note.value));
+    }
+
+    if let Some(sort_order) = fields.sort_order {
+        proposed.sort_order = sort_order;
+    }
+
+    let currency_for_amount = if fields.has_currency {
+        fields
+            .currency_text
+            .as_deref()
+            .ok_or_else(|| "candidate_content.currency が必要です".to_string())?
+    } else {
+        current.currency.as_str()
+    };
+
+    if fields.has_currency {
+        proposed.currency = validate_currency_code(currency_for_amount)
+            .map_err(|error| format!("candidate_content.currency が不正です: {error}"))?;
+    }
+
+    if fields.has_amount {
+        let amount_raw = fields
+            .amount_raw
+            .as_ref()
+            .ok_or_else(|| "candidate_content.amount が必要です".to_string())?;
+        proposed.amount = parse_update_estimate_amount_value(amount_raw, currency_for_amount)?;
+    }
+
+    Ok(proposed)
+}
+
+fn detect_update_estimate_baseline_conflicts(
+    candidate: &Map<String, Value>,
+    current: &Estimate,
+) -> Result<(), String> {
+    let checks = [
+        ("expected_amount", current.amount.to_string()),
+        ("expected_currency", current.currency.clone()),
+        ("expected_title", fmt_diff_option_str(&current.title)),
+        ("expected_note", fmt_diff_option_str(&current.note)),
+        (
+            "expected_sort_order",
+            fmt_diff_option_i64(Some(current.sort_order)),
+        ),
+    ];
+
+    for (expected_key, current_value) in checks {
+        let Some(expected_text) = non_empty_string(candidate.get(expected_key)) else {
+            continue;
+        };
+        if expected_text != current_value {
+            return Err(format!(
+                "baseline mismatch: {expected_key} ({expected_text}) が現行値 ({current_value}) と一致しません"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn estimate_display_value_for_field(field: &str, estimate: &Estimate) -> String {
+    match field {
+        "amount" => estimate.amount.to_string(),
+        "currency" => estimate.currency.clone(),
+        "title" => fmt_diff_option_str(&estimate.title),
+        "note" => fmt_diff_option_str(&estimate.note),
+        "sort_order" => estimate.sort_order.to_string(),
+        _ => "-".to_string(),
+    }
+}
+
+fn push_estimate_field_change(
+    changes: &mut Vec<FragmentApplyEstimateFieldChange>,
+    field: &str,
+    before: &Estimate,
+    after: &Estimate,
+) {
+    changes.push(FragmentApplyEstimateFieldChange {
+        field: field.to_string(),
+        before: estimate_display_value_for_field(field, before),
+        after: estimate_display_value_for_field(field, after),
+    });
+}
+
+fn build_update_estimate_field_changes(
+    current: &Estimate,
+    proposed: &Estimate,
+    fields: &ParsedUpdateEstimateFields,
+) -> Vec<FragmentApplyEstimateFieldChange> {
+    let mut changes = Vec::new();
+    if fields.has_amount {
+        push_estimate_field_change(&mut changes, "amount", current, proposed);
+    }
+    if fields.has_currency {
+        push_estimate_field_change(&mut changes, "currency", current, proposed);
+    }
+    if fields.title.is_some() || fields.clear_title {
+        push_estimate_field_change(&mut changes, "title", current, proposed);
+    }
+    if fields.note.is_some() || fields.clear_note {
+        push_estimate_field_change(&mut changes, "note", current, proposed);
+    }
+    if fields.sort_order.is_some() {
+        push_estimate_field_change(&mut changes, "sort_order", current, proposed);
+    }
+    changes
+}
+
+fn find_estimate_index_in_itinerary(
+    conn: &Connection,
+    itinerary_id: i64,
+    estimate_id: i64,
+) -> Result<usize, String> {
+    let estimates = list_estimates_for_itinerary(conn, itinerary_id)
+        .map_err(|error| format!("Estimate 一覧の取得に失敗しました: {error}"))?;
+    estimates
+        .iter()
+        .position(|estimate| estimate.id == estimate_id)
+        .ok_or_else(|| format!("Estimate not found: {estimate_id}"))
+}
+
+fn apply_update_estimate_patch(export_estimate: &mut ExportEstimateV3, proposed: &Estimate) {
+    export_estimate.title = proposed.title.clone();
+    export_estimate.amount = proposed.amount;
+    export_estimate.currency = proposed.currency.clone();
+    export_estimate.note = proposed.note.clone();
+    export_estimate.sort_order = proposed.sort_order;
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_update_estimate_preview(
+    conn: &Connection,
+    export: &mut TripExportV3,
+    resolved: &ResolvedApplyTarget,
+    fragment: &Map<String, Value>,
+    intent: &str,
+    itineraries_before: usize,
+    estimates_before: usize,
+    report: &mut FragmentApplyDryRunReport,
+) -> Result<FragmentApplyPreviewSummary, String> {
+    if resolved.target_type != "itinerary" {
+        return Err(
+            "update_estimate は itinerary target のみサポートしています（trip / day は未対応）"
+                .to_string(),
+        );
+    }
+    if resolved.resolution == "ambiguous" {
+        return Err("target が曖昧です — apply preview を続行しません".to_string());
+    }
+
+    let day_number = resolved.day_number.ok_or_else(|| {
+        "update_estimate の Itinerary target が解決されていません（day）".to_string()
+    })?;
+    let itinerary_sort_order = resolved.itinerary_sort_order.ok_or_else(|| {
+        "update_estimate の Itinerary target が解決されていません（sort_order）".to_string()
+    })?;
+    let target_itinerary_id =
+        lookup_itinerary_db_id_from_resolved(conn, resolved.trip_id, resolved)?;
+    let target_itinerary_title = resolved.itinerary_title.clone().ok_or_else(|| {
+        "update_estimate の Itinerary target が解決されていません（title）".to_string()
+    })?;
+
+    let fields = parse_update_estimate_fields(fragment, Some(report))?;
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    let current = get_estimate(conn, fields.estimate_id)
+        .map_err(|error| format!("Estimate not found: {error}"))?;
+    if current.itinerary_id != target_itinerary_id {
+        return Err(format!(
+            "Estimate {id} は Itinerary {target_itinerary_id} 配下ではありません",
+            id = fields.estimate_id
+        ));
+    }
+
+    detect_update_estimate_baseline_conflicts(candidate, &current)?;
+    let proposed = compute_update_estimate_proposed(&current, &fields)?;
+    let changes = build_update_estimate_field_changes(&current, &proposed, &fields);
+
+    ensure_day_in_range(export, day_number)?;
+    let estimate_index =
+        find_estimate_index_in_itinerary(conn, target_itinerary_id, fields.estimate_id)?;
+    let day = find_or_create_day(export, day_number);
+    let itinerary = find_itinerary_mut_in_export_day(day, itinerary_sort_order).ok_or_else(|| {
+        format!(
+            "preview 内に itinerary (day {day_number}, sort_order {itinerary_sort_order}) が見つかりません"
+        )
+    })?;
+    let export_estimate = itinerary
+        .estimates
+        .get_mut(estimate_index)
+        .ok_or_else(|| format!("preview 内に estimate index {estimate_index} が見つかりません"))?;
+    apply_update_estimate_patch(export_estimate, &proposed);
+
+    Ok(FragmentApplyPreviewSummary {
+        intent: intent.to_string(),
+        action: "update_estimate".to_string(),
+        candidate_title: proposed.title.clone(),
+        itineraries_before,
+        itineraries_after: itineraries_before,
+        notes_before: None,
+        notes_after: None,
+        expenses_before: None,
+        expenses_after: None,
+        expense_preview: None,
+        estimates_before: Some(estimates_before),
+        estimates_after: Some(estimates_before),
+        estimate_preview: None,
+        estimate_update_preview: Some(FragmentApplyEstimateUpdatePreview {
+            target_itinerary_id,
+            target_itinerary_title,
+            target_estimate_id: fields.estimate_id,
+        }),
+        estimate_field_changes: Some(changes),
+        reservations_before: None,
+        reservations_after: None,
+        reservation_preview: None,
+        itinerary_field_changes: None,
+        reorder_preview: None,
+        move_preview: None,
+        delete_preview: None,
+    })
+}
+
 fn apply_update_itinerary_preview(
     export: &mut TripExportV3,
     resolved: &ResolvedApplyTarget,
@@ -4347,6 +4843,8 @@ fn apply_update_itinerary_preview(
         estimates_before: None,
         estimates_after: None,
         estimate_preview: None,
+        estimate_update_preview: None,
+        estimate_field_changes: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -4592,6 +5090,8 @@ fn simulate_apply_preview(
                 estimates_before: None,
                 estimates_after: None,
                 estimate_preview: None,
+                estimate_update_preview: None,
+                estimate_field_changes: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -4620,6 +5120,8 @@ fn simulate_apply_preview(
                 estimates_before: None,
                 estimates_after: None,
                 estimate_preview: None,
+                estimate_update_preview: None,
+                estimate_field_changes: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -4674,6 +5176,8 @@ fn simulate_apply_preview(
                 estimates_before: None,
                 estimates_after: None,
                 estimate_preview: None,
+                estimate_update_preview: None,
+                estimate_field_changes: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -4735,6 +5239,8 @@ fn simulate_apply_preview(
                     note: fields.note.clone(),
                     sort_order: fields.sort_order,
                 }),
+                estimate_update_preview: None,
+                estimate_field_changes: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -4784,6 +5290,8 @@ fn simulate_apply_preview(
                 estimates_before: None,
                 estimates_after: None,
                 estimate_preview: None,
+                estimate_update_preview: None,
+                estimate_field_changes: None,
                 reservations_before: Some(reservations_before),
                 reservations_after: Some(reservations_after),
                 reservation_preview: Some(FragmentApplyReservationPreview {
@@ -4807,6 +5315,16 @@ fn simulate_apply_preview(
             fragment,
             intent,
             itineraries_before,
+            report,
+        ),
+        "update_estimate" => apply_update_estimate_preview(
+            conn,
+            export,
+            resolved,
+            fragment,
+            intent,
+            itineraries_before,
+            estimates_before,
             report,
         ),
         "delete_itinerary" => apply_delete_itinerary_preview(
@@ -4853,6 +5371,8 @@ fn simulate_apply_preview(
                 estimates_before: None,
                 estimates_after: None,
                 estimate_preview: None,
+                estimate_update_preview: None,
+                estimate_field_changes: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -4896,6 +5416,8 @@ fn simulate_apply_preview(
             estimates_before: None,
             estimates_after: None,
             estimate_preview: None,
+            estimate_update_preview: None,
+            estimate_field_changes: None,
             reservations_before: None,
             reservations_after: None,
             reservation_preview: None,
@@ -4922,6 +5444,8 @@ fn simulate_apply_preview(
                 estimates_before: None,
                 estimates_after: None,
                 estimate_preview: None,
+                estimate_update_preview: None,
+                estimate_field_changes: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
