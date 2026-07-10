@@ -1399,6 +1399,71 @@ fn first_itinerary_id(dir: &std::path::Path) -> i64 {
     items[0]["id"].as_i64().expect("itinerary id")
 }
 
+fn first_itinerary_sort_order(dir: &std::path::Path) -> i64 {
+    let output = run_cli_in(dir, &["itinerary", "list", "1", "--json"]);
+    assert!(output.status.success());
+    let items: Vec<serde_json::Value> =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    items[0]["sort_order"]
+        .as_i64()
+        .expect("itinerary sort_order")
+}
+
+fn assert_add_estimate_invalid_dry_run(
+    dir: &std::path::Path,
+    fragment_path: &std::path::Path,
+    preview_path: Option<&std::path::Path>,
+    error_hint: &str,
+) {
+    let itinerary_id = first_itinerary_id(dir);
+    let before_estimates = itinerary_estimate_count(dir, &itinerary_id.to_string());
+    let before_expenses = itinerary_expense_count(dir, &itinerary_id.to_string());
+
+    let mut args = vec![
+        "fragment",
+        "apply",
+        fragment_path.to_str().unwrap(),
+        "--dry-run",
+        "--trip",
+        "1",
+        "--json",
+    ];
+    let output_path_owned;
+    if let Some(preview_path) = preview_path {
+        output_path_owned = preview_path.to_str().unwrap().to_string();
+        args.push("--output");
+        args.push(&output_path_owned);
+    }
+
+    let output = run_cli_in(dir, &args);
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    let errors = parsed["errors"]
+        .as_array()
+        .expect("errors array")
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        errors.contains(error_hint),
+        "expected error containing {error_hint:?}, got: {errors}"
+    );
+    if let Some(preview_path) = preview_path {
+        assert!(!preview_path.exists());
+    }
+    assert_eq!(
+        itinerary_estimate_count(dir, &itinerary_id.to_string()),
+        before_estimates
+    );
+    assert_eq!(
+        itinerary_expense_count(dir, &itinerary_id.to_string()),
+        before_expenses
+    );
+}
+
 #[test]
 fn cli_fragment_apply_add_expense_itinerary_dry_run_preview_keeps_db_unchanged() {
     let dir = temp_workdir();
@@ -2188,6 +2253,7 @@ fn cli_fragment_apply_add_estimate_minor_units_dry_run_normalizes_amount() {
         serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
     assert_eq!(parsed["preview"]["estimate_preview"]["amount"], 1250);
     assert_eq!(parsed["preview"]["estimate_preview"]["currency"], "USD");
+    assert_eq!(parsed["preview"]["estimate_preview"]["sort_order"], 0);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -2458,6 +2524,406 @@ fn cli_fragment_apply_add_estimate_ambiguous_title_target_blocks_without_db_writ
     assert_eq!(
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_itinerary_id_selector_dry_run_succeeds() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+
+    let fragment_path = dir.join("add-estimate-id-selector.json");
+    std::fs::write(
+        &fragment_path,
+        format!(
+            r#"{{
+  "target": {{
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": {itinerary_id}
+  }},
+  "fragment": {{
+    "intent": "add_estimate",
+    "candidate_content": {{
+      "amount": "2500",
+      "currency": "JPY"
+    }}
+  }},
+  "adoption_hints": {{ "required_decisions": [] }}
+}}"#
+        ),
+    )
+    .unwrap();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    assert_eq!(
+        parsed["preview"]["estimate_preview"]["target_itinerary_id"],
+        itinerary_id
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_minimal_optional_fields_dry_run_succeeds() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+
+    let fragment_path = dir.join("add-estimate-minimal.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": {
+      "amount": "3000",
+      "currency": "JPY"
+    }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    assert_eq!(parsed["preview"]["estimate_preview"]["amount"], 3000);
+    assert!(parsed["preview"]["estimate_preview"]["title"].is_null());
+    assert!(parsed["preview"]["estimate_preview"]["note"].is_null());
+    assert_eq!(parsed["preview"]["estimate_preview"]["sort_order"], 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_empty_optional_text_normalizes_to_null() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+
+    let fragment_path = dir.join("add-estimate-empty-optional.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": {
+      "amount": "3000",
+      "currency": "JPY",
+      "title": "",
+      "note": "   "
+    }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    assert!(parsed["preview"]["estimate_preview"]["title"].is_null());
+    assert!(parsed["preview"]["estimate_preview"]["note"].is_null());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_lowercase_currency_normalizes() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+
+    let fragment_path = dir.join("add-estimate-lowercase-currency.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": {
+      "amount": "1000",
+      "currency": "jpy"
+    }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    assert_eq!(parsed["preview"]["estimate_preview"]["currency"], "JPY");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_non_numeric_amount_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-non-numeric-amount.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "abc", "currency": "JPY" }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "amount",
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_excessive_decimal_precision_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-excessive-decimal.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "12.555", "currency": "USD" }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "小数桁",
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_negative_string_amount_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-negative-string-amount.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "-100", "currency": "JPY" }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "0 以上",
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_missing_currency_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-missing-currency.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "1000" }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "fragment body が空に近い",
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_invalid_currency_type_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-invalid-currency-type.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "1000", "currency": 840 }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "fragment body が空に近い",
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_invalid_currency_format_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-invalid-currency-format.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "1000", "currency": "12" }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "currency",
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_non_string_title_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-non-string-title.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "1000", "currency": "JPY", "title": 42 }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "title は文字列",
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_non_string_note_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    let fragment_path = dir.join("add-estimate-non-string-note.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": { "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": { "amount": "1000", "currency": "JPY", "note": 42 }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+    assert_add_estimate_invalid_dry_run(
+        &dir,
+        &fragment_path,
+        Some(&dir.join("preview.json")),
+        "note は文字列",
     );
     let _ = std::fs::remove_dir_all(&dir);
 }

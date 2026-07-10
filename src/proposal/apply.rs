@@ -1833,25 +1833,48 @@ fn resolve_apply_target(
             let itinerary_ref = target.get("itinerary_reference");
             let matched = match itinerary_ref {
                 Some(Value::Number(n)) if n.as_i64().is_some() => {
-                    let sort_order = n.as_i64().unwrap();
-                    let matches: Vec<_> = items
-                        .iter()
-                        .filter(|item| item.sort_order == sort_order)
-                        .collect();
-                    if matches.is_empty() {
+                    let v = n.as_i64().unwrap();
+                    let id_matches: Vec<_> = items.iter().filter(|item| item.id == v).collect();
+                    let sort_matches: Vec<_> =
+                        items.iter().filter(|item| item.sort_order == v).collect();
+
+                    if !id_matches.is_empty() && !sort_matches.is_empty() {
+                        let id_item = id_matches[0];
+                        let sort_item = sort_matches[0];
+                        if id_item.id != sort_item.id {
+                            report.errors.push(format!(
+                                "itinerary_reference (数値 {v}) が itinerary_id と sort_order の両方に一致し曖昧です"
+                            ));
+                            resolved.resolution = "ambiguous".to_string();
+                            return Err(());
+                        }
+                    }
+
+                    let picked = if !id_matches.is_empty() {
+                        if id_matches.len() > 1 {
+                            report.errors.push(format!(
+                                "itinerary_reference (itinerary_id {v}) が Day {day_number} で曖昧です"
+                            ));
+                            resolved.resolution = "ambiguous".to_string();
+                            return Err(());
+                        }
+                        id_matches[0]
+                    } else if !sort_matches.is_empty() {
+                        if sort_matches.len() > 1 {
+                            report.errors.push(format!(
+                                "itinerary_reference (sort_order {v}) が Day {day_number} で曖昧です"
+                            ));
+                            resolved.resolution = "ambiguous".to_string();
+                            return Err(());
+                        }
+                        sort_matches[0]
+                    } else {
                         report.errors.push(format!(
-                            "itinerary_reference (sort_order {sort_order}) が Day {day_number} に見つかりません"
+                            "itinerary_reference (id/sort_order {v}) が Day {day_number} に見つかりません"
                         ));
                         return Err(());
-                    }
-                    if matches.len() > 1 {
-                        report.errors.push(format!(
-                            "itinerary_reference (sort_order {sort_order}) が Day {day_number} で曖昧です"
-                        ));
-                        resolved.resolution = "ambiguous".to_string();
-                        return Err(());
-                    }
-                    (Some(sort_order), Some(matches[0].title.clone()))
+                    };
+                    (Some(picked.sort_order), Some(picked.title.clone()))
                 }
                 Some(Value::String(title)) => {
                     let needle = title.trim();
