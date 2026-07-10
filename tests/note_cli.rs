@@ -1,28 +1,8 @@
-use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-note-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
+mod common;
 
 fn setup_trip(dir: &std::path::Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -40,10 +20,11 @@ fn setup_trip(dir: &std::path::Path) {
 
 #[test]
 fn cli_note_add_trip_note() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "note",
@@ -69,10 +50,11 @@ fn cli_note_add_trip_note() {
 
 #[test]
 fn cli_note_add_day_note() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "note",
@@ -90,7 +72,7 @@ fn cli_note_add_day_note() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let list = run_cli(
+    let list = common::run_cli_in(
         &dir,
         &["note", "list", "--trip", "1", "--day", "2", "--json"],
     );
@@ -103,15 +85,16 @@ fn cli_note_add_day_note() {
 
 #[test]
 fn cli_note_add_itinerary_note() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "1", "首里城"],)
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "1", "首里城"],)
             .status
             .success()
     );
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "note",
@@ -125,27 +108,28 @@ fn cli_note_add_itinerary_note() {
         ],
     );
     assert!(output.status.success());
-    let list = run_cli(&dir, &["note", "list", "--itinerary", "1"]);
+    let list = common::run_cli_in(&dir, &["note", "list", "--itinerary", "1"]);
     assert!(String::from_utf8_lossy(&list.stdout).contains("北側P"));
 }
 
 #[test]
 fn cli_note_list_json_trip_only() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["note", "add", "--trip", "1", "--body", "trip note"],)
+        common::run_cli_in(&dir, &["note", "add", "--trip", "1", "--body", "trip note"],)
             .status
             .success()
     );
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["note", "add", "--trip", "1", "--day", "2", "--body", "day note",],
     )
     .status
     .success());
 
-    let output = run_cli(&dir, &["note", "list", "--trip", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["note", "list", "--trip", "1", "--json"]);
     let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(parsed["owner_type"], "trip");
     assert_eq!(parsed["notes"].as_array().unwrap().len(), 1);
@@ -154,15 +138,16 @@ fn cli_note_list_json_trip_only() {
 
 #[test]
 fn cli_note_show_json() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["note", "add", "--trip", "1", "--body", "show me"],)
+        common::run_cli_in(&dir, &["note", "add", "--trip", "1", "--body", "show me"],)
             .status
             .success()
     );
 
-    let output = run_cli(&dir, &["note", "show", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["note", "show", "1", "--json"]);
     assert!(output.status.success());
     let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(parsed["id"], 1);
@@ -171,41 +156,44 @@ fn cli_note_show_json() {
 
 #[test]
 fn cli_note_update_and_delete() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["note", "add", "--trip", "1", "--body", "before"],)
+        common::run_cli_in(&dir, &["note", "add", "--trip", "1", "--body", "before"],)
             .status
             .success()
     );
 
-    let update = run_cli(&dir, &["note", "update", "1", "--body", "after"]);
+    let update = common::run_cli_in(&dir, &["note", "update", "1", "--body", "after"]);
     assert!(update.status.success());
-    let show = run_cli(&dir, &["note", "show", "1"]);
+    let show = common::run_cli_in(&dir, &["note", "show", "1"]);
     assert!(String::from_utf8_lossy(&show.stdout).contains("after"));
 
-    let delete = run_cli(&dir, &["note", "delete", "1"]);
+    let delete = common::run_cli_in(&dir, &["note", "delete", "1"]);
     assert!(delete.status.success());
-    let list = run_cli(&dir, &["note", "list", "--trip", "1", "--json"]);
+    let list = common::run_cli_in(&dir, &["note", "list", "--trip", "1", "--json"]);
     let parsed: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
     assert_eq!(parsed["notes"].as_array().unwrap().len(), 0);
 }
 
 #[test]
 fn cli_note_add_rejects_empty_body() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(&dir, &["note", "add", "--trip", "1", "--body", ""]);
+    let output = common::run_cli_in(&dir, &["note", "add", "--trip", "1", "--body", ""]);
     assert!(!output.status.success());
 }
 
 #[test]
 fn cli_note_add_rejects_conflicting_owner_flags() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "note",
@@ -223,25 +211,26 @@ fn cli_note_add_rejects_conflicting_owner_flags() {
 
 #[test]
 fn cli_trip_delete_removes_all_notes() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "2", "Plan"],)
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "2", "Plan"],)
             .status
             .success()
     );
     assert!(
-        run_cli(&dir, &["note", "add", "--trip", "1", "--body", "trip note"],)
+        common::run_cli_in(&dir, &["note", "add", "--trip", "1", "--body", "trip note"],)
             .status
             .success()
     );
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["note", "add", "--trip", "1", "--day", "2", "--body", "day note"],
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "note",
@@ -255,35 +244,36 @@ fn cli_trip_delete_removes_all_notes() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "delete", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "delete", "1"]);
     assert!(output.status.success());
 
-    let list = run_cli(&dir, &["note", "list", "--trip", "1"]);
+    let list = common::run_cli_in(&dir, &["note", "list", "--trip", "1"]);
     assert!(!list.status.success());
 }
 
 #[test]
 fn cli_trip_update_shrink_failure_preserves_trip_and_day_notes() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "3", "Busy"],)
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "3", "Busy"],)
             .status
             .success()
     );
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["note", "add", "--trip", "1", "--day", "4", "--body", "day4"],
     )
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "update", "1", "--end", "2026-04-27"]);
+    let output = common::run_cli_in(&dir, &["trip", "update", "1", "--end", "2026-04-27"]);
     assert!(!output.status.success());
 
-    let show = run_cli(&dir, &["trip", "show", "1"]);
+    let show = common::run_cli_in(&dir, &["trip", "show", "1"]);
     assert!(String::from_utf8_lossy(&show.stdout).contains("2026-04-29"));
-    let list = run_cli(
+    let list = common::run_cli_in(
         &dir,
         &["note", "list", "--trip", "1", "--day", "4", "--json"],
     );

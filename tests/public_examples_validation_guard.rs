@@ -5,15 +5,12 @@
 //! Each test uses an isolated temp working directory so parallel `cargo test` does not
 //! share a default `./caglla.db` with other integration tests (migration races).
 
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
+mod common;
 
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+use std::path::{Path, PathBuf};
 
 fn manifest_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    common::manifest_dir()
 }
 
 fn public_example(name: &str) -> PathBuf {
@@ -39,20 +36,8 @@ const ENVELOPE_NON_NORMATIVE_EXAMPLES: &[&str] = &["trip-proposal-envelope.examp
 /// Proposal Fragment — `fragment validate` only
 const FRAGMENT_NON_NORMATIVE_EXAMPLES: &[&str] = &["proposal-fragment.example.json"];
 
-fn isolated_workdir() -> PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-public-examples-guard-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 fn run_cli(cwd: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
+    common::run_cli_in(cwd, args)
 }
 
 fn combined_output(output: &std::process::Output) -> String {
@@ -71,7 +56,8 @@ fn path_arg(path: &Path) -> String {
 
 #[test]
 fn guard_schema_v8_public_examples_pass_trip_validate_export() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in SCHEMA_V8_PUBLIC_EXAMPLES {
         let path = public_example(name);
         assert!(path.is_file(), "missing public example: {}", path.display());
@@ -92,7 +78,8 @@ fn guard_schema_v8_public_examples_pass_trip_validate_export() {
 
 #[test]
 fn guard_envelope_non_normative_examples_pass_proposal_validate() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in ENVELOPE_NON_NORMATIVE_EXAMPLES {
         let path = non_normative_example(name);
         assert!(
@@ -117,7 +104,8 @@ fn guard_envelope_non_normative_examples_pass_proposal_validate() {
 
 #[test]
 fn guard_fragment_non_normative_examples_pass_fragment_validate() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in FRAGMENT_NON_NORMATIVE_EXAMPLES {
         let path = non_normative_example(name);
         assert!(
@@ -142,7 +130,8 @@ fn guard_fragment_non_normative_examples_pass_fragment_validate() {
 
 #[test]
 fn guard_schema_v8_trip_rejects_proposal_validate() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in SCHEMA_V8_PUBLIC_EXAMPLES {
         let path = public_example(name);
         let arg = path_arg(&path);
@@ -161,7 +150,8 @@ fn guard_schema_v8_trip_rejects_proposal_validate() {
 
 #[test]
 fn guard_schema_v8_trip_rejects_fragment_validate() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in SCHEMA_V8_PUBLIC_EXAMPLES {
         let path = public_example(name);
         let arg = path_arg(&path);
@@ -180,7 +170,8 @@ fn guard_schema_v8_trip_rejects_fragment_validate() {
 
 #[test]
 fn guard_envelope_rejects_fragment_validate() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in ENVELOPE_NON_NORMATIVE_EXAMPLES {
         let path = non_normative_example(name);
         let arg = path_arg(&path);
@@ -199,7 +190,8 @@ fn guard_envelope_rejects_fragment_validate() {
 
 #[test]
 fn guard_fragment_rejects_proposal_validate() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in FRAGMENT_NON_NORMATIVE_EXAMPLES {
         let path = non_normative_example(name);
         let arg = path_arg(&path);
@@ -218,7 +210,8 @@ fn guard_fragment_rejects_proposal_validate() {
 
 #[test]
 fn guard_envelope_rejects_trip_validate_export() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in ENVELOPE_NON_NORMATIVE_EXAMPLES {
         let path = non_normative_example(name);
         let arg = path_arg(&path);
@@ -237,7 +230,8 @@ fn guard_envelope_rejects_trip_validate_export() {
 
 #[test]
 fn guard_fragment_rejects_trip_validate_export() {
-    let workdir = isolated_workdir();
+    let workspace = common::TestWorkspace::new();
+    let workdir = workspace.path();
     for name in FRAGMENT_NON_NORMATIVE_EXAMPLES {
         let path = non_normative_example(name);
         let arg = path_arg(&path);

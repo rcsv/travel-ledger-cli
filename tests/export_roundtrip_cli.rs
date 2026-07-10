@@ -1,31 +1,13 @@
+mod common;
+
 use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-export-roundtrip-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 #[test]
 fn cli_export_import_reexport_roundtrip_with_checklist() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -40,7 +22,7 @@ fn cli_export_import_reexport_roundtrip_with_checklist() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -58,16 +40,22 @@ fn cli_export_import_reexport_roundtrip_with_checklist() {
     .status
     .success());
 
-    assert!(run_cli(&dir, &["checklist", "add", "1", "Passport"])
+    assert!(
+        common::run_cli_in(&dir, &["checklist", "add", "1", "Passport"])
+            .status
+            .success()
+    );
+    assert!(
+        common::run_cli_in(&dir, &["checklist", "add", "1", "Charger"])
+            .status
+            .success()
+    );
+    assert!(common::run_cli_in(&dir, &["checklist", "check", "2"])
         .status
         .success());
-    assert!(run_cli(&dir, &["checklist", "add", "1", "Charger"])
-        .status
-        .success());
-    assert!(run_cli(&dir, &["checklist", "check", "2"]).status.success());
 
     let export_path = dir.join("trip-export.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -80,13 +68,14 @@ fn cli_export_import_reexport_roundtrip_with_checklist() {
     .status
     .success());
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    let import_output = run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    let import_output =
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
     assert!(import_output.status.success(), "{:?}", import_output.stderr);
 
     let reexport_path = dir.join("trip-reexport.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -112,10 +101,11 @@ fn cli_export_import_reexport_roundtrip_with_checklist() {
 
 #[test]
 fn cli_export_import_reexport_roundtrip_with_notes() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -130,7 +120,7 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -148,7 +138,7 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "note",
@@ -163,7 +153,7 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "note", "add", "--trip", "1", "--day", "2", "--title", "Day memo", "--body",
@@ -172,7 +162,7 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "note",
@@ -189,7 +179,7 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
     .success());
 
     let export_path = dir.join("trip-export-notes.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -207,15 +197,16 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
     assert_eq!(exported["schema_version"], 8);
     assert_eq!(exported["notes"].as_array().unwrap().len(), 3);
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    let import_output = run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    let import_output =
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
     assert!(import_output.status.success(), "{:?}", import_output.stderr);
     let import_stdout = String::from_utf8_lossy(&import_output.stdout);
     assert!(import_stdout.contains("Note           : 3 件"));
 
     let reexport_path = dir.join("trip-reexport-notes.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -241,10 +232,11 @@ fn cli_export_import_reexport_roundtrip_with_notes() {
 
 #[test]
 fn cli_export_import_reexport_roundtrip_with_expenses() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -259,7 +251,7 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -277,7 +269,7 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -294,7 +286,7 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -313,7 +305,7 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
     .success());
 
     let export_path = dir.join("trip-export-expenses.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -337,15 +329,16 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
         2
     );
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    let import_output = run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    let import_output =
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
     assert!(import_output.status.success(), "{:?}", import_output.stderr);
     let import_stdout = String::from_utf8_lossy(&import_output.stdout);
     assert!(import_stdout.contains("Expense"));
 
     let reexport_path = dir.join("trip-reexport-expenses.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -371,10 +364,11 @@ fn cli_export_import_reexport_roundtrip_with_expenses() {
 
 #[test]
 fn cli_export_import_reexport_roundtrip_with_estimates() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -389,7 +383,7 @@ fn cli_export_import_reexport_roundtrip_with_estimates() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -407,7 +401,7 @@ fn cli_export_import_reexport_roundtrip_with_estimates() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -426,7 +420,7 @@ fn cli_export_import_reexport_roundtrip_with_estimates() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -445,7 +439,7 @@ fn cli_export_import_reexport_roundtrip_with_estimates() {
     .success());
 
     let export_path = dir.join("trip-export-estimates.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -469,18 +463,19 @@ fn cli_export_import_reexport_roundtrip_with_estimates() {
         2
     );
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    let import_output = run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    let import_output =
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
     assert!(import_output.status.success(), "{:?}", import_output.stderr);
 
-    let list = run_cli(&dir, &["estimate", "list", "--trip", "1", "--json"]);
+    let list = common::run_cli_in(&dir, &["estimate", "list", "--trip", "1", "--json"]);
     assert!(list.status.success());
     let list_json: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
     assert_eq!(list_json["estimates"].as_array().unwrap().len(), 2);
 
     let reexport_path = dir.join("trip-reexport-estimates.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",

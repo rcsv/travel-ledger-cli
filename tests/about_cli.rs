@@ -1,27 +1,10 @@
-use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli_in_temp_dir(args: &[&str]) -> (std::process::Output, std::path::PathBuf) {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-about-test-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-
-    let output = Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(&dir)
-        .args(args)
-        .output()
-        .expect("failed to run CLI");
-
-    (output, dir.join("caglla.db"))
-}
+mod common;
 
 #[test]
 fn cli_about_prints_english_overview() {
-    let (output, db_path) = run_cli_in_temp_dir(&["--about"]);
+    let workspace = common::TestWorkspace::new();
+    let output = common::run_cli_in(workspace.path(), &["--about"]);
+    let db_path = workspace.path().join("caglla.db");
 
     assert!(
         output.status.success(),
@@ -43,7 +26,9 @@ fn cli_about_prints_english_overview() {
 
 #[test]
 fn cli_about_does_not_require_subcommand() {
-    let (output, db_path) = run_cli_in_temp_dir(&["--about", "trip", "list"]);
+    let workspace = common::TestWorkspace::new();
+    let output = common::run_cli_in(workspace.path(), &["--about", "trip", "list"]);
+    let db_path = workspace.path().join("caglla.db");
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);

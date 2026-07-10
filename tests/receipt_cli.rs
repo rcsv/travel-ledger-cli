@@ -1,28 +1,9 @@
+mod common;
+
 use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-receipt-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 fn setup_trip(dir: &std::path::Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -40,10 +21,11 @@ fn setup_trip(dir: &std::path::Path) {
 
 #[test]
 fn cli_receipt_add_list_show_update_ignore_delete() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "receipt",
@@ -63,21 +45,23 @@ fn cli_receipt_add_list_show_update_ignore_delete() {
     .status
     .success());
 
-    let list = run_cli(&dir, &["receipt", "list", "--trip", "1"]);
+    let list = common::run_cli_in(&dir, &["receipt", "list", "--trip", "1"]);
     assert!(list.status.success());
     let stdout = String::from_utf8_lossy(&list.stdout);
     assert!(stdout.contains("unreviewed"));
     assert!(stdout.contains("1,700") || stdout.contains("1700"));
 
-    let unreviewed = run_cli(&dir, &["receipt", "list", "--trip", "1", "--unreviewed"]);
+    let unreviewed = common::run_cli_in(&dir, &["receipt", "list", "--trip", "1", "--unreviewed"]);
     assert!(unreviewed.status.success());
     assert!(
         String::from_utf8_lossy(&unreviewed.stdout).contains("1,700")
             || String::from_utf8_lossy(&unreviewed.stdout).contains("1700")
     );
 
-    let show: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["receipt", "show", "1", "--json"]).stdout).unwrap();
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["receipt", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(show["status"], "unreviewed");
     assert_eq!(show["amount"], 1700);
     assert_eq!(show["currency"], "JPY");
@@ -85,25 +69,27 @@ fn cli_receipt_add_list_show_update_ignore_delete() {
     assert!(show.get("itinerary_id").is_none());
     assert!(show.get("linked_expense_id").is_none());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["receipt", "update", "1", "--memo", "おかんのお土産っぽい",],
     )
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["receipt", "ignore", "1", "--memo", "旅行費用ではない"],
     )
     .status
     .success());
-    let ignored: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["receipt", "show", "1", "--json"]).stdout).unwrap();
+    let ignored: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["receipt", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(ignored["status"], "ignored");
     assert_eq!(ignored["amount"], 1700);
 
-    let ignored_list = run_cli(
+    let ignored_list = common::run_cli_in(
         &dir,
         &[
             "receipt",
@@ -118,31 +104,35 @@ fn cli_receipt_add_list_show_update_ignore_delete() {
     assert!(ignored_list.status.success());
     assert!(String::from_utf8_lossy(&ignored_list.stdout).contains("ignored"));
 
-    assert!(run_cli(&dir, &["receipt", "delete", "1"]).status.success());
-    let empty = run_cli(&dir, &["receipt", "list", "--trip", "1"]);
+    assert!(common::run_cli_in(&dir, &["receipt", "delete", "1"])
+        .status
+        .success());
+    let empty = common::run_cli_in(&dir, &["receipt", "list", "--trip", "1"]);
     assert!(!String::from_utf8_lossy(&empty.stdout).contains("1,700"));
 }
 
 #[test]
 fn cli_receipt_link_command_removed() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["receipt", "add", "--trip", "1", "--memo", "inbox",],)
+        common::run_cli_in(&dir, &["receipt", "add", "--trip", "1", "--memo", "inbox",],)
             .status
             .success()
     );
 
-    let output = run_cli(&dir, &["receipt", "link", "1", "--day", "1"]);
+    let output = common::run_cli_in(&dir, &["receipt", "link", "1", "--day", "1"]);
     assert!(!output.status.success());
 }
 
 #[test]
 fn cli_receipt_validation_amount_currency_pair() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let amount_only = run_cli(
+    let amount_only = common::run_cli_in(
         &dir,
         &[
             "receipt",
@@ -157,7 +147,7 @@ fn cli_receipt_validation_amount_currency_pair() {
     );
     assert!(!amount_only.status.success());
 
-    let currency_only = run_cli(
+    let currency_only = common::run_cli_in(
         &dir,
         &[
             "receipt",
@@ -175,10 +165,11 @@ fn cli_receipt_validation_amount_currency_pair() {
 
 #[test]
 fn cli_receipt_list_uses_shared_amount_formatter() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "receipt",
@@ -196,17 +187,18 @@ fn cli_receipt_list_uses_shared_amount_formatter() {
     .status
     .success());
 
-    let list = run_cli(&dir, &["receipt", "list", "--trip", "1"]);
+    let list = common::run_cli_in(&dir, &["receipt", "list", "--trip", "1"]);
     let stdout = String::from_utf8_lossy(&list.stdout);
     assert!(stdout.contains("12.50 USD"));
 }
 
 #[test]
 fn cli_receipt_export_v8_trip_level_simplified() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["receipt", "add", "--trip", "1", "--memo", "inbox item",],
     )
@@ -214,7 +206,7 @@ fn cli_receipt_export_v8_trip_level_simplified() {
     .success());
 
     let export_path = dir.join("trip-export.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -242,9 +234,10 @@ fn cli_receipt_export_v8_trip_level_simplified() {
 
 #[test]
 fn cli_receipt_v6_import_still_works() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -259,13 +252,13 @@ fn cli_receipt_v6_import_still_works() {
     .status
     .success());
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "1", "Breakfast"])
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "1", "Breakfast"])
             .status
             .success()
     );
 
     let export_path = dir.join("v6-export.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -288,25 +281,26 @@ fn cli_receipt_v6_import_still_works() {
     )
     .unwrap();
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    let import = run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    let import = common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
     assert!(import.status.success(), "{:?}", import.stderr);
 
-    let list = run_cli(&dir, &["receipt", "list", "--trip", "1"]);
+    let list = common::run_cli_in(&dir, &["receipt", "list", "--trip", "1"]);
     assert!(list.status.success());
 }
 
 #[test]
 fn cli_receipt_does_not_affect_trip_stats() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "1", "Breakfast"])
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "1", "Breakfast"])
             .status
             .success()
     );
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -321,7 +315,7 @@ fn cli_receipt_does_not_affect_trip_stats() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "receipt",
@@ -340,7 +334,8 @@ fn cli_receipt_does_not_affect_trip_stats() {
     .success());
 
     let stats_json: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["trip", "stats", "1", "--json"]).stdout).unwrap();
+        serde_json::from_slice(&common::run_cli_in(&dir, &["trip", "stats", "1", "--json"]).stdout)
+            .unwrap();
     assert_eq!(stats_json["expense_count"], 1);
     assert_eq!(stats_json["expense_totals"]["JPY"], 500);
     assert!(stats_json.get("receipt_count").is_none());

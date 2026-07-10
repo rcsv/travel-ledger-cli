@@ -1,28 +1,9 @@
+mod common;
+
 use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-participant-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 fn setup_trip(dir: &std::path::Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -40,10 +21,11 @@ fn setup_trip(dir: &std::path::Path) {
 
 #[test]
 fn cli_participant_add_list_show_update_delete() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let add = run_cli(
+    let add = common::run_cli_in(
         &dir,
         &[
             "participant",
@@ -62,7 +44,7 @@ fn cli_participant_add_list_show_update_delete() {
     assert!(stdout.contains("Participant を追加しました"));
     assert!(stdout.contains("(self)"));
 
-    let add2 = run_cli(
+    let add2 = common::run_cli_in(
         &dir,
         &[
             "participant",
@@ -77,29 +59,29 @@ fn cli_participant_add_list_show_update_delete() {
     );
     assert!(add2.status.success());
 
-    let list = run_cli(&dir, &["participant", "list", "--trip", "1"]);
+    let list = common::run_cli_in(&dir, &["participant", "list", "--trip", "1"]);
     assert!(list.status.success());
     let list_stdout = String::from_utf8_lossy(&list.stdout);
     assert!(list_stdout.contains("ともさん"));
     assert!(list_stdout.contains("妻"));
     assert!(list_stdout.contains("Participants: 2 (companions: 1)"));
 
-    let show = run_cli(&dir, &["participant", "show", "2", "--json"]);
+    let show = common::run_cli_in(&dir, &["participant", "show", "2", "--json"]);
     assert!(show.status.success());
     let json: serde_json::Value = serde_json::from_slice(&show.stdout).unwrap();
     assert_eq!(json["name"], "妻");
     assert_eq!(json["is_self"], false);
 
-    let update = run_cli(
+    let update = common::run_cli_in(
         &dir,
         &["participant", "update", "2", "--name", "パートナー"],
     );
     assert!(update.status.success());
 
-    let delete = run_cli(&dir, &["participant", "delete", "2"]);
+    let delete = common::run_cli_in(&dir, &["participant", "delete", "2"]);
     assert!(delete.status.success());
 
-    let list_after = run_cli(&dir, &["participant", "list", "--trip", "1", "--json"]);
+    let list_after = common::run_cli_in(&dir, &["participant", "list", "--trip", "1", "--json"]);
     assert!(list_after.status.success());
     let list_json: serde_json::Value = serde_json::from_slice(&list_after.stdout).unwrap();
     assert_eq!(list_json["counts"]["registered_count"], 1);
@@ -109,10 +91,11 @@ fn cli_participant_add_list_show_update_delete() {
 
 #[test]
 fn cli_participant_self_conflict_on_add() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "participant",
@@ -126,7 +109,7 @@ fn cli_participant_self_conflict_on_add() {
     )
     .status
     .success());
-    let conflict = run_cli(
+    let conflict = common::run_cli_in(
         &dir,
         &[
             "participant",
@@ -145,44 +128,48 @@ fn cli_participant_self_conflict_on_add() {
 
 #[test]
 fn cli_participant_update_self_transfer() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["participant", "add", "--trip", "1", "--name", "A", "--self",],
     )
     .status
     .success());
     assert!(
-        run_cli(&dir, &["participant", "add", "--trip", "1", "--name", "B"],)
+        common::run_cli_in(&dir, &["participant", "add", "--trip", "1", "--name", "B"],)
             .status
             .success()
     );
 
-    let transfer = run_cli(&dir, &["participant", "update", "2", "--self"]);
+    let transfer = common::run_cli_in(&dir, &["participant", "update", "2", "--self"]);
     assert!(transfer.status.success());
 
-    let show_a = run_cli(&dir, &["participant", "show", "1", "--json"]);
-    let show_b = run_cli(&dir, &["participant", "show", "2", "--json"]);
+    let show_a = common::run_cli_in(&dir, &["participant", "show", "1", "--json"]);
+    let show_b = common::run_cli_in(&dir, &["participant", "show", "2", "--json"]);
     let a: serde_json::Value = serde_json::from_slice(&show_a.stdout).unwrap();
     let b: serde_json::Value = serde_json::from_slice(&show_b.stdout).unwrap();
     assert_eq!(a["is_self"], false);
     assert_eq!(b["is_self"], true);
 
-    assert!(run_cli(&dir, &["participant", "update", "2", "--not-self"])
-        .status
-        .success());
-    let list = run_cli(&dir, &["participant", "list", "--trip", "1", "--json"]);
+    assert!(
+        common::run_cli_in(&dir, &["participant", "update", "2", "--not-self"])
+            .status
+            .success()
+    );
+    let list = common::run_cli_in(&dir, &["participant", "list", "--trip", "1", "--json"]);
     let list_json: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
     assert_eq!(list_json["counts"]["self_known"], false);
 }
 
 #[test]
 fn cli_participant_export_v4_roundtrip() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "participant",
@@ -197,13 +184,13 @@ fn cli_participant_export_v4_roundtrip() {
     .status
     .success());
     assert!(
-        run_cli(&dir, &["participant", "add", "--trip", "1", "--name", "妻"],)
+        common::run_cli_in(&dir, &["participant", "add", "--trip", "1", "--name", "妻"],)
             .status
             .success()
     );
 
     let export_path = dir.join("trip-export-v4.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -221,14 +208,14 @@ fn cli_participant_export_v4_roundtrip() {
     assert_eq!(exported["schema_version"], 8);
     assert_eq!(exported["participants"].as_array().unwrap().len(), 2);
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
     assert!(
-        run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()],)
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()],)
             .status
             .success()
     );
 
-    let list = run_cli(&dir, &["participant", "list", "--trip", "1", "--json"]);
+    let list = common::run_cli_in(&dir, &["participant", "list", "--trip", "1", "--json"]);
     let list_json: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
     assert_eq!(list_json["counts"]["participant_count"], 2);
     assert_eq!(list_json["counts"]["companion_count"], 1);

@@ -1,30 +1,13 @@
+mod common;
+
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn temp_workdir() -> PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-export-md-test-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
-fn run_cli(dir: &PathBuf, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(dir)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
 
 #[test]
 fn cli_export_md_stdout_mode() {
-    let dir = temp_workdir();
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -39,7 +22,7 @@ fn cli_export_md_stdout_mode() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -57,8 +40,9 @@ fn cli_export_md_stdout_mode() {
 
 #[test]
 fn cli_export_md_output_file() {
-    let dir = temp_workdir();
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -73,7 +57,7 @@ fn cli_export_md_output_file() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "export-md", "1", "--output", "okinawa.md"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1", "--output", "okinawa.md"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -91,8 +75,9 @@ fn cli_export_md_output_file() {
 
 #[test]
 fn cli_export_md_output_overwrites_existing_file() {
-    let dir = temp_workdir();
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -109,7 +94,7 @@ fn cli_export_md_output_overwrites_existing_file() {
     fs::write(dir.join("trip.md"), "old content").unwrap();
 
     assert!(
-        run_cli(&dir, &["trip", "export-md", "1", "--output", "trip.md"],)
+        common::run_cli_in(&dir, &["trip", "export-md", "1", "--output", "trip.md"],)
             .status
             .success()
     );
@@ -121,8 +106,9 @@ fn cli_export_md_output_overwrites_existing_file() {
 
 #[test]
 fn cli_export_md_omits_expenses_in_travel_book() {
-    let dir = temp_workdir();
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -136,7 +122,7 @@ fn cli_export_md_omits_expenses_in_travel_book() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -151,7 +137,7 @@ fn cli_export_md_omits_expenses_in_travel_book() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -169,7 +155,7 @@ fn cli_export_md_omits_expenses_in_travel_book() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(!stdout.contains("Expenses:"));
@@ -179,9 +165,10 @@ fn cli_export_md_omits_expenses_in_travel_book() {
 
 #[test]
 fn cli_export_md_includes_participants_section() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -195,7 +182,7 @@ fn cli_export_md_includes_participants_section() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "participant",
@@ -211,7 +198,7 @@ fn cli_export_md_includes_participants_section() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "participant",
@@ -227,7 +214,7 @@ fn cli_export_md_includes_participants_section() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("## Trip overview"));
@@ -245,8 +232,9 @@ fn cli_export_md_includes_participants_section() {
 
 #[test]
 fn cli_export_md_includes_estimates_in_planned_cost_chapter() {
-    let dir = temp_workdir();
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -260,7 +248,7 @@ fn cli_export_md_includes_estimates_in_planned_cost_chapter() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -275,7 +263,7 @@ fn cli_export_md_includes_estimates_in_planned_cost_chapter() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -294,7 +282,7 @@ fn cli_export_md_includes_estimates_in_planned_cost_chapter() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -312,7 +300,7 @@ fn cli_export_md_includes_estimates_in_planned_cost_chapter() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("## Planned cost"));
@@ -325,8 +313,9 @@ fn cli_export_md_includes_estimates_in_planned_cost_chapter() {
 
 #[test]
 fn cli_export_md_omits_estimate_section_when_none() {
-    let dir = temp_workdir();
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -341,12 +330,12 @@ fn cli_export_md_omits_estimate_section_when_none() {
     .status
     .success());
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "1", "Museum"])
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "1", "Museum"])
             .status
             .success()
     );
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(!stdout.contains("予定費用:"));
@@ -355,8 +344,9 @@ fn cli_export_md_omits_estimate_section_when_none() {
 
 #[test]
 fn cli_export_md_handles_null_title_and_note_estimates() {
-    let dir = temp_workdir();
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -371,11 +361,11 @@ fn cli_export_md_handles_null_title_and_note_estimates() {
     .status
     .success());
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "1", "Lunch spot"])
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "1", "Lunch spot"])
             .status
             .success()
     );
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -391,7 +381,7 @@ fn cli_export_md_handles_null_title_and_note_estimates() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("| - | JPY 1,500 |"));

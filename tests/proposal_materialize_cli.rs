@@ -1,5 +1,6 @@
+mod common;
+
 use std::path::PathBuf;
-use std::process::Command;
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -8,19 +9,14 @@ fn fixture_path(name: &str) -> PathBuf {
 }
 
 fn run_cli(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
+    common::run_cli(args)
 }
 
 #[test]
 fn cli_proposal_materialize_dry_run_writes_valid_trip_export() {
+    let workspace = common::TestWorkspace::new();
     let envelope = fixture_path("materialize-ready-envelope.json");
-    let output_path = std::env::temp_dir().join(format!(
-        "caglla-proposal-materialize-{}.json",
-        std::process::id()
-    ));
+    let output_path = workspace.path().join("materialized-trip.json");
 
     let output = run_cli(&[
         "proposal",
@@ -49,8 +45,6 @@ fn cli_proposal_materialize_dry_run_writes_valid_trip_export() {
         String::from_utf8_lossy(&validate.stdout),
         String::from_utf8_lossy(&validate.stderr)
     );
-
-    let _ = std::fs::remove_file(&output_path);
 }
 
 #[test]
@@ -138,25 +132,20 @@ fn cli_proposal_materialize_missing_dates_fails() {
 #[test]
 fn cli_proposal_materialize_runs_without_db() {
     let envelope = fixture_path("materialize-ready-envelope.json");
-    let temp_dir = std::env::temp_dir().join(format!(
-        "caglla-proposal-materialize-isolated-{}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&temp_dir).expect("create temp dir");
-    let output_path = temp_dir.join("candidate-trip.json");
+    let workspace = common::TestWorkspace::new();
+    let output_path = workspace.path().join("candidate-trip.json");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(&temp_dir)
-        .args([
+    let output = common::run_cli_in(
+        workspace.path(),
+        &[
             "proposal",
             "materialize",
             envelope.to_str().unwrap(),
             "--dry-run",
             "--output",
             output_path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("failed to run CLI");
+        ],
+    );
 
     assert!(
         output.status.success(),
@@ -164,30 +153,16 @@ fn cli_proposal_materialize_runs_without_db() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-
-    let _ = std::fs::remove_dir_all(&temp_dir);
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("caglla-proposal-materialize-confirm-{n}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("create temp dir");
-    dir
 }
 
 fn run_cli_in(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
+    common::run_cli_in(cwd, args)
 }
 
 #[test]
 fn cli_proposal_materialize_confirm_saves_trip_to_db() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let envelope = fixture_path("materialize-ready-envelope.json");
 
     let output = run_cli_in(
@@ -220,13 +195,12 @@ fn cli_proposal_materialize_confirm_saves_trip_to_db() {
     assert!(show.status.success());
     let show_stdout = String::from_utf8_lossy(&show.stdout);
     assert!(show_stdout.contains("Okinawa weekend draft"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_proposal_materialize_dry_run_without_confirm_does_not_save_trip() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let envelope = fixture_path("materialize-ready-envelope.json");
 
     let output = run_cli_in(
@@ -244,13 +218,12 @@ fn cli_proposal_materialize_dry_run_without_confirm_does_not_save_trip() {
     assert!(list.status.success());
     let list_stdout = String::from_utf8_lossy(&list.stdout);
     assert!(!list_stdout.contains("Okinawa weekend draft"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_proposal_materialize_confirm_json_includes_trip_id() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let envelope = fixture_path("materialize-ready-envelope.json");
 
     let output = run_cli_in(
@@ -269,6 +242,4 @@ fn cli_proposal_materialize_confirm_json_includes_trip_id() {
     assert_eq!(parsed["valid"], true);
     assert_eq!(parsed["confirm"], true);
     assert_eq!(parsed["trip_id"], 1);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }

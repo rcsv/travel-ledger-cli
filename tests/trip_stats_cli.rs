@@ -1,28 +1,8 @@
-use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-trip-stats-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
+mod common;
 
 fn setup_trip_with_itinerary(dir: &std::path::Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -37,7 +17,7 @@ fn setup_trip_with_itinerary(dir: &std::path::Path) {
     .status
     .success());
     assert!(
-        run_cli(dir, &["itinerary", "add", "1", "--day", "1", "Aquarium"],)
+        common::run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "Aquarium"],)
             .status
             .success()
     );
@@ -45,9 +25,10 @@ fn setup_trip_with_itinerary(dir: &std::path::Path) {
 
 #[test]
 fn cli_trip_stats_shows_planned_total_with_estimates() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -64,7 +45,7 @@ fn cli_trip_stats_shows_planned_total_with_estimates() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -82,7 +63,7 @@ fn cli_trip_stats_shows_planned_total_with_estimates() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Estimates: 2"));
@@ -92,9 +73,10 @@ fn cli_trip_stats_shows_planned_total_with_estimates() {
 
 #[test]
 fn cli_trip_stats_multi_currency_estimates() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -109,7 +91,7 @@ fn cli_trip_stats_multi_currency_estimates() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -124,7 +106,7 @@ fn cli_trip_stats_multi_currency_estimates() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -140,7 +122,7 @@ fn cli_trip_stats_multi_currency_estimates() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("JPY 10,000"));
@@ -149,9 +131,10 @@ fn cli_trip_stats_multi_currency_estimates() {
 
 #[test]
 fn cli_trip_stats_without_estimates_still_works() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -167,7 +150,7 @@ fn cli_trip_stats_without_estimates_still_works() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(!stdout.contains("Planned total:"));
@@ -179,9 +162,10 @@ fn cli_trip_stats_without_estimates_still_works() {
 
 #[test]
 fn cli_trip_stats_json_includes_estimate_totals() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -197,7 +181,7 @@ fn cli_trip_stats_json_includes_estimate_totals() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1", "--json"]);
     assert!(output.status.success());
     let parsed: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stats json should parse");
@@ -209,9 +193,10 @@ fn cli_trip_stats_json_includes_estimate_totals() {
 
 #[test]
 fn cli_trip_stats_shows_difference_with_estimates_and_expenses() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -226,7 +211,7 @@ fn cli_trip_stats_shows_difference_with_estimates_and_expenses() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -242,7 +227,7 @@ fn cli_trip_stats_shows_difference_with_estimates_and_expenses() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Planned total:"));
@@ -253,9 +238,10 @@ fn cli_trip_stats_shows_difference_with_estimates_and_expenses() {
 
 #[test]
 fn cli_trip_stats_json_includes_difference_totals() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -270,7 +256,7 @@ fn cli_trip_stats_json_includes_difference_totals() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -285,7 +271,7 @@ fn cli_trip_stats_json_includes_difference_totals() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -301,7 +287,7 @@ fn cli_trip_stats_json_includes_difference_totals() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1", "--json"]);
     assert!(output.status.success());
     let parsed: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stats json should parse");
@@ -311,9 +297,10 @@ fn cli_trip_stats_json_includes_difference_totals() {
 
 #[test]
 fn cli_trip_stats_estimate_only_omits_difference() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -329,22 +316,23 @@ fn cli_trip_stats_estimate_only_omits_difference() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1", "--json"]);
     assert!(output.status.success());
     let parsed: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stats json should parse");
     assert!(parsed.get("difference_totals").is_none());
 
-    let human = run_cli(&dir, &["trip", "stats", "1"]);
+    let human = common::run_cli_in(&dir, &["trip", "stats", "1"]);
     let stdout = String::from_utf8_lossy(&human.stdout);
     assert!(!stdout.contains("Difference:"));
 }
 
 #[test]
 fn cli_trip_stats_expense_only_omits_difference() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -360,13 +348,13 @@ fn cli_trip_stats_expense_only_omits_difference() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "stats", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["trip", "stats", "1", "--json"]);
     assert!(output.status.success());
     let parsed: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stats json should parse");
     assert!(parsed.get("difference_totals").is_none());
 
-    let human = run_cli(&dir, &["trip", "stats", "1"]);
+    let human = common::run_cli_in(&dir, &["trip", "stats", "1"]);
     let stdout = String::from_utf8_lossy(&human.stdout);
     assert!(!stdout.contains("Difference:"));
 }

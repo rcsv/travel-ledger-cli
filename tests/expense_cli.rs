@@ -1,28 +1,8 @@
-use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-expense-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
+mod common;
 
 fn setup_trip_with_itinerary(dir: &std::path::Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -37,7 +17,7 @@ fn setup_trip_with_itinerary(dir: &std::path::Path) {
     .status
     .success());
     assert!(
-        run_cli(dir, &["itinerary", "add", "1", "--day", "1", "Lunch"],)
+        common::run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "Lunch"],)
             .status
             .success()
     );
@@ -45,7 +25,7 @@ fn setup_trip_with_itinerary(dir: &std::path::Path) {
 
 fn setup_trip_with_itinerary_and_participants(dir: &std::path::Path) -> (i64, i64) {
     setup_trip_with_itinerary(dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         dir,
         &[
             "participant",
@@ -60,7 +40,7 @@ fn setup_trip_with_itinerary_and_participants(dir: &std::path::Path) -> (i64, i6
     .status
     .success());
     assert!(
-        run_cli(dir, &["participant", "add", "--trip", "1", "--name", "Bob"],)
+        common::run_cli_in(dir, &["participant", "add", "--trip", "1", "--name", "Bob"],)
             .status
             .success()
     );
@@ -69,10 +49,11 @@ fn setup_trip_with_itinerary_and_participants(dir: &std::path::Path) -> (i64, i6
 
 #[test]
 fn cli_expense_add_with_paid_by_participant_and_beneficiaries() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary_and_participants(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -94,8 +75,10 @@ fn cli_expense_add_with_paid_by_participant_and_beneficiaries() {
         ],
     );
     assert!(output.status.success());
-    let show: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["expense", "show", "1", "--json"]).stdout).unwrap();
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["expense", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(show["paid_by_participant_name"], "Alice");
     assert_eq!(show["shared"], true);
     assert_eq!(show["beneficiaries"].as_array().unwrap().len(), 2);
@@ -103,10 +86,11 @@ fn cli_expense_add_with_paid_by_participant_and_beneficiaries() {
 
 #[test]
 fn cli_expense_add_shared_with_all() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary_and_participants(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -122,17 +106,20 @@ fn cli_expense_add_shared_with_all() {
         ],
     );
     assert!(output.status.success());
-    let show: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["expense", "show", "1", "--json"]).stdout).unwrap();
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["expense", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(show["beneficiaries"].as_array().unwrap().len(), 2);
 }
 
 #[test]
 fn cli_expense_rejects_structured_without_participants() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -154,10 +141,11 @@ fn cli_expense_rejects_structured_without_participants() {
 
 #[test]
 fn cli_expense_rejects_shared_with_and_beneficiary_on_add() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary_and_participants(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -181,9 +169,10 @@ fn cli_expense_rejects_shared_with_and_beneficiary_on_add() {
 
 #[test]
 fn cli_expense_rejects_shared_with_and_beneficiary_on_update() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary_and_participants(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -199,7 +188,7 @@ fn cli_expense_rejects_shared_with_and_beneficiary_on_update() {
     .status
     .success());
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -218,9 +207,10 @@ fn cli_expense_rejects_shared_with_and_beneficiary_on_update() {
 
 #[test]
 fn cli_expense_update_clear_beneficiaries() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary_and_participants(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -238,20 +228,23 @@ fn cli_expense_update_clear_beneficiaries() {
     .status
     .success());
 
-    let update = run_cli(&dir, &["expense", "update", "1", "--clear-beneficiaries"]);
+    let update = common::run_cli_in(&dir, &["expense", "update", "1", "--clear-beneficiaries"]);
     assert!(update.status.success());
-    let show: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["expense", "show", "1", "--json"]).stdout).unwrap();
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["expense", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(show["shared"], false);
     assert!(show["beneficiaries"].as_array().unwrap().is_empty());
 }
 
 #[test]
 fn cli_expense_add_and_show() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -281,7 +274,7 @@ fn cli_expense_add_and_show() {
     assert!(stdout.contains("Tomo"));
     assert!(stdout.contains("2026-04-27"));
 
-    let show = run_cli(&dir, &["expense", "show", "1"]);
+    let show = common::run_cli_in(&dir, &["expense", "show", "1"]);
     assert!(show.status.success());
     let show_stdout = String::from_utf8_lossy(&show.stdout);
     assert!(show_stdout.contains("Lunch"));
@@ -289,10 +282,11 @@ fn cli_expense_add_and_show() {
 
 #[test]
 fn cli_expense_add_usd_decimal() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -308,17 +302,20 @@ fn cli_expense_add_usd_decimal() {
         ],
     );
     assert!(output.status.success());
-    let show: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["expense", "show", "1", "--json"]).stdout).unwrap();
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["expense", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(show["amount"], 1250);
     assert_eq!(show["currency"], "USD");
 }
 
 #[test]
 fn cli_expense_list_by_itinerary_and_trip() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -334,20 +331,21 @@ fn cli_expense_list_by_itinerary_and_trip() {
     .status
     .success());
 
-    let by_itinerary = run_cli(&dir, &["expense", "list", "--itinerary", "1"]);
+    let by_itinerary = common::run_cli_in(&dir, &["expense", "list", "--itinerary", "1"]);
     assert!(by_itinerary.status.success());
     assert!(String::from_utf8_lossy(&by_itinerary.stdout).contains("100 JPY"));
 
-    let by_trip = run_cli(&dir, &["expense", "list", "--trip", "1"]);
+    let by_trip = common::run_cli_in(&dir, &["expense", "list", "--trip", "1"]);
     assert!(by_trip.status.success());
     assert!(String::from_utf8_lossy(&by_trip.stdout).contains("100 JPY"));
 }
 
 #[test]
 fn cli_expense_update_and_delete() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -363,28 +361,33 @@ fn cli_expense_update_and_delete() {
     .status
     .success());
 
-    let update = run_cli(
+    let update = common::run_cli_in(
         &dir,
         &[
             "expense", "update", "1", "--amount", "600", "--note", "updated",
         ],
     );
     assert!(update.status.success());
-    let show: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["expense", "show", "1", "--json"]).stdout).unwrap();
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["expense", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(show["amount"], 600);
     assert_eq!(show["note"], "updated");
 
-    let delete = run_cli(&dir, &["expense", "delete", "1"]);
+    let delete = common::run_cli_in(&dir, &["expense", "delete", "1"]);
     assert!(delete.status.success());
-    assert!(!run_cli(&dir, &["expense", "show", "1"]).status.success());
+    assert!(!common::run_cli_in(&dir, &["expense", "show", "1"])
+        .status
+        .success());
 }
 
 #[test]
 fn cli_expense_list_json() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -400,7 +403,7 @@ fn cli_expense_list_json() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["expense", "list", "--trip", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["expense", "list", "--trip", "1", "--json"]);
     assert!(output.status.success());
     let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(parsed["trip_id"], 1);
@@ -409,10 +412,11 @@ fn cli_expense_list_json() {
 
 #[test]
 fn cli_expense_rejects_invalid_currency() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -430,9 +434,10 @@ fn cli_expense_rejects_invalid_currency() {
 
 #[test]
 fn cli_expense_cascade_on_itinerary_delete() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "expense",
@@ -448,10 +453,10 @@ fn cli_expense_cascade_on_itinerary_delete() {
     .status
     .success());
 
-    assert!(run_cli(&dir, &["itinerary", "delete", "1"])
+    assert!(common::run_cli_in(&dir, &["itinerary", "delete", "1"])
         .status
         .success());
-    let list = run_cli(&dir, &["expense", "list", "--trip", "1"]);
+    let list = common::run_cli_in(&dir, &["expense", "list", "--trip", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("（なし）"));
 }

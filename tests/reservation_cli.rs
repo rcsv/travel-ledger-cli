@@ -1,28 +1,9 @@
+mod common;
+
 use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-reservation-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 fn setup_trip_with_itinerary(dir: &std::path::Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -36,7 +17,7 @@ fn setup_trip_with_itinerary(dir: &std::path::Path) {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         dir,
         &[
             "itinerary",
@@ -55,10 +36,11 @@ fn setup_trip_with_itinerary(dir: &std::path::Path) {
 
 #[test]
 fn cli_reservation_add_and_show() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "reservation",
@@ -91,7 +73,7 @@ fn cli_reservation_add_and_show() {
     assert!(stdout.contains("ABC123"));
     assert!(stdout.contains("Hilton Sesoko Resort"));
 
-    let show = run_cli(&dir, &["reservation", "show", "1", "--json"]);
+    let show = common::run_cli_in(&dir, &["reservation", "show", "1", "--json"]);
     assert!(show.status.success());
     let json: serde_json::Value = serde_json::from_slice(&show.stdout).unwrap();
     assert_eq!(json["reservation_type"], "hotel");
@@ -101,9 +83,10 @@ fn cli_reservation_add_and_show() {
 
 #[test]
 fn cli_reservation_list_by_itinerary_and_trip() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "reservation",
@@ -121,11 +104,11 @@ fn cli_reservation_list_by_itinerary_and_trip() {
     .status
     .success());
 
-    let list_itinerary = run_cli(&dir, &["reservation", "list", "--itinerary", "1"]);
+    let list_itinerary = common::run_cli_in(&dir, &["reservation", "list", "--itinerary", "1"]);
     assert!(list_itinerary.status.success());
     assert!(String::from_utf8_lossy(&list_itinerary.stdout).contains("ABC123"));
 
-    let list_trip = run_cli(&dir, &["reservation", "list", "--trip", "1"]);
+    let list_trip = common::run_cli_in(&dir, &["reservation", "list", "--trip", "1"]);
     assert!(list_trip.status.success());
     let trip_stdout = String::from_utf8_lossy(&list_trip.stdout);
     assert!(trip_stdout.contains("Day 1"));
@@ -134,9 +117,10 @@ fn cli_reservation_list_by_itinerary_and_trip() {
 
 #[test]
 fn cli_reservation_update_and_delete() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "reservation",
@@ -154,7 +138,7 @@ fn cli_reservation_update_and_delete() {
     .status
     .success());
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "reservation",
@@ -169,25 +153,27 @@ fn cli_reservation_update_and_delete() {
     .status
     .success());
 
-    let show: serde_json::Value =
-        serde_json::from_slice(&run_cli(&dir, &["reservation", "show", "1", "--json"]).stdout)
-            .unwrap();
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["reservation", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
     assert_eq!(show["confirmation_code"], "NEW999");
     assert_eq!(show["remark"], "ETC required");
 
-    assert!(run_cli(&dir, &["reservation", "delete", "1"])
+    assert!(common::run_cli_in(&dir, &["reservation", "delete", "1"])
         .status
         .success());
-    assert!(!run_cli(&dir, &["reservation", "show", "1"])
+    assert!(!common::run_cli_in(&dir, &["reservation", "show", "1"])
         .status
         .success());
 }
 
 #[test]
 fn cli_reservation_export_import_roundtrip() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "reservation",
@@ -206,7 +192,7 @@ fn cli_reservation_export_import_roundtrip() {
     .success());
 
     let export_path = dir.join("trip-export.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -225,14 +211,14 @@ fn cli_reservation_export_import_roundtrip() {
     assert!(reservations.is_array());
     assert_eq!(reservations[0]["provider_name"], "Hilton Sesoko Resort");
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
     assert!(
-        run_cli(&dir, &["trip", "import", export_path.to_str().unwrap(),],)
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap(),],)
             .status
             .success()
     );
 
-    let list = run_cli(&dir, &["reservation", "list", "--trip", "1", "--json"]);
+    let list = common::run_cli_in(&dir, &["reservation", "list", "--trip", "1", "--json"]);
     assert!(list.status.success());
     let list_json: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
     assert_eq!(list_json["reservations"].as_array().unwrap().len(), 1);
@@ -240,10 +226,11 @@ fn cli_reservation_export_import_roundtrip() {
 
 #[test]
 fn cli_reservation_validation_errors() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip_with_itinerary(&dir);
 
-    let missing_provider = run_cli(
+    let missing_provider = common::run_cli_in(
         &dir,
         &[
             "reservation",
@@ -258,7 +245,7 @@ fn cli_reservation_validation_errors() {
     );
     assert!(!missing_provider.status.success());
 
-    let invalid_type = run_cli(
+    let invalid_type = common::run_cli_in(
         &dir,
         &[
             "reservation",
@@ -273,7 +260,7 @@ fn cli_reservation_validation_errors() {
     );
     assert!(!invalid_type.status.success());
 
-    let missing_itinerary = run_cli(
+    let missing_itinerary = common::run_cli_in(
         &dir,
         &[
             "reservation",

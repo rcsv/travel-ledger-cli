@@ -1,27 +1,16 @@
+mod common;
+
 use std::path::PathBuf;
 use std::process::Command;
 
 fn fixture_path(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    common::manifest_dir()
         .join("tests/fixtures/fragments")
         .join(name)
 }
 
-fn temp_workdir() -> std::path::PathBuf {
-    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("caglla-fragment-apply-{n}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("create temp dir");
-    dir
-}
-
 fn run_cli_in(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
+    common::run_cli_in(cwd, args)
 }
 
 fn query_itinerary_day_columns(db_path: &std::path::Path, itinerary_id: i64) -> (i64, i64) {
@@ -72,7 +61,8 @@ fn query_day_id_for_trip_day(db_path: &std::path::Path, trip_id: i64, day_number
 
 #[test]
 fn cli_fragment_apply_dry_run_writes_preview_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-ready-fragment.json");
     let preview_path = dir.join("apply-preview.json");
 
@@ -145,13 +135,12 @@ fn cli_fragment_apply_dry_run_writes_preview_and_keeps_db_unchanged() {
     let after_stdout = String::from_utf8_lossy(&after.stdout);
     assert_eq!(after_stdout.matches("Morning temple").count(), 1);
     assert!(!after_stdout.contains("Lunch at local cafe"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_requires_dry_run_or_confirm_flag() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-ready-fragment.json");
     let output = run_cli_in(
         &dir,
@@ -170,12 +159,12 @@ fn cli_fragment_apply_requires_dry_run_or_confirm_flag() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("--dry-run") || combined.contains("--confirm"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_dry_run_and_confirm_together_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-ready-fragment.json");
     let output = run_cli_in(
         &dir,
@@ -196,12 +185,12 @@ fn cli_fragment_apply_dry_run_and_confirm_together_fails() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("--dry-run") && combined.contains("--confirm"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_confirm_inserts_itinerary() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-ready-fragment.json");
 
     assert!(run_cli_in(
@@ -262,13 +251,12 @@ fn cli_fragment_apply_confirm_inserts_itinerary() {
     assert!(day_show.status.success());
     let day_stdout = String::from_utf8_lossy(&day_show.stdout);
     assert!(day_stdout.contains("Lunch at local cafe"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_confirm_unsupported_intent_fails_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-confirm-enrich-fragment.json");
     assert!(run_cli_in(
         &dir,
@@ -307,12 +295,12 @@ fn cli_fragment_apply_confirm_unsupported_intent_fails_without_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(!String::from_utf8_lossy(&list.stdout).contains("Afternoon focus"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_confirm_non_day_target_fails_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-confirm-itinerary-target-fragment.json");
     assert!(run_cli_in(
         &dir,
@@ -359,12 +347,12 @@ fn cli_fragment_apply_confirm_non_day_target_fails_without_db_write() {
     let list_stdout = String::from_utf8_lossy(&list.stdout);
     assert_eq!(list_stdout.matches("Morning temple").count(), 1);
     assert!(!list_stdout.contains("After temple lunch"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_confirm_required_decisions_block_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-confirm-required-decisions-fragment.json");
     assert!(run_cli_in(
         &dir,
@@ -408,12 +396,12 @@ fn cli_fragment_apply_confirm_required_decisions_block_db_write() {
             .count()
             == 0
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_unresolved_target_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("warn-fragment-unresolved-target.json");
     assert!(run_cli_in(
         &dir,
@@ -449,12 +437,12 @@ fn cli_fragment_apply_unresolved_target_fails() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("unresolved"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_missing_trip_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-ready-fragment.json");
     let output = run_cli_in(
         &dir,
@@ -468,12 +456,12 @@ fn cli_fragment_apply_missing_trip_fails() {
         ],
     );
     assert!(!output.status.success());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_json_gate_report() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-ready-fragment.json");
     assert!(run_cli_in(
         &dir,
@@ -515,13 +503,12 @@ fn cli_fragment_apply_json_gate_report() {
     assert_eq!(parsed["dry_run"], true);
     assert_eq!(parsed["trip_id"], 1);
     assert_eq!(parsed["trip_export_valid"], true);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_confirm_writes_expanded_itinerary_fields() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-expanded-fragment.json");
     let preview_path = dir.join("apply-preview.json");
     let export_path = dir.join("trip-after-confirm.json");
@@ -646,13 +633,12 @@ fn cli_fragment_apply_confirm_writes_expanded_itinerary_fields() {
     assert_eq!(preview_item["location"], "Kiyomizu area");
     assert_eq!(export_item["location"], "Kiyomizu area");
     assert_eq!(preview_item["sort_order"], export_item["sort_order"]);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_invalid_category_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-invalid-category-fragment.json");
     assert!(run_cli_in(
         &dir,
@@ -706,13 +692,12 @@ fn cli_fragment_apply_invalid_category_blocks_without_db_write() {
         String::from_utf8_lossy(&before.stdout),
         String::from_utf8_lossy(&after.stdout)
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_ordering_hint_warns_and_confirm_appends_to_day_end() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-ordering-hint-fragment.json");
     assert!(run_cli_in(
         &dir,
@@ -774,8 +759,6 @@ fn cli_fragment_apply_ordering_hint_warns_and_confirm_appends_to_day_end() {
         .find(|item| item["title"] == "Evening walk")
         .expect("evening walk");
     assert_eq!(evening["sort_order"], 2000);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 fn seed_trip_with_itinerary(dir: &std::path::Path) {
@@ -1024,7 +1007,8 @@ fn note_count(dir: &std::path::Path, trip_id: &str) -> usize {
 
 #[test]
 fn cli_fragment_apply_add_note_trip_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-trip-fragment.json");
     let preview_path = dir.join("add-note-trip-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -1068,12 +1052,12 @@ fn cli_fragment_apply_add_note_trip_dry_run_preview_keeps_db_unchanged() {
     .success());
 
     assert_eq!(note_count(&dir, "1"), before_notes);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_note_day_dry_run_preview() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-day-fragment.json");
     let preview_path = dir.join("add-note-day-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -1100,13 +1084,12 @@ fn cli_fragment_apply_add_note_day_dry_run_preview() {
     assert_eq!(notes[0]["owner_type"], "day");
     assert_eq!(notes[0]["day_number"], 1);
     assert_eq!(notes[0]["body"], "Temple opens at 06:00 — arrive early.");
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_note_itinerary_dry_run_preview() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-itinerary-fragment.json");
     let preview_path = dir.join("add-note-itinerary-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -1136,13 +1119,12 @@ fn cli_fragment_apply_add_note_itinerary_dry_run_preview() {
         notes[0]["body"],
         "Photography allowed in outer garden only."
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_note_required_decisions_invalid_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1167,12 +1149,12 @@ fn cli_fragment_apply_add_note_required_decisions_invalid_without_db_write() {
     );
     assert!(combined.contains("required decisions"));
     assert_eq!(note_count(&dir, "1"), before_notes);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_note_trip_confirm_inserts_note() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-trip-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1212,13 +1194,12 @@ fn cli_fragment_apply_add_note_trip_confirm_inserts_note() {
         serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
     assert_eq!(note["owner_type"], "trip");
     assert_eq!(note["body"], "Book JR tickets before departure week.");
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_note_day_confirm_inserts_note() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-day-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1250,13 +1231,12 @@ fn cli_fragment_apply_add_note_day_confirm_inserts_note() {
         parsed["notes"][0]["body"],
         "Temple opens at 06:00 — arrive early."
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_note_itinerary_confirm_inserts_note() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-itinerary-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1305,13 +1285,12 @@ fn cli_fragment_apply_add_note_itinerary_confirm_inserts_note() {
     let list_parsed: serde_json::Value =
         serde_json::from_str(&String::from_utf8_lossy(&list.stdout)).unwrap();
     assert_eq!(list_parsed["notes"].as_array().unwrap().len(), 1);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_note_confirm_required_decisions_block_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-note-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1335,7 +1314,6 @@ fn cli_fragment_apply_add_note_confirm_required_decisions_block_db_write() {
     );
     assert!(combined.contains("required decisions"));
     assert_eq!(note_count(&dir, "1"), before_notes);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 fn itinerary_expense_count(dir: &std::path::Path, itinerary_id: &str) -> usize {
@@ -1488,7 +1466,8 @@ fn assert_add_estimate_invalid_confirm(dir: &std::path::Path, fragment_path: &st
 
 #[test]
 fn cli_fragment_apply_add_expense_itinerary_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-expense-itinerary-fragment.json");
     let preview_path = dir.join("add-expense-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -1549,12 +1528,12 @@ fn cli_fragment_apply_add_expense_itinerary_dry_run_preview_keeps_db_unchanged()
     .success());
 
     assert_eq!(itinerary_expense_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_expense_invalid_currency_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-expense-invalid-currency-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1573,12 +1552,12 @@ fn cli_fragment_apply_add_expense_invalid_currency_blocks_without_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_expense_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_expense_trip_target_fails_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-expense-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1603,12 +1582,12 @@ fn cli_fragment_apply_add_expense_trip_target_fails_without_db_write() {
     );
     assert!(combined.contains("itinerary target"));
     assert_eq!(itinerary_expense_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_expense_required_decisions_invalid_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-expense-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1627,12 +1606,12 @@ fn cli_fragment_apply_add_expense_required_decisions_invalid_without_db_write() 
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_expense_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_expense_itinerary_confirm_inserts_expense() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-expense-itinerary-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1682,13 +1661,12 @@ fn cli_fragment_apply_add_expense_itinerary_confirm_inserts_expense() {
     let expenses = list_parsed["expenses"].as_array().expect("expenses");
     assert_eq!(expenses.len(), 1);
     assert_eq!(expenses[0]["id"], inserted_id);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_expense_confirm_required_decisions_block_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-expense-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1706,12 +1684,12 @@ fn cli_fragment_apply_add_expense_confirm_required_decisions_block_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_expense_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_expense_trip_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-expense-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1729,12 +1707,12 @@ fn cli_fragment_apply_add_expense_trip_target_confirm_blocks_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_expense_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_itinerary_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-itinerary-fragment.json");
     let preview_path = dir.join("add-reservation-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -1812,12 +1790,12 @@ fn cli_fragment_apply_add_reservation_itinerary_dry_run_preview_keeps_db_unchang
 
     assert_eq!(itinerary_reservation_count(&dir, "1"), before_reservations);
     assert_eq!(note_count(&dir, "1"), before_notes);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_itinerary_confirm_inserts_reservation() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-itinerary-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1884,13 +1862,12 @@ fn cli_fragment_apply_add_reservation_itinerary_confirm_inserts_reservation() {
     assert_eq!(reservations.len(), before_reservations + 1);
     assert_eq!(reservations[0]["id"], inserted_id);
     assert_eq!(reservations[0]["remark"], "Bring printed QR code.");
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_invalid_type_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-invalid-type-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1909,12 +1886,12 @@ fn cli_fragment_apply_add_reservation_invalid_type_blocks_without_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_reservation_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_invalid_type_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-invalid-type-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1933,12 +1910,12 @@ fn cli_fragment_apply_add_reservation_invalid_type_confirm_blocks_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_reservation_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_trip_target_fails_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1956,12 +1933,12 @@ fn cli_fragment_apply_add_reservation_trip_target_fails_without_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_reservation_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_trip_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -1980,12 +1957,12 @@ fn cli_fragment_apply_add_reservation_trip_target_confirm_blocks_db_write() {
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_reservation_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_required_decisions_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -2003,12 +1980,12 @@ fn cli_fragment_apply_add_reservation_required_decisions_blocks_without_db_write
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_reservation_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_required_decisions_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-reservation-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -2027,12 +2004,12 @@ fn cli_fragment_apply_add_reservation_required_decisions_confirm_blocks_db_write
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_reservation_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_missing_provider_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment = dir.join("add-reservation-missing-provider.json");
     std::fs::write(
@@ -2077,12 +2054,12 @@ fn cli_fragment_apply_add_reservation_missing_provider_confirm_blocks_db_write()
     );
     assert!(!output.status.success());
     assert_eq!(itinerary_reservation_count(&dir, "1"), before);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_reservation_memo_confirm_maps_to_remark_only() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment = dir.join("add-reservation-memo.json");
     std::fs::write(
@@ -2148,12 +2125,12 @@ fn cli_fragment_apply_add_reservation_memo_confirm_maps_to_remark_only() {
         serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
     assert_eq!(reservation["remark"], "Ask for the east gate entrance.");
     assert_eq!(note_count(&dir, "1"), before_notes);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_itinerary_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-valid.json");
     let preview_path = dir.join("add-estimate-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -2250,12 +2227,12 @@ fn cli_fragment_apply_add_estimate_itinerary_dry_run_preview_keeps_db_unchanged(
         itinerary_expense_count(&dir, &itinerary_id.to_string()),
         before_expenses
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_minor_units_dry_run_normalizes_amount() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-valid-minor-units.json");
     seed_trip_with_itinerary(&dir);
 
@@ -2277,12 +2254,12 @@ fn cli_fragment_apply_add_estimate_minor_units_dry_run_normalizes_amount() {
     assert_eq!(parsed["preview"]["estimate_preview"]["amount"], 1250);
     assert_eq!(parsed["preview"]["estimate_preview"]["currency"], "USD");
     assert_eq!(parsed["preview"]["estimate_preview"]["sort_order"], 0);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_missing_amount_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-missing-amount.json");
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
@@ -2305,12 +2282,12 @@ fn cli_fragment_apply_add_estimate_missing_amount_blocks_without_db_write() {
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_invalid_currency_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-invalid-currency.json");
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
@@ -2333,12 +2310,12 @@ fn cli_fragment_apply_add_estimate_invalid_currency_blocks_without_db_write() {
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_negative_amount_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-negative-amount.json");
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
@@ -2361,12 +2338,12 @@ fn cli_fragment_apply_add_estimate_negative_amount_blocks_without_db_write() {
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_invalid_sort_order_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-invalid-sort-order.json");
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
@@ -2389,12 +2366,12 @@ fn cli_fragment_apply_add_estimate_invalid_sort_order_blocks_without_db_write() 
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_unsupported_target_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-unsupported-target.json");
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
@@ -2423,12 +2400,12 @@ fn cli_fragment_apply_add_estimate_unsupported_target_blocks_without_db_write() 
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_required_decisions_invalid_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-required-decisions.json");
     let preview_path = dir.join("add-estimate-required-decisions-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -2455,12 +2432,12 @@ fn cli_fragment_apply_add_estimate_required_decisions_invalid_without_db_write()
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_itinerary_confirm_inserts_estimate() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-valid.json");
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
@@ -2536,13 +2513,12 @@ fn cli_fragment_apply_add_estimate_itinerary_confirm_inserts_estimate() {
     let estimates = list_parsed["estimates"].as_array().expect("estimates");
     assert_eq!(estimates.len(), 1);
     assert_eq!(estimates[0]["id"], inserted_id);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_minor_units_confirm_stores_1250_not_125000() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-valid-minor-units.json");
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
@@ -2594,12 +2570,12 @@ fn cli_fragment_apply_add_estimate_minor_units_confirm_stores_1250_not_125000() 
         itinerary_expense_count(&dir, &itinerary_id.to_string()),
         before_expenses
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_itinerary_id_selector_confirm_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
 
@@ -2656,12 +2632,12 @@ fn cli_fragment_apply_add_estimate_itinerary_id_selector_confirm_succeeds() {
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before + 1
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_minimal_optional_fields_confirm_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
 
@@ -2714,66 +2690,66 @@ fn cli_fragment_apply_add_estimate_minimal_optional_fields_confirm_succeeds() {
     assert!(estimate["title"].is_null());
     assert!(estimate["note"].is_null());
     assert_eq!(estimate["sort_order"], 0);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_missing_amount_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-missing-amount.json");
     seed_trip_with_itinerary(&dir);
     assert_add_estimate_invalid_confirm(&dir, &fragment);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_negative_amount_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-negative-amount.json");
     seed_trip_with_itinerary(&dir);
     assert_add_estimate_invalid_confirm(&dir, &fragment);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_invalid_currency_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-invalid-currency.json");
     seed_trip_with_itinerary(&dir);
     assert_add_estimate_invalid_confirm(&dir, &fragment);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_invalid_sort_order_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-invalid-sort-order.json");
     seed_trip_with_itinerary(&dir);
     assert_add_estimate_invalid_confirm(&dir, &fragment);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_required_decisions_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-required-decisions.json");
     seed_trip_with_itinerary(&dir);
     assert_add_estimate_invalid_confirm(&dir, &fragment);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_unsupported_target_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-unsupported-target.json");
     seed_trip_with_itinerary(&dir);
     assert_add_estimate_invalid_confirm(&dir, &fragment);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_ambiguous_target_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
         &dir,
@@ -2803,12 +2779,12 @@ fn cli_fragment_apply_add_estimate_ambiguous_target_confirm_blocks_without_db_wr
     )
     .unwrap();
     assert_add_estimate_invalid_confirm(&dir, &fragment_path);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_invalid_amount_confirm_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-invalid-amount-confirm.json");
     std::fs::write(
@@ -2831,12 +2807,12 @@ fn cli_fragment_apply_add_estimate_invalid_amount_confirm_blocks_without_db_writ
     )
     .unwrap();
     assert_add_estimate_invalid_confirm(&dir, &fragment_path);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_ambiguous_title_target_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
         &dir,
@@ -2891,12 +2867,12 @@ fn cli_fragment_apply_add_estimate_ambiguous_title_target_blocks_without_db_writ
         itinerary_estimate_count(&dir, &itinerary_id.to_string()),
         before
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_itinerary_id_selector_dry_run_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let itinerary_id = first_itinerary_id(&dir);
 
@@ -2942,12 +2918,12 @@ fn cli_fragment_apply_add_estimate_itinerary_id_selector_dry_run_succeeds() {
         parsed["preview"]["estimate_preview"]["target_itinerary_id"],
         itinerary_id
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_minimal_optional_fields_dry_run_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
 
     let fragment_path = dir.join("add-estimate-minimal.json");
@@ -2990,12 +2966,12 @@ fn cli_fragment_apply_add_estimate_minimal_optional_fields_dry_run_succeeds() {
     assert!(parsed["preview"]["estimate_preview"]["title"].is_null());
     assert!(parsed["preview"]["estimate_preview"]["note"].is_null());
     assert_eq!(parsed["preview"]["estimate_preview"]["sort_order"], 0);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_empty_optional_text_normalizes_to_null() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
 
     let fragment_path = dir.join("add-estimate-empty-optional.json");
@@ -3038,12 +3014,12 @@ fn cli_fragment_apply_add_estimate_empty_optional_text_normalizes_to_null() {
         serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
     assert!(parsed["preview"]["estimate_preview"]["title"].is_null());
     assert!(parsed["preview"]["estimate_preview"]["note"].is_null());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_lowercase_currency_normalizes() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
 
     let fragment_path = dir.join("add-estimate-lowercase-currency.json");
@@ -3083,12 +3059,12 @@ fn cli_fragment_apply_add_estimate_lowercase_currency_normalizes() {
     let parsed: serde_json::Value =
         serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
     assert_eq!(parsed["preview"]["estimate_preview"]["currency"], "JPY");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_non_numeric_amount_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-non-numeric-amount.json");
     std::fs::write(
@@ -3109,12 +3085,12 @@ fn cli_fragment_apply_add_estimate_non_numeric_amount_blocks_without_db_write() 
         Some(&dir.join("preview.json")),
         "amount",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_excessive_decimal_precision_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-excessive-decimal.json");
     std::fs::write(
@@ -3135,12 +3111,12 @@ fn cli_fragment_apply_add_estimate_excessive_decimal_precision_blocks_without_db
         Some(&dir.join("preview.json")),
         "小数桁",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_negative_string_amount_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-negative-string-amount.json");
     std::fs::write(
@@ -3161,12 +3137,12 @@ fn cli_fragment_apply_add_estimate_negative_string_amount_blocks_without_db_writ
         Some(&dir.join("preview.json")),
         "0 以上",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_missing_currency_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-missing-currency.json");
     std::fs::write(
@@ -3187,12 +3163,12 @@ fn cli_fragment_apply_add_estimate_missing_currency_blocks_without_db_write() {
         Some(&dir.join("preview.json")),
         "fragment body が空に近い",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_invalid_currency_type_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-invalid-currency-type.json");
     std::fs::write(
@@ -3213,12 +3189,12 @@ fn cli_fragment_apply_add_estimate_invalid_currency_type_blocks_without_db_write
         Some(&dir.join("preview.json")),
         "fragment body が空に近い",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_invalid_currency_format_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-invalid-currency-format.json");
     std::fs::write(
@@ -3239,12 +3215,12 @@ fn cli_fragment_apply_add_estimate_invalid_currency_format_blocks_without_db_wri
         Some(&dir.join("preview.json")),
         "currency",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_non_string_title_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-non-string-title.json");
     std::fs::write(
@@ -3265,12 +3241,12 @@ fn cli_fragment_apply_add_estimate_non_string_title_blocks_without_db_write() {
         Some(&dir.join("preview.json")),
         "title は文字列",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_add_estimate_non_string_note_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment_path = dir.join("add-estimate-non-string-note.json");
     std::fs::write(
@@ -3291,12 +3267,12 @@ fn cli_fragment_apply_add_estimate_non_string_note_blocks_without_db_write() {
         Some(&dir.join("preview.json")),
         "note は文字列",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_basic_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-basic-fragment.json");
     let preview_path = dir.join("update-itinerary-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -3373,12 +3349,12 @@ fn cli_fragment_apply_update_itinerary_basic_dry_run_preview_keeps_db_unchanged(
     assert_eq!(itinerary_expense_count(&dir, "1"), before_expenses);
     assert_eq!(itinerary_reservation_count(&dir, "1"), before_reservations);
     assert_eq!(note_count(&dir, "1"), before_notes);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_invalid_category_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-invalid-category-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3404,12 +3380,12 @@ fn cli_fragment_apply_update_itinerary_invalid_category_blocks_without_db_write(
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_trip_target_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3431,12 +3407,12 @@ fn cli_fragment_apply_update_itinerary_trip_target_blocks_without_db_write() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("itinerary target"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_required_decisions_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3458,12 +3434,12 @@ fn cli_fragment_apply_update_itinerary_required_decisions_blocks_without_db_writ
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("required decisions"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_conflict_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-conflict-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3495,12 +3471,12 @@ fn cli_fragment_apply_update_itinerary_conflict_blocks_without_db_write() {
         .iter()
         .any(|item| item.as_str()
             == Some("Category may have been updated since fragment was authored")));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_noop_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-noop-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3522,12 +3498,12 @@ fn cli_fragment_apply_update_itinerary_noop_blocks_without_db_write() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("no-op"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_basic_confirm_updates_itinerary() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3605,12 +3581,12 @@ fn cli_fragment_apply_update_itinerary_basic_confirm_updates_itinerary() {
     assert_eq!(itinerary_expense_count(&dir, "1"), before_expenses);
     assert_eq!(itinerary_reservation_count(&dir, "1"), before_reservations);
     assert_eq!(note_count(&dir, "1"), before_notes);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_trip_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3630,12 +3606,12 @@ fn cli_fragment_apply_update_itinerary_trip_target_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_day_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-day-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3654,12 +3630,12 @@ fn cli_fragment_apply_update_itinerary_day_target_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_required_decisions_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3678,12 +3654,12 @@ fn cli_fragment_apply_update_itinerary_required_decisions_confirm_blocks_db_writ
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_conflict_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-conflict-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3709,12 +3685,12 @@ fn cli_fragment_apply_update_itinerary_conflict_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_noop_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-noop-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3733,12 +3709,12 @@ fn cli_fragment_apply_update_itinerary_noop_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_invalid_category_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-update-itinerary-invalid-category-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -3757,12 +3733,12 @@ fn cli_fragment_apply_update_itinerary_invalid_category_confirm_blocks_db_write(
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_invalid_time_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment = dir.join("apply-update-itinerary-invalid-time.json");
     std::fs::write(
@@ -3804,12 +3780,12 @@ fn cli_fragment_apply_update_itinerary_invalid_time_confirm_blocks_db_write() {
         ],
     );
     assert!(!output.status.success());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_update_itinerary_negative_duration_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     seed_trip_with_itinerary(&dir);
     let fragment = dir.join("apply-update-itinerary-negative-duration.json");
     std::fs::write(
@@ -3851,12 +3827,12 @@ fn cli_fragment_apply_update_itinerary_negative_duration_confirm_blocks_db_write
         ],
     );
     assert!(!output.status.success());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_basic_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     let preview_path = dir.join("delete-itinerary-preview.json");
     seed_trip_with_itinerary(&dir);
@@ -3916,12 +3892,12 @@ fn cli_fragment_apply_delete_itinerary_basic_dry_run_preview_keeps_db_unchanged(
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_expense_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
@@ -3972,12 +3948,12 @@ fn cli_fragment_apply_delete_itinerary_expense_blocks_without_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_reservation_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
@@ -4023,12 +3999,12 @@ fn cli_fragment_apply_delete_itinerary_reservation_blocks_without_db_write() {
         parsed["preview"]["delete_preview"]["blocking_children"]["reservations"],
         1
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_note_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     let note_fragment = fixture_path("apply-add-note-itinerary-fragment.json");
     seed_trip_with_itinerary(&dir);
@@ -4073,12 +4049,12 @@ fn cli_fragment_apply_delete_itinerary_note_blocks_without_db_write() {
         parsed["preview"]["delete_preview"]["blocking_children"]["notes"],
         1
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_trip_target_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -4100,12 +4076,12 @@ fn cli_fragment_apply_delete_itinerary_trip_target_blocks_without_db_write() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("itinerary target"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_day_target_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-day-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -4127,12 +4103,12 @@ fn cli_fragment_apply_delete_itinerary_day_target_blocks_without_db_write() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("itinerary target"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_required_decisions_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -4154,12 +4130,12 @@ fn cli_fragment_apply_delete_itinerary_required_decisions_blocks_without_db_writ
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("required decisions"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_conflict_blocks_without_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-conflict-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -4188,12 +4164,12 @@ fn cli_fragment_apply_delete_itinerary_conflict_blocks_without_db_write() {
         .as_array()
         .expect("required_decisions");
     assert!(!required.is_empty());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_basic_confirm_deletes_itinerary() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -4251,12 +4227,12 @@ fn cli_fragment_apply_delete_itinerary_basic_confirm_deletes_itinerary() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(!String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_valid_same_day_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-basic-fragment.json");
     let preview_path = dir.join("reorder-itinerary-preview.json");
     seed_trip_two_days_with_itineraries(&dir);
@@ -4329,13 +4305,12 @@ fn cli_fragment_apply_reorder_itinerary_valid_same_day_dry_run_preview_keeps_db_
     assert!(after_day.status.success());
     let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
     assert_eq!(before_stdout, after_stdout);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_id_selector_is_supported_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-id-fragment.json");
     let preview_path = dir.join("reorder-itinerary-id-preview.json");
     seed_trip_two_days_with_itineraries(&dir);
@@ -4385,13 +4360,12 @@ fn cli_fragment_apply_reorder_itinerary_id_selector_is_supported_and_keeps_db_un
     assert!(after_day.status.success());
     let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
     assert_eq!(before_stdout, after_stdout);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_missing_expected_order_is_invalid_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-missing-expected-order-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4423,13 +4397,12 @@ fn cli_fragment_apply_reorder_itinerary_missing_expected_order_is_invalid_and_ke
     assert!(after_day.status.success());
     let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
     assert_eq!(before_stdout, after_stdout);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_cross_day_is_rejected_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-cross-day-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4461,13 +4434,12 @@ fn cli_fragment_apply_reorder_itinerary_cross_day_is_rejected_and_keeps_db_uncha
     assert!(after_day.status.success());
     let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
     assert_eq!(before_stdout, after_stdout);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_duplicate_is_rejected_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-duplicate-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4490,13 +4462,12 @@ fn cli_fragment_apply_reorder_itinerary_duplicate_is_rejected_and_keeps_db_uncha
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("重複"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_unknown_is_rejected_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-unknown-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4519,13 +4490,12 @@ fn cli_fragment_apply_reorder_itinerary_unknown_is_rejected_and_keeps_db_unchang
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("見つかりません"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_is_supported() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-basic-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4552,13 +4522,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_is_supported() {
     assert_eq!(parsed["valid"], true);
     assert_eq!(parsed["preview"]["action"], "reorder_itinerary");
     assert!(parsed["reordered_itineraries"].as_u64().unwrap() >= 1);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_updates_sort_order_in_db() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-basic-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4622,13 +4591,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_updates_sort_order_in_db() {
         .map(|it| it["sort_order"].as_i64().unwrap())
         .collect();
     assert_eq!(orders, vec![1000, 2000, 3000]);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_id_selector_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-id-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4658,13 +4626,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_id_selector_succeeds() {
         .map(|it| it["title"].as_str().unwrap().to_string())
         .collect();
     assert_eq!(after_titles, vec!["Aquarium", "Breakfast", "Dinner"]);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_missing_after_order_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-missing-after-order-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4690,13 +4657,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_missing_after_order_blocks_db_wr
     assert!(after_day.status.success());
     let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
     assert_eq!(before_stdout, after_stdout);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_baseline_mismatch_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-baseline-mismatch-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4728,13 +4694,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_baseline_mismatch_blocks_db_writ
     assert!(after_day.status.success());
     let after_stdout = String::from_utf8_lossy(&after_day.stdout).to_string();
     assert_eq!(before_stdout, after_stdout);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_set_mismatch_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-set-mismatch-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4757,13 +4722,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_set_mismatch_blocks_db_write() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("集合") || combined.contains("same itinerary"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_noop_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-noop-fragment.json");
     seed_trip_two_days_with_itineraries(&dir);
 
@@ -4780,13 +4744,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_noop_blocks_db_write() {
         ],
     );
     assert!(!output.status.success());
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_reorder_itinerary_confirm_ambiguous_number_selector_is_rejected() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-reorder-itinerary-ambiguous-number-fragment.json");
     seed_trip_day_with_ambiguous_number_selector(&dir);
 
@@ -4809,13 +4772,12 @@ fn cli_fragment_apply_reorder_itinerary_confirm_ambiguous_number_selector_is_rej
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("曖昧"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_valid_cross_day_dry_run_preview_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-basic-fragment.json");
     let preview_path = dir.join("move-itinerary-preview.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
@@ -4928,13 +4890,12 @@ fn cli_fragment_apply_move_itinerary_valid_cross_day_dry_run_preview_keeps_db_un
         before_day2_stdout,
         String::from_utf8_lossy(&after_day2.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_id_selector_is_supported_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-id-fragment.json");
     let preview_path = dir.join("move-itinerary-id-preview.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
@@ -4978,14 +4939,13 @@ fn cli_fragment_apply_move_itinerary_id_selector_is_supported_and_keeps_db_uncha
         before_day2_stdout,
         String::from_utf8_lossy(&after_day2.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_missing_expected_source_order_is_invalid_and_keeps_db_unchanged(
 ) {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-missing-expected-source-order-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5028,13 +4988,12 @@ fn cli_fragment_apply_move_itinerary_missing_expected_source_order_is_invalid_an
         before_day2_stdout,
         String::from_utf8_lossy(&after_day2.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_same_day_is_rejected_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-same-day-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5057,13 +5016,12 @@ fn cli_fragment_apply_move_itinerary_same_day_is_rejected_and_keeps_db_unchanged
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(combined.contains("reorder_itinerary"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_is_supported() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-basic-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5091,13 +5049,12 @@ fn cli_fragment_apply_move_itinerary_confirm_is_supported() {
     assert_eq!(parsed["preview"]["action"], "move_itinerary");
     assert!(parsed["moved_itinerary_id"].as_i64().unwrap() >= 1);
     assert!(parsed["moved_itinerary_updated_rows"].as_u64().unwrap() >= 1);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_updates_db() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-basic-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5163,13 +5120,12 @@ fn cli_fragment_apply_move_itinerary_confirm_updates_db() {
         .map(|it| it["sort_order"].as_i64().unwrap())
         .collect();
     assert_eq!(day1_orders, vec![1000, 2000]);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_id_selector_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-id-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5202,13 +5158,12 @@ fn cli_fragment_apply_move_itinerary_confirm_id_selector_succeeds() {
         day2_titles,
         vec!["Museum (Day 2)", "Aquarium", "Beach (Day 2)"]
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_empty_source_day_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-empty-source-fragment.json");
     seed_trip_single_source_itinerary_for_move(&dir);
 
@@ -5248,13 +5203,12 @@ fn cli_fragment_apply_move_itinerary_confirm_empty_source_day_succeeds() {
         day2_titles,
         vec!["Museum (Day 2)", "Aquarium", "Beach (Day 2)"]
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_same_day_is_rejected_and_keeps_db_unchanged() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-same-day-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5288,13 +5242,12 @@ fn cli_fragment_apply_move_itinerary_confirm_same_day_is_rejected_and_keeps_db_u
         before_day1_stdout,
         String::from_utf8_lossy(&after_day1.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_baseline_mismatch_source_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-baseline-mismatch-source-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5328,13 +5281,12 @@ fn cli_fragment_apply_move_itinerary_confirm_baseline_mismatch_source_blocks_db_
         before_stdout,
         String::from_utf8_lossy(&after_day1.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_baseline_mismatch_destination_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-baseline-mismatch-destination-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5368,13 +5320,12 @@ fn cli_fragment_apply_move_itinerary_confirm_baseline_mismatch_destination_block
         before_stdout,
         String::from_utf8_lossy(&after_day2.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_moved_in_after_source_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-moved-in-after-source-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5408,13 +5359,12 @@ fn cli_fragment_apply_move_itinerary_confirm_moved_in_after_source_blocks_db_wri
         before_stdout,
         String::from_utf8_lossy(&after_day1.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_duplicate_selector_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-duplicate-selector-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5448,13 +5398,12 @@ fn cli_fragment_apply_move_itinerary_confirm_duplicate_selector_blocks_db_write(
         before_stdout,
         String::from_utf8_lossy(&after_day2.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_ambiguous_number_selector_is_rejected() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-ambiguous-number-fragment.json");
     seed_trip_two_days_with_ambiguous_move_number_selector(&dir);
 
@@ -5488,13 +5437,12 @@ fn cli_fragment_apply_move_itinerary_confirm_ambiguous_number_selector_is_reject
         before_day1_stdout,
         String::from_utf8_lossy(&after_day1.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_confirm_mutation_boundary() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-basic-fragment.json");
     seed_trip_two_days_with_itineraries_for_move(&dir);
 
@@ -5551,14 +5499,13 @@ fn cli_fragment_apply_move_itinerary_confirm_mutation_boundary() {
     let (raw_day_id, raw_day) = query_itinerary_day_columns(&db_path, aquarium_id);
     assert_eq!(raw_day_id, destination_day_id);
     assert_eq!(raw_day, 2);
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_move_itinerary_ambiguous_number_selector_is_rejected_and_keeps_db_unchanged()
 {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-move-itinerary-ambiguous-number-fragment.json");
     seed_trip_two_days_with_ambiguous_move_number_selector(&dir);
 
@@ -5601,13 +5548,12 @@ fn cli_fragment_apply_move_itinerary_ambiguous_number_selector_is_rejected_and_k
         before_day2_stdout,
         String::from_utf8_lossy(&after_day2.stdout).to_string()
     );
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_trip_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-trip-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -5626,12 +5572,12 @@ fn cli_fragment_apply_delete_itinerary_trip_target_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_day_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-day-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -5650,12 +5596,12 @@ fn cli_fragment_apply_delete_itinerary_day_target_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_required_decisions_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-required-decisions-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -5674,12 +5620,12 @@ fn cli_fragment_apply_delete_itinerary_required_decisions_confirm_blocks_db_writ
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_conflict_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-conflict-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -5698,12 +5644,12 @@ fn cli_fragment_apply_delete_itinerary_conflict_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_expense_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
@@ -5748,12 +5694,12 @@ fn cli_fragment_apply_delete_itinerary_expense_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_reservation_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
@@ -5793,12 +5739,12 @@ fn cli_fragment_apply_delete_itinerary_reservation_confirm_blocks_db_write() {
         1
     );
     assert_eq!(itinerary_reservation_count(&dir, "1"), 1);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_note_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     let note_fragment = fixture_path("apply-add-note-itinerary-fragment.json");
     seed_trip_with_itinerary(&dir);
@@ -5839,12 +5785,12 @@ fn cli_fragment_apply_delete_itinerary_note_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_estimate_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
@@ -5888,12 +5834,12 @@ fn cli_fragment_apply_delete_itinerary_estimate_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_unresolved_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-unresolved-target-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -5912,12 +5858,12 @@ fn cli_fragment_apply_delete_itinerary_unresolved_target_confirm_blocks_db_write
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_ambiguous_target_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-ambiguous-fragment.json");
 
     assert!(run_cli_in(
@@ -5967,12 +5913,12 @@ fn cli_fragment_apply_delete_itinerary_ambiguous_target_confirm_blocks_db_write(
             .count(),
         2
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_not_found_confirm_blocks_db_write() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-not-found-fragment.json");
     seed_trip_with_itinerary(&dir);
 
@@ -5991,12 +5937,12 @@ fn cli_fragment_apply_delete_itinerary_not_found_confirm_blocks_db_write() {
     let list = run_cli_in(&dir, &["itinerary", "list", "1"]);
     assert!(list.status.success());
     assert!(String::from_utf8_lossy(&list.stdout).contains("Morning temple"));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_apply_delete_itinerary_inline_note_confirm_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let fragment = fixture_path("apply-delete-itinerary-basic-fragment.json");
     seed_trip_with_itinerary(&dir);
     assert!(run_cli_in(
@@ -6024,26 +5970,19 @@ fn cli_fragment_apply_delete_itinerary_inline_note_confirm_succeeds() {
     assert_eq!(parsed["deleted_itinerary_id"], 1);
     let show = run_cli_in(&dir, &["itinerary", "show", "1"]);
     assert!(!show.status.success());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn cli_fragment_validate_remains_file_only() {
     let fragment = fixture_path("valid-fragment.json");
-    let temp_dir = std::env::temp_dir().join(format!(
-        "caglla-fragment-validate-isolated-{}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&temp_dir).expect("create temp dir");
-    let output = Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(&temp_dir)
-        .args(["fragment", "validate", fragment.to_str().unwrap()])
-        .output()
-        .expect("failed to run CLI");
+    let workspace = common::TestWorkspace::new();
+    let output = common::run_cli_in(
+        workspace.path(),
+        &["fragment", "validate", fragment.to_str().unwrap()],
+    );
     assert!(
         output.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let _ = std::fs::remove_dir_all(&temp_dir);
 }

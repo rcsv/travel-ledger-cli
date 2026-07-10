@@ -1,30 +1,12 @@
+mod common;
+
 use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-validate-export-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 #[test]
 fn cli_validate_export_current_format_succeeds() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -38,18 +20,20 @@ fn cli_validate_export_current_format_succeeds() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["itinerary", "add", "1", "--day", "1", "Sightseeing"]
     )
     .status
     .success());
-    assert!(run_cli(&dir, &["checklist", "add", "1", "Passport"])
-        .status
-        .success());
+    assert!(
+        common::run_cli_in(&dir, &["checklist", "add", "1", "Passport"])
+            .status
+            .success()
+    );
 
     let export_path = dir.join("backup.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -62,7 +46,7 @@ fn cli_validate_export_current_format_succeeds() {
     .status
     .success());
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -83,7 +67,8 @@ fn cli_validate_export_current_format_succeeds() {
 
 #[test]
 fn cli_validate_export_json_includes_errors_array() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = dir.join("legacy.json");
     fs::write(
         &export_path,
@@ -101,7 +86,7 @@ fn cli_validate_export_json_includes_errors_array() {
     )
     .unwrap();
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -122,7 +107,8 @@ fn cli_validate_export_json_includes_errors_array() {
 
 #[test]
 fn cli_validate_export_legacy_text_output_is_valid_with_warnings() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = dir.join("legacy.json");
     fs::write(
         &export_path,
@@ -140,7 +126,7 @@ fn cli_validate_export_legacy_text_output_is_valid_with_warnings() {
     )
     .unwrap();
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -158,9 +144,10 @@ fn cli_validate_export_legacy_text_output_is_valid_with_warnings() {
 
 #[test]
 fn cli_validate_export_json_includes_generator_metadata() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -176,7 +163,7 @@ fn cli_validate_export_json_includes_generator_metadata() {
     .success());
 
     let export_path = dir.join("backup.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -189,7 +176,7 @@ fn cli_validate_export_json_includes_generator_metadata() {
     .status
     .success());
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -207,11 +194,12 @@ fn cli_validate_export_json_includes_generator_metadata() {
 
 #[test]
 fn cli_validate_export_invalid_json_exits_with_error() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = dir.join("broken.json");
     fs::write(&export_path, "not json").unwrap();
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -225,11 +213,12 @@ fn cli_validate_export_invalid_json_exits_with_error() {
 
 #[test]
 fn cli_validate_export_invalid_json_json_output_includes_errors() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = dir.join("broken.json");
     fs::write(&export_path, "not json").unwrap();
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -246,8 +235,9 @@ fn cli_validate_export_invalid_json_json_output_includes_errors() {
 
 #[test]
 fn cli_validate_export_missing_file_exits_with_error() {
-    let dir = temp_workdir();
-    let output = run_cli(&dir, &["trip", "validate-export", "missing-export.json"]);
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let output = common::run_cli_in(&dir, &["trip", "validate-export", "missing-export.json"]);
     assert!(!output.status.success());
 }
 
@@ -275,7 +265,8 @@ fn write_v3_export(dir: &std::path::Path, filename: &str, days_json: &str) -> st
 
 #[test]
 fn cli_validate_export_v3_expense_invalid_currency_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = write_v3_export(
         &dir,
         "invalid-currency.json",
@@ -295,7 +286,7 @@ fn cli_validate_export_v3_expense_invalid_currency_fails() {
   ]"#,
     );
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -307,7 +298,8 @@ fn cli_validate_export_v3_expense_invalid_currency_fails() {
 
 #[test]
 fn cli_validate_export_v3_expense_empty_currency_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = write_v3_export(
         &dir,
         "empty-currency.json",
@@ -327,7 +319,7 @@ fn cli_validate_export_v3_expense_empty_currency_fails() {
   ]"#,
     );
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -339,7 +331,8 @@ fn cli_validate_export_v3_expense_empty_currency_fails() {
 
 #[test]
 fn cli_validate_export_v3_expense_invalid_date_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = write_v3_export(
         &dir,
         "invalid-date.json",
@@ -364,7 +357,7 @@ fn cli_validate_export_v3_expense_invalid_date_fails() {
   ]"#,
     );
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -375,7 +368,8 @@ fn cli_validate_export_v3_expense_invalid_date_fails() {
 
 #[test]
 fn cli_validate_export_v3_expense_valid_nested_structure_succeeds() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = write_v3_export(
         &dir,
         "valid-expenses.json",
@@ -407,7 +401,7 @@ fn cli_validate_export_v3_expense_valid_nested_structure_succeeds() {
   ]"#,
     );
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -431,7 +425,8 @@ fn cli_validate_export_v3_expense_valid_nested_structure_succeeds() {
 
 #[test]
 fn cli_validate_export_v4_multiple_self_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = dir.join("multiple-self.json");
     fs::write(
         &export_path,
@@ -463,7 +458,7 @@ fn cli_validate_export_v4_multiple_self_fails() {
     )
     .unwrap();
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -472,7 +467,7 @@ fn cli_validate_export_v4_multiple_self_fails() {
     assert!(stdout.contains("無効な export ファイル"));
     assert!(stdout.contains("is_self"));
 
-    let json_output = run_cli(
+    let json_output = common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -495,7 +490,8 @@ fn cli_validate_export_v4_multiple_self_fails() {
 
 #[test]
 fn cli_validate_export_v6_invalid_estimate_currency_fails() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = dir.join("invalid-estimate.json");
     fs::write(
         &export_path,
@@ -534,7 +530,7 @@ fn cli_validate_export_v6_invalid_estimate_currency_fails() {
     )
     .unwrap();
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
@@ -545,7 +541,8 @@ fn cli_validate_export_v6_invalid_estimate_currency_fails() {
 
 #[test]
 fn cli_validate_export_v5_import_skips_estimate_checks() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let export_path = dir.join("v5-no-estimates.json");
     fs::write(
         &export_path,
@@ -577,7 +574,7 @@ fn cli_validate_export_v5_import_skips_estimate_checks() {
     )
     .unwrap();
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "trip",

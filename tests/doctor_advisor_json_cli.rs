@@ -1,30 +1,11 @@
-use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-doctor-advisor-json-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
+mod common;
 
 #[test]
 fn cli_trip_doctor_json_envelope_and_codes() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -38,7 +19,7 @@ fn cli_trip_doctor_json_envelope_and_codes() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -52,7 +33,7 @@ fn cli_trip_doctor_json_envelope_and_codes() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "doctor", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["trip", "doctor", "1", "--json"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -78,9 +59,10 @@ fn cli_trip_doctor_json_envelope_and_codes() {
 
 #[test]
 fn cli_trip_advisor_json_envelope_and_commands_flag() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -94,14 +76,14 @@ fn cli_trip_advisor_json_envelope_and_commands_flag() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["itinerary", "add", "1", "--day", "1", "Sightseeing"]
     )
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "advisor", "1", "--json", "--with-commands"]);
+    let output = common::run_cli_in(&dir, &["trip", "advisor", "1", "--json", "--with-commands"]);
     assert!(
         output.status.success(),
         "stderr: {}",

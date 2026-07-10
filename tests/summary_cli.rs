@@ -1,29 +1,12 @@
+mod common;
+
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-summary-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 fn setup_trip(dir: &Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -61,10 +44,11 @@ CREATE TABLE trips (
 
 #[test]
 fn cli_trip_add_show_update_and_clear_summary() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    let add = run_cli(
+    let add = common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -86,49 +70,52 @@ fn cli_trip_add_show_update_and_clear_summary() {
     let add_stdout = String::from_utf8_lossy(&add.stdout);
     assert!(add_stdout.contains("Relax by the sea"));
 
-    let show = run_cli(&dir, &["trip", "show", "1"]);
+    let show = common::run_cli_in(&dir, &["trip", "show", "1"]);
     assert!(show.status.success());
     let show_stdout = String::from_utf8_lossy(&show.stdout);
     assert!(show_stdout.contains("Relax by the sea"));
 
-    let show_json = run_cli(&dir, &["trip", "show", "1", "--json"]);
+    let show_json = common::run_cli_in(&dir, &["trip", "show", "1", "--json"]);
     assert!(show_json.status.success());
     let trip: serde_json::Value =
         serde_json::from_slice(&show_json.stdout).expect("trip show --json");
     assert_eq!(trip["summary"], "Relax by the sea");
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["trip", "update", "1", "--summary", "Updated overview",],
     )
     .status
     .success());
 
-    let after_update = run_cli(&dir, &["trip", "show", "1", "--json"]);
+    let after_update = common::run_cli_in(&dir, &["trip", "show", "1", "--json"]);
     let trip: serde_json::Value = serde_json::from_slice(&after_update.stdout).unwrap();
     assert_eq!(trip["summary"], "Updated overview");
 
-    assert!(run_cli(&dir, &["trip", "update", "1", "--clear-summary"])
-        .status
-        .success());
-    let cleared = run_cli(&dir, &["trip", "show", "1", "--json"]);
+    assert!(
+        common::run_cli_in(&dir, &["trip", "update", "1", "--clear-summary"])
+            .status
+            .success()
+    );
+    let cleared = common::run_cli_in(&dir, &["trip", "show", "1", "--json"]);
     let trip: serde_json::Value = serde_json::from_slice(&cleared.stdout).unwrap();
     assert!(trip["summary"].is_null());
 }
 
 #[test]
 fn cli_day_update_show_json_includes_summary() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["day", "update", "1", "2", "--summary", "  Day two theme  ",],
     )
     .status
     .success());
 
-    let show_json = run_cli(&dir, &["day", "show", "1", "2", "--json"]);
+    let show_json = common::run_cli_in(&dir, &["day", "show", "1", "2", "--json"]);
     assert!(
         show_json.status.success(),
         "stderr: {}",
@@ -139,20 +126,21 @@ fn cli_day_update_show_json_includes_summary() {
     assert_eq!(day["summary"], "Day two theme");
 
     assert!(
-        run_cli(&dir, &["day", "update", "1", "2", "--clear-summary"])
+        common::run_cli_in(&dir, &["day", "update", "1", "2", "--clear-summary"])
             .status
             .success()
     );
-    let cleared = run_cli(&dir, &["day", "show", "1", "2", "--json"]);
+    let cleared = common::run_cli_in(&dir, &["day", "show", "1", "2", "--json"]);
     let day: serde_json::Value = serde_json::from_slice(&cleared.stdout).unwrap();
     assert!(day["summary"].is_null());
 }
 
 #[test]
 fn cli_export_import_roundtrip_preserves_summaries() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -168,7 +156,7 @@ fn cli_export_import_roundtrip_preserves_summaries() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["day", "update", "1", "1", "--summary", "First day focus"],
     )
@@ -176,7 +164,7 @@ fn cli_export_import_roundtrip_preserves_summaries() {
     .success());
 
     let export_path = dir.join("trip-export-summary.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -194,8 +182,8 @@ fn cli_export_import_roundtrip_preserves_summaries() {
     assert_eq!(exported["trip"]["summary"], "Trip-level note");
     assert_eq!(exported["days"][0]["summary"], "First day focus");
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    let import = run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    let import = common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
     assert!(
         import.status.success(),
         "stderr: {}",
@@ -203,7 +191,7 @@ fn cli_export_import_roundtrip_preserves_summaries() {
     );
 
     let reexport_path = dir.join("trip-reexport-summary.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -221,16 +209,17 @@ fn cli_export_import_roundtrip_preserves_summaries() {
     assert_eq!(after["trip"]["summary"], "Trip-level note");
     assert_eq!(after["days"][0]["summary"], "First day focus");
 
-    let show = run_cli(&dir, &["trip", "show", "1", "--json"]);
+    let show = common::run_cli_in(&dir, &["trip", "show", "1", "--json"]);
     let trip: serde_json::Value = serde_json::from_slice(&show.stdout).unwrap();
     assert_eq!(trip["summary"], "Trip-level note");
 }
 
 #[test]
 fn cli_export_md_includes_trip_summary_when_set() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -246,13 +235,13 @@ fn cli_export_md_includes_trip_summary_when_set() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["day", "update", "1", "1", "--summary", "Arrival day"],
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -268,7 +257,7 @@ fn cli_export_md_includes_trip_summary_when_set() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(&dir, &["trip", "export-md", "1"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -283,10 +272,11 @@ fn cli_export_md_includes_trip_summary_when_set() {
 
 #[test]
 fn cli_legacy_db_migration_then_reset_and_summary() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     create_legacy_db_without_trip_summary(&dir);
 
-    let add = run_cli(
+    let add = common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -306,13 +296,13 @@ fn cli_legacy_db_migration_then_reset_and_summary() {
         String::from_utf8_lossy(&add.stderr)
     );
 
-    let show = run_cli(&dir, &["trip", "show", "1", "--json"]);
+    let show = common::run_cli_in(&dir, &["trip", "show", "1", "--json"]);
     assert!(show.status.success());
     let trip: serde_json::Value = serde_json::from_slice(&show.stdout).unwrap();
     assert_eq!(trip["summary"], "After migration");
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -329,7 +319,7 @@ fn cli_legacy_db_migration_then_reset_and_summary() {
     .status
     .success());
 
-    let fresh = run_cli(&dir, &["trip", "show", "1", "--json"]);
+    let fresh = common::run_cli_in(&dir, &["trip", "show", "1", "--json"]);
     let trip: serde_json::Value = serde_json::from_slice(&fresh.stdout).unwrap();
     assert_eq!(trip["name"], "Fresh Trip");
     assert_eq!(trip["summary"], "Post-reset summary");

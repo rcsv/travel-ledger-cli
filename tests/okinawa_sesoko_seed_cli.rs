@@ -1,28 +1,10 @@
+mod common;
+
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-}
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-okinawa-sesoko-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
+    common::manifest_dir()
 }
 
 fn normalize_receipts(value: &serde_json::Value) -> Vec<serde_json::Value> {
@@ -131,25 +113,17 @@ fn okinawa_sesoko_expected_export_structure() {
 
 #[test]
 fn cli_okinawa_sesoko_seed_export_matches_expected() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let root = repo_root();
     let seed_script = root.join("samples/okinawa_sesoko_2026/seed.sh");
 
-    let seed = Command::new("bash")
-        .current_dir(&root)
-        .env("CAGLLA_SAMPLE_WORKDIR", &dir)
-        .arg(&seed_script)
-        .output()
-        .expect("failed to run seed.sh");
-    assert!(
-        seed.status.success(),
-        "seed stderr: {}",
-        String::from_utf8_lossy(&seed.stderr)
-    );
+    let seed = common::run_seed_script(&workspace, &seed_script);
+    common::assert_seed_success(&seed, &workspace, &seed_script);
 
     let export_path = dir.join("okinawa-export.json");
-    assert!(run_cli(
-        &dir,
+    assert!(common::run_cli_in(
+        dir,
         &[
             "trip",
             "export",
@@ -174,21 +148,21 @@ fn cli_okinawa_sesoko_seed_export_matches_expected() {
         normalize_export_v3(&expected)
     );
 
-    let validate = run_cli(
-        &dir,
+    let validate = common::run_cli_in(
+        dir,
         &["trip", "validate-export", export_path.to_str().unwrap()],
     );
     assert!(validate.status.success());
     let stdout = String::from_utf8_lossy(&validate.stdout);
     assert!(stdout.contains("有効な export ファイル"));
 
-    let stats = run_cli(&dir, &["trip", "stats", "1"]);
+    let stats = common::run_cli_in(dir, &["trip", "stats", "1"]);
     assert!(stats.status.success());
     let stats_stdout = String::from_utf8_lossy(&stats.stdout);
     assert!(stats_stdout.contains("Expenses: 49"));
     assert!(stats_stdout.contains("561,780"));
 
-    let receipts = run_cli(&dir, &["receipt", "list", "--trip", "1"]);
+    let receipts = common::run_cli_in(dir, &["receipt", "list", "--trip", "1"]);
     assert!(receipts.status.success());
     let receipts_stdout = String::from_utf8_lossy(&receipts.stdout);
     assert!(receipts_stdout.contains("Pending Receipts:"));
@@ -213,23 +187,15 @@ fn normalize_export_md_timestamp(markdown: &str) -> String {
 
 #[test]
 fn cli_okinawa_sesoko_seed_export_md_matches_expected() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let root = repo_root();
     let seed_script = root.join("samples/okinawa_sesoko_2026/seed.sh");
 
-    let seed = Command::new("bash")
-        .current_dir(&root)
-        .env("CAGLLA_SAMPLE_WORKDIR", &dir)
-        .arg(&seed_script)
-        .output()
-        .expect("failed to run seed.sh");
-    assert!(
-        seed.status.success(),
-        "seed stderr: {}",
-        String::from_utf8_lossy(&seed.stderr)
-    );
+    let seed = common::run_seed_script(&workspace, &seed_script);
+    common::assert_seed_success(&seed, &workspace, &seed_script);
 
-    let output = run_cli(&dir, &["trip", "export-md", "1"]);
+    let output = common::run_cli_in(dir, &["trip", "export-md", "1"]);
     assert!(
         output.status.success(),
         "export-md stderr: {}",

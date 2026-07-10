@@ -1,30 +1,12 @@
+mod common;
+
 use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-trip-import-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 #[test]
 fn cli_trip_import_prints_enhanced_summary() {
-    let dir = temp_workdir();
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -38,18 +20,20 @@ fn cli_trip_import_prints_enhanced_summary() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &["itinerary", "add", "1", "--day", "1", "Sightseeing"]
     )
     .status
     .success());
-    assert!(run_cli(&dir, &["checklist", "add", "1", "Passport"])
-        .status
-        .success());
+    assert!(
+        common::run_cli_in(&dir, &["checklist", "add", "1", "Passport"])
+            .status
+            .success()
+    );
 
     let export_path = dir.join("trip-export.json");
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -62,9 +46,9 @@ fn cli_trip_import_prints_enhanced_summary() {
     .status
     .success());
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
 
-    let output = run_cli(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    let output = common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -88,7 +72,8 @@ fn cli_trip_import_prints_enhanced_summary() {
 
 #[test]
 fn cli_trip_import_legacy_schema_summary() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let import_path = dir.join("legacy.json");
     fs::write(
         &import_path,
@@ -106,7 +91,7 @@ fn cli_trip_import_legacy_schema_summary() {
     )
     .unwrap();
 
-    let output = run_cli(&dir, &["trip", "import", import_path.to_str().unwrap()]);
+    let output = common::run_cli_in(&dir, &["trip", "import", import_path.to_str().unwrap()]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Legacy Trip (ID: 1)"));

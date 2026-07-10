@@ -1,17 +1,15 @@
+mod common;
+
 use std::path::PathBuf;
-use std::process::Command;
 
 fn fixture_path(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    common::manifest_dir()
         .join("tests/fixtures/proposals")
         .join(name)
 }
 
 fn run_cli(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
+    common::run_cli(args)
 }
 
 #[test]

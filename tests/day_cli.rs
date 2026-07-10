@@ -1,28 +1,8 @@
-use std::fs;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-day-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
+mod common;
 
 fn setup_trip(dir: &std::path::Path) {
-    assert!(run_cli(dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         dir,
         &[
             "trip",
@@ -40,10 +20,11 @@ fn setup_trip(dir: &std::path::Path) {
 
 #[test]
 fn cli_day_list_shows_days_with_dates() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(&dir, &["day", "list", "1"]);
+    let output = common::run_cli_in(&dir, &["day", "list", "1"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -57,9 +38,10 @@ fn cli_day_list_shows_days_with_dates() {
 
 #[test]
 fn cli_day_show_lists_itineraries_for_day() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -74,7 +56,7 @@ fn cli_day_show_lists_itineraries_for_day() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -90,7 +72,7 @@ fn cli_day_show_lists_itineraries_for_day() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["day", "show", "1", "2"]);
+    let output = common::run_cli_in(&dir, &["day", "show", "1", "2"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -106,10 +88,11 @@ fn cli_day_show_lists_itineraries_for_day() {
 
 #[test]
 fn cli_day_show_empty_day() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(&dir, &["day", "show", "1", "3"]);
+    let output = common::run_cli_in(&dir, &["day", "show", "1", "3"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -124,10 +107,11 @@ fn cli_day_show_empty_day() {
 
 #[test]
 fn cli_day_show_rejects_invalid_day_number() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(&dir, &["day", "show", "1", "99"]);
+    let output = common::run_cli_in(&dir, &["day", "show", "1", "99"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Day not found: trip 1 day 99"));
@@ -135,9 +119,10 @@ fn cli_day_show_rejects_invalid_day_number() {
 
 #[test]
 fn cli_day_swap_exchanges_itineraries() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -152,7 +137,7 @@ fn cli_day_swap_exchanges_itineraries() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -168,7 +153,7 @@ fn cli_day_swap_exchanges_itineraries() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["day", "swap", "1", "2", "3"]);
+    let output = common::run_cli_in(&dir, &["day", "swap", "1", "2", "3"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -177,17 +162,18 @@ fn cli_day_swap_exchanges_itineraries() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Day 2 と Day 3 の計画内容を入れ替えました"));
 
-    let day2 = run_cli(&dir, &["day", "show", "1", "2"]);
-    let day3 = run_cli(&dir, &["day", "show", "1", "3"]);
+    let day2 = common::run_cli_in(&dir, &["day", "show", "1", "2"]);
+    let day3 = common::run_cli_in(&dir, &["day", "show", "1", "3"]);
     assert!(String::from_utf8_lossy(&day2.stdout).contains("Day3 Plan"));
     assert!(String::from_utf8_lossy(&day3.stdout).contains("Day2 Plan"));
 }
 
 #[test]
 fn cli_day_swap_exchanges_plan_payload() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "day",
@@ -200,7 +186,7 @@ fn cli_day_swap_exchanges_plan_payload() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "day",
@@ -213,7 +199,7 @@ fn cli_day_swap_exchanges_plan_payload() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "note",
@@ -228,7 +214,7 @@ fn cli_day_swap_exchanges_plan_payload() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "note",
@@ -244,11 +230,11 @@ fn cli_day_swap_exchanges_plan_payload() {
     .status
     .success());
     assert!(
-        run_cli(&dir, &["note", "add", "--trip", "1", "--body", "trip note"],)
+        common::run_cli_in(&dir, &["note", "add", "--trip", "1", "--body", "trip note"],)
             .status
             .success()
     );
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -263,7 +249,7 @@ fn cli_day_swap_exchanges_plan_payload() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -279,12 +265,12 @@ fn cli_day_swap_exchanges_plan_payload() {
     .status
     .success());
 
-    assert!(run_cli(&dir, &["day", "swap", "1", "2", "3"])
+    assert!(common::run_cli_in(&dir, &["day", "swap", "1", "2", "3"])
         .status
         .success());
 
-    let day2 = run_cli(&dir, &["day", "show", "1", "2", "--json"]);
-    let day3 = run_cli(&dir, &["day", "show", "1", "3", "--json"]);
+    let day2 = common::run_cli_in(&dir, &["day", "show", "1", "2", "--json"]);
+    let day3 = common::run_cli_in(&dir, &["day", "show", "1", "3", "--json"]);
     let day2_json: serde_json::Value = serde_json::from_slice(&day2.stdout).unwrap();
     let day3_json: serde_json::Value = serde_json::from_slice(&day3.stdout).unwrap();
     assert_eq!(day2_json["date"], "2026-04-27");
@@ -294,11 +280,11 @@ fn cli_day_swap_exchanges_plan_payload() {
     assert_eq!(day2_json["itineraries"][0]["title"], "瀬底ビーチ");
     assert_eq!(day3_json["itineraries"][0]["title"], "美ら海水族館");
 
-    let day2_notes = run_cli(
+    let day2_notes = common::run_cli_in(
         &dir,
         &["note", "list", "--trip", "1", "--day", "2", "--json"],
     );
-    let day3_notes = run_cli(
+    let day3_notes = common::run_cli_in(
         &dir,
         &["note", "list", "--trip", "1", "--day", "3", "--json"],
     );
@@ -307,22 +293,23 @@ fn cli_day_swap_exchanges_plan_payload() {
     assert_eq!(day2_notes_json["notes"][0]["body"], "天気が悪ければ室内案");
     assert_eq!(day3_notes_json["notes"][0]["body"], "午後は無理しない");
 
-    let trip_notes = run_cli(&dir, &["note", "list", "--trip", "1", "--json"]);
+    let trip_notes = common::run_cli_in(&dir, &["note", "list", "--trip", "1", "--json"]);
     let trip_notes_json: serde_json::Value = serde_json::from_slice(&trip_notes.stdout).unwrap();
     assert_eq!(trip_notes_json["notes"][0]["body"], "trip note");
 }
 
 #[test]
 fn cli_day_swap_rejects_same_day() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
     assert!(
-        run_cli(&dir, &["itinerary", "add", "1", "--day", "2", "Plan"],)
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "2", "Plan"],)
             .status
             .success()
     );
 
-    let output = run_cli(&dir, &["day", "swap", "1", "2", "2"]);
+    let output = common::run_cli_in(&dir, &["day", "swap", "1", "2", "2"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("同じ Day"));
@@ -330,10 +317,11 @@ fn cli_day_swap_rejects_same_day() {
 
 #[test]
 fn cli_day_list_json() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
 
-    let output = run_cli(&dir, &["day", "list", "1", "--json"]);
+    let output = common::run_cli_in(&dir, &["day", "list", "1", "--json"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -348,9 +336,10 @@ fn cli_day_list_json() {
 
 #[test]
 fn cli_day_show_json() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     setup_trip(&dir);
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -366,7 +355,7 @@ fn cli_day_show_json() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["day", "show", "1", "2", "--json"]);
+    let output = common::run_cli_in(&dir, &["day", "show", "1", "2", "--json"]);
     assert!(
         output.status.success(),
         "stderr: {}",

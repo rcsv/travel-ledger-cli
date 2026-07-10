@@ -1,25 +1,7 @@
+mod common;
+
 use std::fs;
 use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn temp_workdir() -> std::path::PathBuf {
-    let n = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("travel-ledger-cli-db-test-{n}"));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
-fn run_cli(cwd: &std::path::Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run CLI")
-}
-
 fn normalize_path_str(path: &str) -> String {
     path.strip_prefix("/private").unwrap_or(path).to_string()
 }
@@ -33,10 +15,11 @@ fn assert_same_resolved_db_path(actual: &str, expected: &std::path::Path) {
 
 #[test]
 fn cli_db_path_does_not_create_db_file() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let db_path = dir.join("caglla.db");
 
-    let output = run_cli(&dir, &["db", "path"]);
+    let output = common::run_cli_in(&dir, &["db", "path"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -50,10 +33,11 @@ fn cli_db_path_does_not_create_db_file() {
 
 #[test]
 fn cli_db_status_missing_db_does_not_create_file() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let db_path = dir.join("caglla.db");
 
-    let output = run_cli(&dir, &["db", "status"]);
+    let output = common::run_cli_in(&dir, &["db", "status"]);
     assert!(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -71,10 +55,11 @@ fn cli_db_status_missing_db_does_not_create_file() {
 
 #[test]
 fn cli_db_status_json_missing_db_omits_optional_fields() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let db_path = dir.join("caglla.db");
 
-    let output = run_cli(&dir, &["db", "status", "--json"]);
+    let output = common::run_cli_in(&dir, &["db", "status", "--json"]);
     assert!(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -101,10 +86,11 @@ fn cli_db_status_json_missing_db_omits_optional_fields() {
 
 #[test]
 fn cli_db_status_json_existing_db_includes_table_counts() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -118,7 +104,7 @@ fn cli_db_status_json_existing_db_includes_table_counts() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "itinerary",
@@ -133,7 +119,7 @@ fn cli_db_status_json_existing_db_includes_table_counts() {
     )
     .status
     .success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "estimate",
@@ -149,7 +135,7 @@ fn cli_db_status_json_existing_db_includes_table_counts() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["db", "status", "--json"]);
+    let output = common::run_cli_in(&dir, &["db", "status", "--json"]);
     assert!(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -166,10 +152,11 @@ fn cli_db_status_json_existing_db_includes_table_counts() {
 
 #[test]
 fn cli_db_status_existing_db_shows_table_counts() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
 
-    assert!(run_cli(&dir, &["db", "reset"]).status.success());
-    assert!(run_cli(
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    assert!(common::run_cli_in(
         &dir,
         &[
             "trip",
@@ -184,7 +171,7 @@ fn cli_db_status_existing_db_shows_table_counts() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["db", "status"]);
+    let output = common::run_cli_in(&dir, &["db", "status"]);
     assert!(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -197,10 +184,11 @@ fn cli_db_status_existing_db_shows_table_counts() {
 
 #[test]
 fn cli_db_path_with_cli_db_flag() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let db_path = dir.join("a.db");
 
-    let output = run_cli(&dir, &["--db", db_path.to_str().unwrap(), "db", "path"]);
+    let output = common::run_cli_in(&dir, &["--db", db_path.to_str().unwrap(), "db", "path"]);
     assert!(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -210,7 +198,8 @@ fn cli_db_path_with_cli_db_flag() {
 
 #[test]
 fn cli_db_path_with_caglla_db_env() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let db_path = dir.join("b.db");
 
     let output = Command::new(env!("CARGO_BIN_EXE_travel-ledger-cli"))
@@ -228,7 +217,8 @@ fn cli_db_path_with_caglla_db_env() {
 
 #[test]
 fn cli_db_path_with_caglla_toml() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let db_path = dir.join("from-config.db");
     fs::write(
         dir.join("caglla.toml"),
@@ -236,7 +226,7 @@ fn cli_db_path_with_caglla_toml() {
     )
     .unwrap();
 
-    let output = run_cli(&dir, &["db", "path"]);
+    let output = common::run_cli_in(&dir, &["db", "path"]);
     assert!(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -246,11 +236,12 @@ fn cli_db_path_with_caglla_toml() {
 
 #[test]
 fn cli_trip_add_uses_selected_db_only() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let alt_db = dir.join("alt.db");
     let default_db = dir.join("caglla.db");
 
-    let output = run_cli(
+    let output = common::run_cli_in(
         &dir,
         &[
             "--db",
@@ -278,10 +269,11 @@ fn cli_trip_add_uses_selected_db_only() {
 
 #[test]
 fn cli_trip_list_accepts_trailing_db_flag() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let alt_db = dir.join("trailing.db");
 
-    assert!(run_cli(
+    assert!(common::run_cli_in(
         &dir,
         &[
             "--db",
@@ -298,7 +290,7 @@ fn cli_trip_list_accepts_trailing_db_flag() {
     .status
     .success());
 
-    let output = run_cli(&dir, &["trip", "list", "--db", alt_db.to_str().unwrap()]);
+    let output = common::run_cli_in(&dir, &["trip", "list", "--db", alt_db.to_str().unwrap()]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -344,10 +336,11 @@ VALUES ('Legacy Trip', '2026-01-01', '2026-01-03', '2026-01-01 00:00:00', '2026-
 
 #[test]
 fn cli_db_status_json_legacy_days_without_summary_column() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     create_legacy_days_db_without_summary(&dir);
 
-    let output = run_cli(&dir, &["db", "status", "--json"]);
+    let output = common::run_cli_in(&dir, &["db", "status", "--json"]);
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -365,10 +358,11 @@ fn cli_db_status_json_legacy_days_without_summary_column() {
 
 #[test]
 fn cli_db_use_then_db_path_uses_config_source() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let db_path = dir.join("data").join("app.db");
 
-    let use_output = run_cli(&dir, &["db", "use", "./data/app.db"]);
+    let use_output = common::run_cli_in(&dir, &["db", "use", "./data/app.db"]);
     assert!(
         use_output.status.success(),
         "stderr: {}",
@@ -380,14 +374,14 @@ fn cli_db_use_then_db_path_uses_config_source() {
     assert!(stdout.contains("./data/app.db"));
     assert!(!db_path.exists(), "db use must not create SQLite file");
 
-    let path_output = run_cli(&dir, &["db", "path"]);
+    let path_output = common::run_cli_in(&dir, &["db", "path"]);
     assert!(path_output.status.success());
     let path_stdout = String::from_utf8_lossy(&path_output.stdout)
         .trim()
         .to_string();
     assert_same_resolved_db_path(&path_stdout, &db_path);
 
-    let status_output = run_cli(&dir, &["db", "status", "--json"]);
+    let status_output = common::run_cli_in(&dir, &["db", "status", "--json"]);
     assert!(status_output.status.success());
     let parsed: serde_json::Value =
         serde_json::from_str(String::from_utf8_lossy(&status_output.stdout).trim()).unwrap();
@@ -397,15 +391,16 @@ fn cli_db_use_then_db_path_uses_config_source() {
 
 #[test]
 fn cli_db_use_clear_reverts_to_default_db_path() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let default_db = dir.join("caglla.db");
 
-    assert!(run_cli(&dir, &["db", "use", "./data/app.db"])
+    assert!(common::run_cli_in(&dir, &["db", "use", "./data/app.db"])
         .status
         .success());
     assert!(dir.join("caglla.toml").exists());
 
-    let clear_output = run_cli(&dir, &["db", "use", "--clear"]);
+    let clear_output = common::run_cli_in(&dir, &["db", "use", "--clear"]);
     assert!(
         clear_output.status.success(),
         "stderr: {}",
@@ -415,14 +410,14 @@ fn cli_db_use_clear_reverts_to_default_db_path() {
     assert!(stdout.contains("Database path cleared from config"));
     assert!(stdout.contains("./caglla.db") || stdout.contains("Default"));
 
-    let path_output = run_cli(&dir, &["db", "path"]);
+    let path_output = common::run_cli_in(&dir, &["db", "path"]);
     assert!(path_output.status.success());
     let path_stdout = String::from_utf8_lossy(&path_output.stdout)
         .trim()
         .to_string();
     assert_same_resolved_db_path(&path_stdout, &default_db);
 
-    let status_output = run_cli(&dir, &["db", "status", "--json"]);
+    let status_output = common::run_cli_in(&dir, &["db", "status", "--json"]);
     let parsed: serde_json::Value =
         serde_json::from_str(String::from_utf8_lossy(&status_output.stdout).trim()).unwrap();
     assert_eq!(parsed["path_source"], "default");
@@ -430,15 +425,16 @@ fn cli_db_use_clear_reverts_to_default_db_path() {
 
 #[test]
 fn cli_db_use_config_is_overridden_by_cli_db_flag() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let config_db = dir.join("from-config.db");
     let cli_db = dir.join("from-cli.db");
 
-    assert!(run_cli(&dir, &["db", "use", "./from-config.db"])
+    assert!(common::run_cli_in(&dir, &["db", "use", "./from-config.db"])
         .status
         .success());
 
-    let output = run_cli(&dir, &["--db", cli_db.to_str().unwrap(), "db", "path"]);
+    let output = common::run_cli_in(&dir, &["--db", cli_db.to_str().unwrap(), "db", "path"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     assert_same_resolved_db_path(&stdout, &cli_db);
@@ -450,11 +446,12 @@ fn cli_db_use_config_is_overridden_by_cli_db_flag() {
 
 #[test]
 fn cli_db_use_config_is_overridden_by_caglla_db_env() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let config_db = dir.join("from-config.db");
     let env_db = dir.join("from-env.db");
 
-    assert!(run_cli(&dir, &["db", "use", "./from-config.db"])
+    assert!(common::run_cli_in(&dir, &["db", "use", "./from-config.db"])
         .status
         .success());
 
@@ -475,11 +472,12 @@ fn cli_db_use_config_is_overridden_by_caglla_db_env() {
 
 #[test]
 fn cli_db_use_invalid_toml_does_not_corrupt_config() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
     let invalid = "not = [valid";
     fs::write(dir.join("caglla.toml"), invalid).unwrap();
 
-    let output = run_cli(&dir, &["db", "use", "./app.db"]);
+    let output = common::run_cli_in(&dir, &["db", "use", "./app.db"]);
     assert!(!output.status.success());
     let contents = fs::read_to_string(dir.join("caglla.toml")).unwrap();
     assert_eq!(contents, invalid);
@@ -487,9 +485,10 @@ fn cli_db_use_invalid_toml_does_not_corrupt_config() {
 
 #[test]
 fn cli_db_use_missing_db_prints_note() {
-    let dir = temp_workdir();
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
 
-    let output = run_cli(&dir, &["db", "use", "./missing.db"]);
+    let output = common::run_cli_in(&dir, &["db", "use", "./missing.db"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("database file does not exist yet"));

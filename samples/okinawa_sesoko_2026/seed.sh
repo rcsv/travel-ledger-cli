@@ -13,9 +13,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="${CAGLLA_SAMPLE_WORKDIR:-$ROOT}"
 cd "$WORK"
 
-run() {
-  cargo run --quiet --manifest-path "$ROOT/Cargo.toml" -- "$@"
-}
+if [ -n "${CAGLLA_BIN:-}" ]; then
+  run() {
+    "$CAGLLA_BIN" "$@"
+  }
+else
+  run() {
+    cargo run --quiet --manifest-path "$ROOT/Cargo.toml" -- "$@"
+  }
+fi
 
 exp() {
   local iid=$1 amount=$2
