@@ -110,18 +110,20 @@ pub(crate) fn estimate_to_json(estimate: &Estimate) -> EstimateJson {
     }
 }
 
-pub(crate) fn add_estimate(
+pub(crate) fn add_estimate_minor_units(
     conn: &Connection,
     itinerary_id: i64,
-    amount_input: &str,
+    amount: i64,
     currency_input: &str,
     title: Option<&str>,
     note: Option<&str>,
     sort_order: Option<i64>,
 ) -> Result<i64> {
     crate::itinerary::get_itinerary_item(conn, itinerary_id)?;
+    if amount < 0 {
+        anyhow::bail!("estimate amount must be non-negative");
+    }
     let currency = validate_currency_code(currency_input)?;
-    let amount = parse_amount_for_currency(amount_input, &currency)?;
     let title = normalize_optional_text(title);
     let note = normalize_optional_text(note);
     let sort_order = sort_order.unwrap_or(0);
@@ -144,6 +146,28 @@ pub(crate) fn add_estimate(
     )
     .context("Estimate の追加に失敗しました")?;
     Ok(conn.last_insert_rowid())
+}
+
+pub(crate) fn add_estimate(
+    conn: &Connection,
+    itinerary_id: i64,
+    amount_input: &str,
+    currency_input: &str,
+    title: Option<&str>,
+    note: Option<&str>,
+    sort_order: Option<i64>,
+) -> Result<i64> {
+    let currency = validate_currency_code(currency_input)?;
+    let amount = parse_amount_for_currency(amount_input, &currency)?;
+    add_estimate_minor_units(
+        conn,
+        itinerary_id,
+        amount,
+        &currency,
+        title,
+        note,
+        sort_order,
+    )
 }
 
 /// source Itinerary 配下の Estimate を target Itinerary へ複製する（新 ID / 新 timestamps）
@@ -703,6 +727,15 @@ mod tests {
         let conn = test_db();
         let itinerary_id = setup_itinerary(&conn);
         let id = add_estimate(&conn, itinerary_id, "12.50", "USD", None, None, None).unwrap();
+        assert_eq!(get_estimate(&conn, id).unwrap().amount, 1250);
+    }
+
+    #[test]
+    fn test_add_estimate_minor_units_usd_direct() {
+        let conn = test_db();
+        let itinerary_id = setup_itinerary(&conn);
+        let id =
+            add_estimate_minor_units(&conn, itinerary_id, 1250, "USD", None, None, None).unwrap();
         assert_eq!(get_estimate(&conn, id).unwrap().amount, 1250);
     }
 

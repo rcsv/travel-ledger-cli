@@ -21,6 +21,7 @@ Caglla CLI のドキュメント索引です。GitHub トップの [README.md](.
 | [long-term-version-strategy.md](long-term-version-strategy.md) | Caglla.Travel メジャーバージョン戦略（v1 Planning Foundation 〜 v9 Platform）— 設計判断用参考 |
 | [future-roadmap-planning-memo.md](future-roadmap-planning-memo.md) | v4.6.x 完了後の将来方向性（Travel Data Ledger / Proposal / Calendar / 避けたい方向）— **現行 v4.6.x 作業とは別軸** |
 | [specifications/v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) | P-6j delete_itinerary dry-run planning（Venue 前提補足、v4.7.31–32 実装） |
+| [specifications/v4.7.43-fragment-apply-add-estimate-confirm.md](specifications/v4.7.43-fragment-apply-add-estimate-confirm.md) | P-6n add_estimate --confirm |
 | [specifications/v4.7.42-fragment-apply-add-estimate-dry-run.md](specifications/v4.7.42-fragment-apply-add-estimate-dry-run.md) | P-6n add_estimate dry-run |
 | [specifications/v4.7.41-p6n-add-estimate-planning.md](specifications/v4.7.41-p6n-add-estimate-planning.md) | P-6n add_estimate planning（documentation-only） |
 | [specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md](specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) | P-6m reorder / move post-release review（documentation-only） |
@@ -49,7 +50,7 @@ Latest structural apply review: [v4.7.40 P-6m reorder / move post-release review
 
 Next Proposal Fragment planning: [v4.7.41 P-6n add_estimate planning](specifications/v4.7.41-p6n-add-estimate-planning.md)
 
-Latest P-6n implementation: [v4.7.42 add_estimate dry-run](specifications/v4.7.42-fragment-apply-add-estimate-dry-run.md)
+Latest P-6n implementation: [v4.7.43 add_estimate --confirm](specifications/v4.7.43-fragment-apply-add-estimate-confirm.md)（v4.7.42 dry-run: [spec](specifications/v4.7.42-fragment-apply-add-estimate-dry-run.md)）
 
 Latest Proposal apply spec: [v4.7.29 Fragment apply update_itinerary --confirm](specifications/v4.7.29-fragment-apply-update-itinerary-confirm.md)
 

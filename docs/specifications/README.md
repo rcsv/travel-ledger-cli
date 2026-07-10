@@ -78,6 +78,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.4.8-travel-book-presentation-helper-cleanup.md](v4.4.8-travel-book-presentation-helper-cleanup.md) | v4.4.8 Travel Book Presentation Helper Cleanup（**released**） |
 | [v4.5.0-receipt-inbox-responsibilities-review.md](v4.5.0-receipt-inbox-responsibilities-review.md) | v4.5.0 Receipt Inbox Responsibilities Review（**released**） |
 | [v4.7.42-fragment-apply-add-estimate-dry-run.md](v4.7.42-fragment-apply-add-estimate-dry-run.md) | P-6n add_estimate dry-run（**v4.7.42 implementation**） |
+| [v4.7.43-fragment-apply-add-estimate-confirm.md](v4.7.43-fragment-apply-add-estimate-confirm.md) | P-6n add_estimate --confirm（**v4.7.43 implementation**） |
 | [v4.7.41-p6n-add-estimate-planning.md](v4.7.41-p6n-add-estimate-planning.md) | P-6n add_estimate planning（documentation-only） |
 | [v4.7.40-p6m-itinerary-ordering-move-post-release-review.md](v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) | P-6m reorder / move post-release review（**v4.7.40 documentation-only**） |
 | [v4.7.37-p6l-cross-day-move-planning.md](v4.7.37-p6l-cross-day-move-planning.md) | P-6l cross-day itinerary move planning（documentation-only） |
