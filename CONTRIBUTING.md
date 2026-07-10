@@ -46,6 +46,17 @@ The default final verification command is:
 make check
 ```
 
+### macOS: accept the Xcode license
+
+Rust builds that invoke the macOS linker may fail if the Xcode license has not been accepted.
+
+```bash
+sudo xcodebuild -license accept
+xcrun --show-sdk-path
+```
+
+The second command should print the active SDK path without requesting license acceptance.
+
 Depending on the scope of the change, the following commands may also be useful:
 
 ```bash
