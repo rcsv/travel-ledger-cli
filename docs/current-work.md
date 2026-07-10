@@ -2,11 +2,11 @@
 
 ## Current phase
 
-v4.7.41 P-6n add_estimate Proposal Fragment planning — **released**（documentation-only）
+v4.7.42 P-6n add_estimate dry-run — **complete**（implementation、未リリース）
 
 ## Latest completed
 
-- v4.7.41 P-6n add_estimate planning — **released** (documentation-only)
+- v4.7.42 P-6n add_estimate dry-run — **implementation complete**
 - v4.7.38 P-6l move_itinerary dry-run — **released**
 - v4.7.37 P-6l cross-day move planning — **released** (documentation-only)
 - v4.7.36 P-6k reorder_itinerary --confirm（same-day）— **released**
@@ -30,7 +30,7 @@ v4.7.41 P-6n add_estimate Proposal Fragment planning — **released**（document
 
 - Cargo version: `4.7.41`
 - Latest release: **v4.7.41** — [v4.7.41-notes.md](releases/v4.7.41-notes.md)
-- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）/ `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）
+- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_estimate` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）/ `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）
 - **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 方針正本
 - **P-6j delete dry-run:** [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) — **released**（Venue / Place は delete blocker 外）
 
@@ -53,11 +53,14 @@ P-6l move_itinerary dry-run — v4.7.38 完了
 P-6l move_itinerary --confirm — v4.7.39 完了
 P-6m reorder / move post-release review — v4.7.40 完了（docs only）
 P-6n add_estimate planning — v4.7.41 完了（docs only）
+P-6n add_estimate dry-run — v4.7.42 完了
 ```
 
 ## Next action
 
-**Candidate:** v4.7.42 `add_estimate` dry-run（[planning spec](specifications/v4.7.41-p6n-add-estimate-planning.md)）、または [v4.7.40 review](specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) §11 の P2 follow-up
+**Candidate:** v4.7.42 formal release — P-6n add_estimate dry-run
+
+その後: v4.7.43 `add_estimate --confirm`（[planning spec](specifications/v4.7.41-p6n-add-estimate-planning.md)）
 
 ## Defer
 

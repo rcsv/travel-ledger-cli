@@ -1366,6 +1366,39 @@ fn itinerary_reservation_count(dir: &std::path::Path, itinerary_id: &str) -> usi
         .unwrap_or(0)
 }
 
+fn itinerary_estimate_count(dir: &std::path::Path, itinerary_id: &str) -> usize {
+    let output = run_cli_in(
+        dir,
+        &["estimate", "list", "--itinerary", itinerary_id, "--json"],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    parsed["estimates"]
+        .as_array()
+        .map(|items| items.len())
+        .unwrap_or(0)
+}
+
+fn trip_estimate_count(dir: &std::path::Path, trip_id: &str) -> usize {
+    let output = run_cli_in(dir, &["estimate", "list", "--trip", trip_id, "--json"]);
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    parsed["estimates"]
+        .as_array()
+        .map(|items| items.len())
+        .unwrap_or(0)
+}
+
+fn first_itinerary_id(dir: &std::path::Path) -> i64 {
+    let output = run_cli_in(dir, &["itinerary", "list", "1", "--json"]);
+    assert!(output.status.success());
+    let items: Vec<serde_json::Value> =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    items[0]["id"].as_i64().expect("itinerary id")
+}
+
 #[test]
 fn cli_fragment_apply_add_expense_itinerary_dry_run_preview_keeps_db_unchanged() {
     let dir = temp_workdir();
@@ -2028,6 +2061,404 @@ fn cli_fragment_apply_add_reservation_memo_confirm_maps_to_remark_only() {
         serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
     assert_eq!(reservation["remark"], "Ask for the east gate entrance.");
     assert_eq!(note_count(&dir, "1"), before_notes);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_itinerary_dry_run_preview_keeps_db_unchanged() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-valid.json");
+    let preview_path = dir.join("add-estimate-preview.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+
+    let before_estimates = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+    let before_expenses = itinerary_expense_count(&dir, &itinerary_id.to_string());
+    let before_trip_estimates = trip_estimate_count(&dir, "1");
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["preview"]["action"], "add_estimate");
+    assert_eq!(parsed["preview"]["estimates_before"], before_trip_estimates);
+    assert_eq!(
+        parsed["preview"]["estimates_after"],
+        before_trip_estimates + 1
+    );
+    assert_eq!(parsed["preview"]["estimate_preview"]["amount"], 14000);
+    assert_eq!(parsed["preview"]["estimate_preview"]["currency"], "JPY");
+    assert_eq!(
+        parsed["preview"]["estimate_preview"]["title"],
+        "Aquarium tickets"
+    );
+    assert_eq!(
+        parsed["preview"]["estimate_preview"]["note"],
+        "Estimated total for five people"
+    );
+    assert_eq!(parsed["preview"]["estimate_preview"]["sort_order"], 0);
+    assert_eq!(
+        parsed["preview"]["estimate_preview"]["target_itinerary_id"],
+        itinerary_id
+    );
+    assert_eq!(
+        parsed["preview"]["estimate_preview"]["target_itinerary_title"],
+        "Morning temple"
+    );
+    assert!(parsed["preview"]["expense_preview"].is_null());
+
+    let preview_json = std::fs::read_to_string(&preview_path).expect("preview json");
+    let export: serde_json::Value = serde_json::from_str(&preview_json).expect("parse preview");
+    let day = export["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|day| day["day_number"] == 1)
+        .expect("day 1");
+    let itinerary = day["itineraries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["title"] == "Morning temple")
+        .expect("itinerary");
+    let estimates = itinerary["estimates"].as_array().expect("estimates");
+    assert_eq!(estimates.len(), 1);
+    assert_eq!(estimates[0]["amount"], 14000);
+    assert_eq!(estimates[0]["currency"], "JPY");
+    assert_eq!(estimates[0]["title"], "Aquarium tickets");
+    assert_eq!(estimates[0]["note"], "Estimated total for five people");
+    assert_eq!(estimates[0]["sort_order"], 0);
+    assert!(itinerary["expenses"].as_array().unwrap().is_empty());
+
+    assert!(run_cli_in(
+        &dir,
+        &["trip", "validate-export", preview_path.to_str().unwrap()],
+    )
+    .status
+    .success());
+
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before_estimates
+    );
+    assert_eq!(
+        itinerary_expense_count(&dir, &itinerary_id.to_string()),
+        before_expenses
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_minor_units_dry_run_normalizes_amount() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-valid-minor-units.json");
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap();
+    assert_eq!(parsed["preview"]["estimate_preview"]["amount"], 1250);
+    assert_eq!(parsed["preview"]["estimate_preview"]["currency"], "USD");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_missing_amount_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-missing-amount.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_invalid_currency_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-invalid-currency.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_negative_amount_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-negative-amount.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_invalid_sort_order_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-invalid-sort-order.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_unsupported_target_blocks_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-unsupported-target.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("itinerary target"));
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_required_decisions_invalid_without_db_write() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-required-decisions.json");
+    let preview_path = dir.join("add-estimate-required-decisions-preview.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--output",
+            preview_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    assert!(!preview_path.exists());
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_confirm_remains_unsupported_and_keeps_db_unchanged() {
+    let dir = temp_workdir();
+    let fragment = fixture_path("apply-add-estimate-valid.json");
+    seed_trip_with_itinerary(&dir);
+    let itinerary_id = first_itinerary_id(&dir);
+    let before_estimates = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+    let before_expenses = itinerary_expense_count(&dir, &itinerary_id.to_string());
+
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before_estimates
+    );
+    assert_eq!(
+        itinerary_expense_count(&dir, &itinerary_id.to_string()),
+        before_expenses
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_ambiguous_title_target_blocks_without_db_write() {
+    let dir = temp_workdir();
+    seed_trip_with_itinerary(&dir);
+    assert!(run_cli_in(
+        &dir,
+        &["itinerary", "add", "1", "--day", "1", "Morning temple"],
+    )
+    .status
+    .success());
+
+    let fragment_path = dir.join("ambiguous-title-estimate.json");
+    std::fs::write(
+        &fragment_path,
+        r#"{
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  },
+  "fragment": {
+    "intent": "add_estimate",
+    "candidate_content": {
+      "amount": "1000",
+      "currency": "JPY"
+    }
+  },
+  "adoption_hints": { "required_decisions": [] }
+}"#,
+    )
+    .unwrap();
+
+    let itinerary_id = first_itinerary_id(&dir);
+    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+    let output = run_cli_in(
+        &dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("曖昧"));
+    assert_eq!(
+        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
+        before
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
