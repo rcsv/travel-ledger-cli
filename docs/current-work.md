@@ -2,79 +2,45 @@
 
 ## Current phase
 
-v4.7.45 Estimate documentation and CLI usage review — **released** (documentation-only)
+v4.7.46 P-6o update_estimate planning — **released** (documentation-only)
 
 ## Latest completed
 
+- v4.7.46 P-6o update_estimate planning — **released** (documentation-only)
 - v4.7.45 Estimate documentation and CLI usage review — **released** (documentation-only)
 - v4.7.44 P-6n Planned Money post-release review — **released** (documentation-only)
 - v4.7.43 P-6n add_estimate --confirm — **released**
 - v4.7.42 P-6n add_estimate dry-run — **released**
-- v4.7.38 P-6l move_itinerary dry-run — **released**
-- v4.7.37 P-6l cross-day move planning — **released** (documentation-only)
-- v4.7.36 P-6k reorder_itinerary --confirm（same-day）— **released**
-- v4.7.35 P-6k reorder_itinerary dry-run（same-day）— **released**
-- v4.7.34 P-6k reorder_itinerary planning — **released** (documentation-only)
-- v4.7.33 P-6j safety / UX hardening for delete_itinerary — **released**
-- v4.7.32 Fragment apply delete_itinerary --confirm (P-6j) — **released**
-- v4.7.31 Fragment apply delete_itinerary dry-run (P-6j) — **released**
-- v4.7.30 P-6j destructive / structural apply operations policy — **released** (documentation-only)
-- v4.7.29 Fragment apply update_itinerary --confirm (P-6i) — **released**
-- v4.7.28 Fragment apply update_itinerary dry-run (P-6i) — **released**
-- v4.7.27 Fragment apply add_reservation --confirm (P-6h) — **released**
-- v4.7.26 Fragment apply add_reservation dry-run (P-6h) — **released**
-- v4.7.25 Fragment apply add_expense --confirm (P-6g) — **released**
-- v4.7.24 Fragment apply add_expense dry-run (P-6g) — **released**
-- v4.7.23 Fragment apply add_note --confirm (P-6f) — **released**
-- v4.7.22 Fragment apply add_note dry-run (P-6f) — **released**
-- v4.7.21 Fragment apply add_itinerary field expansion (P-6e) — **released**
 
 ## Repository state
 
-- Cargo version: `4.7.45`
-- Latest release: **v4.7.45** — [v4.7.45-notes.md](releases/v4.7.45-notes.md)
-- **add_estimate user docs:** [v4.7.45-estimate-documentation-and-cli-usage-review.md](specifications/v4.7.45-estimate-documentation-and-cli-usage-review.md)（正本）
-- **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_estimate` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_estimate` / `add_reservation` / `update_itinerary`（itinerary）/ `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）
-- **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 方針正本
-- **P-6j delete dry-run:** [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) — **released**（Venue / Place は delete blocker 外）
+- Cargo version: `4.7.46`
+- Latest release: **v4.7.46** — [v4.7.46-notes.md](releases/v4.7.46-notes.md)
+- **update_estimate planning:** [v4.7.46-p6o-update-estimate-planning.md](specifications/v4.7.46-p6o-update-estimate-planning.md)（正本）
+- **add_estimate user docs:** [v4.7.45-estimate-documentation-and-cli-usage-review.md](specifications/v4.7.45-estimate-documentation-and-cli-usage-review.md)
+- **Proposal CLI:** `fragment apply --dry-run` / `--confirm` — `add_estimate` まで実装済み；`update_estimate` は **未実装**（v4.7.47 候補）
 
 ## v4.7.x Proposal 実装
 
 ```text
-P-6g add_expense dry-run — v4.7.24 完了
-P-6g add_expense --confirm — v4.7.25 完了
-P-6h add_reservation dry-run — v4.7.26 完了
-P-6h add_reservation --confirm — v4.7.27 完了
-P-6i update_itinerary dry-run — v4.7.28 完了
-P-6i update_itinerary --confirm — v4.7.29 完了
-P-6j destructive / structural policy — v4.7.30 完了（docs only）
-P-6j delete_itinerary dry-run — v4.7.31 完了
-P-6j delete_itinerary --confirm — v4.7.32 完了
-P-6j safety / UX hardening — v4.7.33 完了
-P-6k reorder planning — v4.7.34 完了（docs only）
-P-6l move_itinerary planning — v4.7.37 完了（docs only）
-P-6l move_itinerary dry-run — v4.7.38 完了
-P-6l move_itinerary --confirm — v4.7.39 完了
-P-6m reorder / move post-release review — v4.7.40 完了（docs only）
 P-6n add_estimate planning — v4.7.41 完了（docs only）
 P-6n add_estimate dry-run — v4.7.42 完了
 P-6n add_estimate --confirm — v4.7.43 完了
 P-6n Planned Money post-release review — v4.7.44 完了（docs only）
 P-6n Estimate user docs / CLI usage review — v4.7.45 完了（docs only）
+P-6o update_estimate planning — v4.7.46 完了（docs only）
 ```
 
 ## Next action
 
-**Candidate:** v4.7.46 P-6o update_estimate planning（documentation-only）
+**Candidate:** v4.7.47 P-6o update_estimate dry-run（implementation）
 
 ## Defer
 
 - P-6i day / sort_order 拡張（reorder 設計後）
 - **Venue model 実装** — [venue-model-introduction-policy.md](specifications/venue-model-introduction-policy.md)（planning 済み、v4.8+ 候補）
-- safety / UX hardening（blocking 時 structured `delete_preview`、Estimate blocking integration test、inline `itinerary.note` 非 blocking 専用 test、ambiguous / not-found delete 専用 test、`delete_itinerary --confirm` unsupported 専用 test）
-- doctor / advisor finding schema / AI Fragment generation
-- DB proposal storage / import / list
-- fragment show / inspect
+- delete_estimate Fragment
+- idempotency key / structured errors（Fragment apply 横断）
 - GUI 実装
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

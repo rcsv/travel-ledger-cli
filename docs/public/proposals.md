@@ -157,9 +157,12 @@ v4.7.41 P-6n add_estimate planning — documentation-only（planning 済み）
 v4.7.42 P-6n add_estimate dry-run — 実装済み
 v4.7.43 P-6n add_estimate --confirm — 実装済み
 v4.7.45 P-6n Estimate user docs / CLI usage review — documentation-only（レビュー済み）
+v4.7.46 P-6o update_estimate planning — documentation-only（planning 済み）
 ```
 
 `add_estimate` の利用者向け契約・CLI 例: [v4.7.45 spec](../specifications/v4.7.45-estimate-documentation-and-cli-usage-review.md)
+
+`update_estimate` planning 正本: [v4.7.46 spec](../specifications/v4.7.46-p6o-update-estimate-planning.md)
 
 Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6j confirm: v4.7.32 · P-6j delete dry-run: [v4.7.31 spec](../specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) · P-6j policy: [v4.7.30 spec](../specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) · P-6i confirm: [v4.7.29 spec](../specifications/v4.7.29-fragment-apply-update-itinerary-confirm.md) · P-6i dry-run: [v4.7.28 spec](../specifications/v4.7.28-fragment-apply-update-itinerary-dry-run.md) · P-6h confirm: [v4.7.27 spec](../specifications/v4.7.27-fragment-apply-add-reservation-confirm.md) · P-6h dry-run: [v4.7.26 spec](../specifications/v4.7.26-fragment-apply-add-reservation-dry-run.md) · P-6g confirm: [v4.7.25 spec](../specifications/v4.7.25-fragment-apply-add-expense-confirm.md) · P-6g dry-run: [v4.7.24 spec](../specifications/v4.7.24-fragment-apply-add-expense-dry-run.md) · P-6f confirm: [v4.7.23 spec](../specifications/v4.7.23-fragment-apply-add-note-confirm.md) · P-6f dry-run: [v4.7.22 spec](../specifications/v4.7.22-fragment-apply-add-note-dry-run.md) · P-6e: [v4.7.21 spec](../specifications/v4.7.21-fragment-apply-add-itinerary-field-expansion.md) · P-6 review: [v4.7.20 spec](../specifications/v4.7.20-p6-post-implementation-review.md) · P-6d: [v4.7.19 spec](../specifications/v4.7.19-fragment-apply-confirm.md) · P-6c: [v4.7.18 spec](../specifications/v4.7.18-fragment-apply-dry-run.md) · P-6b: [v4.7.17 spec](../specifications/v4.7.17-proposal-materialize-confirm.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md)
 
