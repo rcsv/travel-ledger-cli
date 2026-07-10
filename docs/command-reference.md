@@ -224,6 +224,7 @@ Itinerary target のみ。**v4.7.47** で `fragment apply --dry-run`、**v4.7.48
 
 dry-run 正本: [v4.7.47 P-6o update_estimate dry-run](specifications/v4.7.47-p6o-update-estimate-dry-run.md)
 confirm 正本: [v4.7.48 P-6o update_estimate --confirm](specifications/v4.7.48-p6o-update-estimate-confirm.md)
+post-release review: [v4.7.49 P-6o update_estimate review](specifications/v4.7.49-p6o-update-estimate-post-release-review.md)
 Planning 正本: [v4.7.46 P-6o update_estimate planning](specifications/v4.7.46-p6o-update-estimate-planning.md)
 
 ## Receipt Inbox（metadata-only）
