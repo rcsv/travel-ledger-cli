@@ -1,5 +1,9 @@
 # Caglla.Travel CLI
 
+[![Rust CI](https://github.com/rcsv/travel-ledger-cli/actions/workflows/rust.yml/badge.svg)](https://github.com/rcsv/travel-ledger-cli/actions/workflows/rust.yml)
+[![Secret Scan](https://github.com/rcsv/travel-ledger-cli/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/rcsv/travel-ledger-cli/actions/workflows/secret-scan.yml)
+[![Latest Release](https://img.shields.io/github/v/release/rcsv/travel-ledger-cli)](https://github.com/rcsv/travel-ledger-cli/releases/latest)
+
 A local-first travel planning CLI for managing trips, itineraries, checklists, expenses, and Markdown/JSON exports.
 
 Caglla.Travel のコマンドライン版です。旅行の計画を、ターミナルから管理できます。データはローカルの SQLite データベースに保存されます（既定は CWD の `caglla.db`）。`caglla db use` で `./caglla.toml` に既定 DB を記録でき、一時的な上書きには `--db` / `CAGLLA_DB` を使えます。Web 版やクラウド同期は未対応です。
