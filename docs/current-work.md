@@ -2,11 +2,11 @@
 
 ## Current phase
 
-v4.7.40 P-6m itinerary ordering / move post-release review — **complete**（documentation-only）
+v4.7.40 P-6m itinerary ordering / move post-release review — **released**（documentation-only）
 
 ## Latest completed
 
-- v4.7.40 P-6m reorder / move post-release review — **documentation complete**
+- v4.7.40 P-6m reorder / move post-release review — **released** (documentation-only)
 - v4.7.38 P-6l move_itinerary dry-run — **released**
 - v4.7.37 P-6l cross-day move planning — **released** (documentation-only)
 - v4.7.36 P-6k reorder_itinerary --confirm（same-day）— **released**
@@ -28,8 +28,8 @@ v4.7.40 P-6m itinerary ordering / move post-release review — **complete**（do
 
 ## Repository state
 
-- Cargo version: `4.7.39`
-- Latest release: **v4.7.39** — [v4.7.39-notes.md](releases/v4.7.39-notes.md)
+- Cargo version: `4.7.40`
+- Latest release: **v4.7.40** — [v4.7.40-notes.md](releases/v4.7.40-notes.md)
 - **Proposal CLI:** `fragment apply --dry-run` — `add` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary` / `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）；`fragment apply --confirm` — `add_itinerary` / `add_note` / `add_expense` / `add_reservation` / `update_itinerary`（itinerary）/ `delete_itinerary`（itinerary）/ `reorder_itinerary`（day）/ `move_itinerary`（itinerary）
 - **P-6j policy:** [v4.7.30-p6j-destructive-structural-apply-policy.md](specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) — delete / reorder 方針正本
 - **P-6j delete dry-run:** [v4.7.31-p6j-delete-itinerary-dry-run.md](specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) — **released**（Venue / Place は delete blocker 外）
@@ -56,9 +56,7 @@ P-6m reorder / move post-release review — v4.7.40 完了（docs only）
 
 ## Next action
 
-**Candidate:** v4.7.40 formal release — P-6m post-release review（documentation-only）
-
-その後: 次の Proposal Fragment intent、または [v4.7.40 review](specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) §11 の P2 follow-up（テスト補強 / plan 抽出）
+**Candidate:** 次の Proposal Fragment intent、または [v4.7.40 review](specifications/v4.7.40-p6m-itinerary-ordering-move-post-release-review.md) §11 の P2 follow-up（テスト補強 / plan 抽出）
 
 ## Defer
 

@@ -120,12 +120,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新:** [v4.7.39](docs/releases/v4.7.39-notes.md) — P-6l move_itinerary --confirm（cross-day）。
+**最新:** [v4.7.40](docs/releases/v4.7.40-notes.md) — P-6m itinerary ordering / move post-release review（documentation-only）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.7.40](docs/releases/v4.7.40-notes.md) | docs | P-6m reorder / move post-release review |
 | [v4.7.39](docs/releases/v4.7.39-notes.md) | minor | P-6l move_itinerary --confirm（cross-day） |
 | [v4.7.38](docs/releases/v4.7.38-notes.md) | minor | P-6l move_itinerary dry-run（cross-day） |
 | [v4.7.37](docs/releases/v4.7.37-notes.md) | docs | P-6l cross-day move planning |

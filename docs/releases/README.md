@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.7.40 | P-6m itinerary ordering / move post-release review (documentation-only) | [v4.7.40-notes.md](v4.7.40-notes.md) |
 | v4.7.39 | P-6l move_itinerary --confirm (cross-day) | [v4.7.39-notes.md](v4.7.39-notes.md) |
 | v4.7.38 | P-6l move_itinerary dry-run (cross-day) | [v4.7.38-notes.md](v4.7.38-notes.md) |
 | v4.7.37 | P-6l cross-day move planning (documentation-only) | [v4.7.37-notes.md](v4.7.37-notes.md) |
