@@ -172,4 +172,5 @@ travel-ledger-cli fragment apply <fragment.json> --confirm --trip <id>
 - [AI integration guide](../ai.md)
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
 - [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
-- [v4.7.4 Materialize gate spec](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md)
+- [v4.8.7 structured errors public contract review](../specifications/v4.8.7-fragment-apply-structured-errors-public-contract-review.md)
+- [v4.8.6 JSON structured_errors exposure](../specifications/v4.8.6-fragment-apply-json-structured-errors-exposure.md)

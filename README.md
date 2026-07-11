@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.8.6](docs/releases/v4.8.6-notes.md)** — Fragment apply JSON `structured_errors[]` exposure
+**[v4.8.7](docs/releases/v4.8.7-notes.md)** — Fragment apply structured errors public contract review / hardening（documentation-only）
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)

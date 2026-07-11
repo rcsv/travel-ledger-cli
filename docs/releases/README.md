@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.8.7 | Fragment apply structured errors public contract review (documentation-only) | [v4.8.7-notes.md](v4.8.7-notes.md) |
 | v4.8.6 | Fragment apply JSON structured_errors[] exposure | [v4.8.6-notes.md](v4.8.6-notes.md) |
 | v4.8.5 | Fragment apply internal structured error model + code registry | [v4.8.5-notes.md](v4.8.5-notes.md) |
 | v4.8.4 | Fragment apply structured errors / API readiness planning (documentation-only) | [v4.8.4-notes.md](v4.8.4-notes.md) |
