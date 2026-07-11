@@ -2,12 +2,13 @@
 
 ## Current phase
 
-v4.8.x Planned Money delete — **P-6p dry-run complete**（v4.8.1 released）
+v4.8.x Planned Money delete — **P-6p confirm complete**（v4.8.2 released）
 
 v4.7.x Proposal Fragment mutation 本線は **series complete**（v4.7.49）。
 
 ## Latest completed
 
+- v4.8.2 P-6p delete_estimate Proposal Fragment --confirm — **released**
 - v4.8.1 P-6p delete_estimate Proposal Fragment dry-run — **released**
 - v4.8.0 P-6p delete_estimate Proposal Fragment planning — **released** (documentation-only)
 - v4.7.49 P-6o update_estimate post-release review — **released** (documentation-only)
@@ -16,8 +17,9 @@ v4.7.x Proposal Fragment mutation 本線は **series complete**（v4.7.49）。
 
 ## Repository state
 
-- Cargo version: `4.8.1`
-- Latest formal release: **v4.8.1** — [v4.8.1-notes.md](releases/v4.8.1-notes.md)
+- Cargo version: `4.8.2`
+- Latest formal release: **v4.8.2** — [v4.8.2-notes.md](releases/v4.8.2-notes.md)
+- **P-6p confirm:** [v4.8.2-p6p-delete-estimate-confirm.md](specifications/v4.8.2-p6p-delete-estimate-confirm.md)
 - **P-6p dry-run:** [v4.8.1-p6p-delete-estimate-dry-run.md](specifications/v4.8.1-p6p-delete-estimate-dry-run.md)
 - **P-6p planning:** [v4.8.0-p6p-delete-estimate-planning.md](specifications/v4.8.0-p6p-delete-estimate-planning.md)
 
@@ -31,7 +33,7 @@ P-6j–l itinerary structural — 完了済み
 
 ## Next action
 
-**Candidate:** v4.8.2 — P-6p `delete_estimate` `--confirm`（implementation）
+**Candidate:** v4.8.3 — P-6p `delete_estimate` post-release review（documentation-only）
 
 **Alternatives:** Fragment apply structured errors; Currency ISO validation (Issue #66)
 

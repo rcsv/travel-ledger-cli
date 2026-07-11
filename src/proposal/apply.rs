@@ -388,6 +388,7 @@ enum ConfirmInsertResult {
     UpdatedItinerary(i64),
     UpdatedEstimate(i64),
     DeletedItinerary(i64),
+    DeletedEstimate(i64),
     ReorderedItineraries(usize),
     MovedItinerary {
         itinerary_id: i64,
@@ -455,6 +456,10 @@ pub fn run_fragment_apply(
                 "update_estimate" => {
                     execute_confirm_update_estimate(conn, options.trip_id, &json, &report)
                         .map(ConfirmInsertResult::UpdatedEstimate)
+                }
+                "delete_estimate" => {
+                    execute_confirm_delete_estimate(conn, options.trip_id, &json, &report)
+                        .map(ConfirmInsertResult::DeletedEstimate)
                 }
                 "delete_itinerary" => {
                     execute_confirm_delete_itinerary(conn, options.trip_id, &report)
@@ -597,6 +602,15 @@ pub fn run_fragment_apply(
                         if let Some(note) = &estimate.note {
                             println!("  note         : {note}");
                         }
+                    }
+                }
+                Ok(ConfirmInsertResult::DeletedEstimate(estimate_id)) => {
+                    report.deleted_estimate_id = Some(estimate_id);
+                    if !options.json {
+                        println!();
+                        println!("Estimate を DB から削除しました（fragment apply --confirm）");
+                        println!("  deleted_estimate_id : {estimate_id}");
+                        println!("  旅行 ID             : {}", options.trip_id);
                     }
                 }
                 Ok(ConfirmInsertResult::DeletedItinerary(itinerary_id)) => {
@@ -978,6 +992,22 @@ fn validate_confirm_scope(
             }
             true
         }
+        ("delete_estimate", "delete_estimate") => {
+            if resolved.target_type != "itinerary" {
+                report.errors.push(format!(
+                    "v4.8.2 --confirm は itinerary target + delete_estimate のみサポートしています（現在: target_type={}）",
+                    resolved.target_type
+                ));
+                return false;
+            }
+            if preview.estimate_delete_preview.is_none() {
+                report.errors.push(
+                    "delete_estimate confirm には estimate_delete_preview が必要です".to_string(),
+                );
+                return false;
+            }
+            true
+        }
         ("delete_itinerary", "delete_itinerary") => {
             if resolved.target_type != "itinerary" {
                 report.errors.push(format!(
@@ -1028,7 +1058,7 @@ fn validate_confirm_scope(
         }
         _ => {
             report.errors.push(format!(
-                "v4.7.32 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、add_estimate、update_itinerary、update_estimate、delete_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
+                "v4.8.2 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、add_estimate、update_itinerary、update_estimate、delete_estimate、delete_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
                 preview.action
             ));
             false
@@ -1694,6 +1724,274 @@ fn execute_confirm_update_estimate(
     })?;
 
     Ok(updated_estimate_id)
+}
+
+fn estimate_delete_snapshot_agreement_fields_match(
+    gate: &FragmentApplyEstimateDeletePreview,
+    other: &FragmentApplyEstimateDeletePreview,
+) -> Result<(), String> {
+    if gate.target_itinerary_id != other.target_itinerary_id {
+        return Err(format!(
+            "gate preview と recomputed target_itinerary_id が一致しません（preview: {}, recomputed: {}）— DB 更新しません",
+            gate.target_itinerary_id, other.target_itinerary_id
+        ));
+    }
+    if gate.target_estimate_id != other.target_estimate_id {
+        return Err(format!(
+            "gate preview と recomputed target_estimate_id が一致しません（preview: {}, recomputed: {}）— DB 更新しません",
+            gate.target_estimate_id, other.target_estimate_id
+        ));
+    }
+    if gate.title != other.title {
+        return Err(
+            "gate preview と recomputed title が一致しません — DB 更新しません".to_string(),
+        );
+    }
+    if gate.amount != other.amount {
+        return Err(format!(
+            "gate preview と recomputed amount が一致しません（preview: {}, recomputed: {}）— DB 更新しません",
+            gate.amount, other.amount
+        ));
+    }
+    if gate.currency != other.currency {
+        return Err(format!(
+            "gate preview と recomputed currency が一致しません（preview: {}, recomputed: {}）— DB 更新しません",
+            gate.currency, other.currency
+        ));
+    }
+    if gate.note != other.note {
+        return Err("gate preview と recomputed note が一致しません — DB 更新しません".to_string());
+    }
+    if gate.sort_order != other.sort_order {
+        return Err(format!(
+            "gate preview と recomputed sort_order が一致しません（preview: {}, recomputed: {}）— DB 更新しません",
+            gate.sort_order, other.sort_order
+        ));
+    }
+    if gate.updated_at != other.updated_at {
+        return Err(format!(
+            "gate preview と recomputed updated_at が一致しません（preview: {}, recomputed: {}）— DB 更新しません",
+            gate.updated_at, other.updated_at
+        ));
+    }
+    Ok(())
+}
+
+fn verify_delete_estimate_gate_preview_matches(
+    gate: &FragmentApplyEstimateDeletePreview,
+    itinerary_id: i64,
+    estimate_id: i64,
+    recomputed: &FragmentApplyEstimateDeletePreview,
+) -> Result<(), String> {
+    if gate.target_itinerary_id != itinerary_id {
+        return Err(format!(
+            "gate preview と target itinerary が一致しません（preview: {}, resolved: {itinerary_id}）— DB 更新しません",
+            gate.target_itinerary_id
+        ));
+    }
+    if gate.target_estimate_id != estimate_id {
+        return Err(format!(
+            "gate preview と target estimate が一致しません（preview: {}, parsed: {estimate_id}）— DB 更新しません",
+            gate.target_estimate_id
+        ));
+    }
+    estimate_delete_snapshot_agreement_fields_match(gate, recomputed)
+}
+
+fn revalidate_delete_estimate_before_write(
+    conn: &Connection,
+    estimate_id: i64,
+    itinerary_id: i64,
+    candidate: &Map<String, Value>,
+    gate: &FragmentApplyEstimateDeletePreview,
+) -> Result<(), String> {
+    let current = crate::estimate::get_estimate(conn, estimate_id)
+        .map_err(|error| format!("Estimate not found: {error}"))?;
+    if current.itinerary_id != itinerary_id {
+        return Err(format!(
+            "Estimate {estimate_id} は Itinerary {itinerary_id} 配下ではありません"
+        ));
+    }
+
+    detect_delete_estimate_baseline_conflicts(candidate, &current)?;
+
+    if gate.target_estimate_id != current.id {
+        return Err(format!(
+            "TOCTOU mismatch: target_estimate_id の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            gate.target_estimate_id, current.id
+        ));
+    }
+    if gate.title != current.title {
+        return Err(format!(
+            "TOCTOU mismatch: title の before ({:?}) が現行 DB ({:?}) と一致しません — DB 更新しません",
+            gate.title, current.title
+        ));
+    }
+    if gate.amount != current.amount {
+        return Err(format!(
+            "TOCTOU mismatch: amount の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            gate.amount, current.amount
+        ));
+    }
+    if gate.currency != current.currency {
+        return Err(format!(
+            "TOCTOU mismatch: currency の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            gate.currency, current.currency
+        ));
+    }
+    if gate.note != current.note {
+        return Err(format!(
+            "TOCTOU mismatch: note の before ({:?}) が現行 DB ({:?}) と一致しません — DB 更新しません",
+            gate.note, current.note
+        ));
+    }
+    if gate.sort_order != current.sort_order {
+        return Err(format!(
+            "TOCTOU mismatch: sort_order の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            gate.sort_order, current.sort_order
+        ));
+    }
+    if gate.updated_at != current.updated_at {
+        return Err(format!(
+            "TOCTOU mismatch: updated_at の before ({}) が現行 DB ({}) と一致しません — DB 更新しません",
+            gate.updated_at, current.updated_at
+        ));
+    }
+    Ok(())
+}
+
+fn verify_estimate_deleted(conn: &Connection, estimate_id: i64) -> Result<(), String> {
+    match crate::estimate::get_estimate(conn, estimate_id) {
+        Err(_) => Ok(()),
+        Ok(_) => Err(format!(
+            "Estimate {estimate_id} が削除後も存在します — DB 更新しません"
+        )),
+    }
+}
+
+fn execute_confirm_delete_estimate(
+    conn: &Connection,
+    trip_id: i64,
+    json: &str,
+    report: &FragmentApplyDryRunReport,
+) -> Result<i64> {
+    let preview = report
+        .preview
+        .as_ref()
+        .context("delete_estimate confirm には preview が必要です")?;
+    if preview.action != "delete_estimate" {
+        anyhow::bail!("gate preview の action が delete_estimate ではありません — DB 更新しません");
+    }
+    let gate_preview = preview
+        .estimate_delete_preview
+        .as_ref()
+        .context("delete_estimate confirm には estimate_delete_preview が必要です")?;
+
+    let trip_name = report
+        .resolved_target
+        .as_ref()
+        .map(|target| target.trip_name.clone())
+        .or_else(|| {
+            crate::trip::get_trip(conn, trip_id)
+                .ok()
+                .map(|trip| trip.name)
+        })
+        .context("Trip 名の解決に失敗しました")?;
+
+    let mut deleted_estimate_id = 0i64;
+    crate::storage::db::with_transaction(conn, "delete_estimate confirm", |tx| {
+        let root: Value =
+            serde_json::from_str(json).with_context(|| "Fragment JSON の parse に失敗しました")?;
+        let root_obj = root
+            .as_object()
+            .context("トップレベルが JSON object ではありません")?;
+        let fragment_body = root_obj
+            .get("fragment")
+            .and_then(Value::as_object)
+            .context("fragment object が必要です")?;
+        let candidate = fragment_body
+            .get("candidate_content")
+            .and_then(Value::as_object)
+            .context("candidate_content object が必要です")?;
+        let intent = non_empty_string(fragment_body.get("intent"))
+            .ok_or_else(|| anyhow::anyhow!("fragment.intent が必要です"))?;
+        if intent != "delete_estimate" {
+            anyhow::bail!("fragment.intent が delete_estimate ではありません — DB 更新しません");
+        }
+
+        if !report.required_decisions.is_empty() {
+            anyhow::bail!("required decisions が未解決です — DB 更新しません");
+        }
+
+        let estimate_id = parse_delete_estimate_fields(fragment_body, None)
+            .map_err(|error| anyhow::anyhow!(error))?;
+
+        let target_obj = root_obj
+            .get("target")
+            .and_then(Value::as_object)
+            .context("target object が必要です")?;
+        let mut resolve_report = FragmentApplyDryRunReport::new("", trip_id, false, true);
+        let resolved =
+            resolve_apply_target(tx, trip_id, &trip_name, target_obj, &mut resolve_report)
+                .map_err(|_| {
+                    anyhow::anyhow!(
+                        "target の再解決に失敗しました: {}",
+                        resolve_report.errors.join("; ")
+                    )
+                })?
+                .context("target が解決されていません")?;
+        if resolved.resolution == "ambiguous" {
+            anyhow::bail!("target が曖昧です — DB 更新しません");
+        }
+        if resolved.target_type != "itinerary" {
+            anyhow::bail!(
+                "delete_estimate confirm は itinerary target のみサポートしています（現在: {}）",
+                resolved.target_type
+            );
+        }
+
+        let itinerary_id = lookup_itinerary_db_id_from_resolved(tx, trip_id, &resolved)
+            .map_err(|error| anyhow::anyhow!(error))?;
+
+        let current = crate::estimate::get_estimate(tx, estimate_id)
+            .map_err(|error| anyhow::anyhow!("Estimate not found: {error}"))?;
+        if current.itinerary_id != itinerary_id {
+            anyhow::bail!(
+                "Estimate {} は Itinerary {} 配下ではありません",
+                estimate_id,
+                itinerary_id
+            );
+        }
+
+        let itinerary_title = resolved.itinerary_title.clone().unwrap_or_default();
+        let recomputed = build_estimate_delete_preview(itinerary_id, itinerary_title, &current);
+
+        verify_delete_estimate_gate_preview_matches(
+            gate_preview,
+            itinerary_id,
+            estimate_id,
+            &recomputed,
+        )
+        .map_err(|error| anyhow::anyhow!(error))?;
+
+        revalidate_delete_estimate_before_write(
+            tx,
+            estimate_id,
+            itinerary_id,
+            candidate,
+            gate_preview,
+        )
+        .map_err(|error| anyhow::anyhow!(error))?;
+
+        crate::estimate::delete_estimate_row_scoped(tx, estimate_id, itinerary_id)?;
+
+        verify_estimate_deleted(tx, estimate_id).map_err(|error| anyhow::anyhow!(error))?;
+
+        deleted_estimate_id = estimate_id;
+        Ok(())
+    })?;
+
+    Ok(deleted_estimate_id)
 }
 
 fn count_blocking_children_for_itinerary_db(
@@ -7592,6 +7890,162 @@ mod tests {
         assert_eq!(
             crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
             before
+        );
+    }
+
+    const DELETE_ESTIMATE_CONFIRM_FRAGMENT: &str = r#"{
+      "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+      "target": {
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      },
+      "fragment": {
+        "intent": "delete_estimate",
+        "candidate_content": {
+          "estimate_id": 1
+        }
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+    #[test]
+    fn confirm_delete_estimate_writes_db() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let before_expenses = crate::expense::list_expenses_for_itinerary(&conn, itinerary_id)
+            .unwrap()
+            .len();
+
+        let (gate_report, _) = fragment_apply_gate_json(
+            &conn,
+            "test.json",
+            DELETE_ESTIMATE_FRAGMENT,
+            trip_id,
+            false,
+            true,
+        );
+        assert!(gate_report.valid, "errors: {:?}", gate_report.errors);
+
+        let deleted_id = execute_confirm_delete_estimate(
+            &conn,
+            trip_id,
+            DELETE_ESTIMATE_CONFIRM_FRAGMENT,
+            &gate_report,
+        )
+        .unwrap();
+        assert_eq!(deleted_id, estimate_id);
+        assert!(crate::estimate::get_estimate(&conn, estimate_id).is_err());
+        assert_eq!(
+            crate::estimate::list_estimates_for_itinerary(&conn, itinerary_id)
+                .unwrap()
+                .len(),
+            0
+        );
+        assert_eq!(
+            crate::expense::list_expenses_for_itinerary(&conn, itinerary_id)
+                .unwrap()
+                .len(),
+            before_expenses
+        );
+    }
+
+    #[test]
+    fn confirm_delete_estimate_candidate_preview_mismatch_blocks_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let before = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+
+        let (gate_report, _) = fragment_apply_gate_json(
+            &conn,
+            "test.json",
+            DELETE_ESTIMATE_FRAGMENT,
+            trip_id,
+            false,
+            true,
+        );
+        assert!(gate_report.valid, "errors: {:?}", gate_report.errors);
+
+        let mismatch_fragment = r#"{
+      "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+      "target": {
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      },
+      "fragment": {
+        "intent": "delete_estimate",
+        "candidate_content": {
+          "estimate_id": 1,
+          "expected_amount": "99999"
+        }
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+        let error =
+            execute_confirm_delete_estimate(&conn, trip_id, mismatch_fragment, &gate_report)
+                .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("baseline mismatch") || message.contains("gate preview"),
+            "got: {message}"
+        );
+
+        assert_eq!(
+            crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
+            before
+        );
+        assert_eq!(
+            crate::estimate::list_estimates_for_itinerary(&conn, itinerary_id)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn confirm_delete_estimate_toctou_blocks_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, _itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+
+        let (gate_report, _) = fragment_apply_gate_json(
+            &conn,
+            "test.json",
+            DELETE_ESTIMATE_FRAGMENT,
+            trip_id,
+            false,
+            true,
+        );
+        assert!(gate_report.valid, "errors: {:?}", gate_report.errors);
+
+        crate::estimate::update_estimate(
+            &conn,
+            estimate_id,
+            &crate::estimate::UpdateEstimateParams {
+                amount_input: Some("20000"),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let after_update = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+
+        let error = execute_confirm_delete_estimate(
+            &conn,
+            trip_id,
+            DELETE_ESTIMATE_CONFIRM_FRAGMENT,
+            &gate_report,
+        )
+        .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("TOCTOU") || message.contains("gate preview"),
+            "got: {message}"
+        );
+
+        assert_eq!(
+            crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
+            after_update
         );
     }
 }

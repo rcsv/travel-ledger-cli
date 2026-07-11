@@ -132,12 +132,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新 formal release:** [v4.8.1](docs/releases/v4.8.1-notes.md) — P-6p `delete_estimate` dry-run。次は **v4.8.2** `--confirm`。
+**最新 formal release:** [v4.8.2](docs/releases/v4.8.2-notes.md) — P-6p `delete_estimate` --confirm。次候補は **v4.8.3** post-release review。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.8.2](docs/releases/v4.8.2-notes.md) | minor | P-6p delete_estimate --confirm |
 | [v4.8.1](docs/releases/v4.8.1-notes.md) | minor | P-6p delete_estimate dry-run |
 | [v4.8.0](docs/releases/v4.8.0-notes.md) | docs | P-6p delete_estimate Proposal Fragment planning |
 | [v4.7.49](docs/releases/v4.7.49-notes.md) | docs | P-6o update_estimate post-release review（v4.7 系列完了） |

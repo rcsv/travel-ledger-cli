@@ -386,6 +386,29 @@ pub(crate) fn update_estimate_row_scoped(
     }
 }
 
+/// Proposal Fragment confirm 用。親 Itinerary 境界を WHERE で守り、exactly one row を要求する。
+pub(crate) fn delete_estimate_row_scoped(
+    conn: &Connection,
+    estimate_id: i64,
+    itinerary_id: i64,
+) -> Result<()> {
+    let affected = conn
+        .execute(
+            "DELETE FROM estimates WHERE id = ?1 AND itinerary_id = ?2",
+            params![estimate_id, itinerary_id],
+        )
+        .context("Estimate の削除に失敗しました")?;
+    match affected {
+        0 => anyhow::bail!(
+            "Estimate {estimate_id} は Itinerary {itinerary_id} 配下で削除できませんでした — DB 更新しません"
+        ),
+        1 => Ok(()),
+        rows => anyhow::bail!(
+            "Estimate 削除が {rows} 行に影響しました — exactly one row contract 違反のため DB 更新しません"
+        ),
+    }
+}
+
 pub(crate) fn delete_estimate(conn: &Connection, id: i64) -> Result<()> {
     get_estimate(conn, id)?;
     conn.execute("DELETE FROM estimates WHERE id = ?1", params![id])
@@ -738,6 +761,34 @@ mod tests {
         .unwrap_err();
 
         assert!(error.to_string().contains("更新できませんでした"));
+        let after = get_estimate(&conn, estimate_id).unwrap();
+        assert_eq!(after.amount, before.amount);
+        assert_eq!(after.currency, before.currency);
+        assert_eq!(after.updated_at, before.updated_at);
+    }
+
+    #[test]
+    fn delete_estimate_row_scoped_rejects_zero_rows_for_missing_estimate() {
+        let conn = test_db();
+        let itinerary_id = setup_itinerary(&conn);
+
+        let error = delete_estimate_row_scoped(&conn, 9_999, itinerary_id).unwrap_err();
+
+        assert!(error.to_string().contains("削除できませんでした"));
+    }
+
+    #[test]
+    fn delete_estimate_row_scoped_rejects_zero_rows_for_wrong_itinerary_id() {
+        let conn = test_db();
+        let itinerary_id = setup_itinerary(&conn);
+        let estimate_id =
+            add_estimate(&conn, itinerary_id, "10000", "JPY", None, None, None).unwrap();
+        let before = get_estimate(&conn, estimate_id).unwrap();
+
+        let error =
+            delete_estimate_row_scoped(&conn, estimate_id, itinerary_id + 9_999).unwrap_err();
+
+        assert!(error.to_string().contains("削除できませんでした"));
         let after = get_estimate(&conn, estimate_id).unwrap();
         assert_eq!(after.amount, before.amount);
         assert_eq!(after.currency, before.currency);

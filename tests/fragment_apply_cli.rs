@@ -7770,33 +7770,6 @@ fn cli_fragment_apply_delete_estimate_unsupported_intent_blocks_without_db_write
 }
 
 #[test]
-fn cli_fragment_apply_delete_estimate_confirm_blocks_without_db_write() {
-    let workspace = common::TestWorkspace::new();
-    let dir = workspace.path();
-    let fragment = fixture_path("apply-delete-estimate-basic-fragment.json");
-    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
-    let before = estimate_show_json(dir, estimate_id);
-    let output = run_cli_in(
-        dir,
-        &[
-            "fragment",
-            "apply",
-            fragment.to_str().unwrap(),
-            "--confirm",
-            "--trip",
-            "1",
-            "--json",
-        ],
-    );
-    assert!(!output.status.success());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
-    assert_eq!(parsed["valid"], false);
-    assert!(parsed["deleted_estimate_id"].is_null());
-    assert_eq!(before, estimate_show_json(dir, estimate_id));
-}
-
-#[test]
 fn cli_fragment_apply_delete_estimate_expected_fields_dry_run() {
     let workspace = common::TestWorkspace::new();
     let dir = workspace.path();
@@ -7814,4 +7787,456 @@ fn cli_fragment_apply_delete_estimate_expected_fields_dry_run() {
     let parsed = run_delete_estimate_dry_run_json(dir, &fragment);
     assert_eq!(parsed["valid"], true);
     assert_eq!(before, estimate_show_json(dir, estimate_id));
+}
+
+fn run_delete_estimate_confirm_json(
+    dir: &std::path::Path,
+    fragment_path: &std::path::Path,
+) -> serde_json::Value {
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report")
+}
+
+fn assert_delete_estimate_invalid_confirm(
+    dir: &std::path::Path,
+    fragment_path: &std::path::Path,
+    error_hint: &str,
+) {
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let before = estimate_show_json(dir, estimate_id);
+    let before_trip_estimates = trip_estimates_json(dir, "1");
+    let before_expenses = itinerary_expense_count(dir, "1");
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment_path.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    assert!(parsed["deleted_estimate_id"].is_null());
+    let errors = parsed["errors"]
+        .as_array()
+        .expect("errors array")
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        errors.contains(error_hint),
+        "expected error containing {error_hint:?}, got: {errors}"
+    );
+    assert_eq!(before, estimate_show_json(dir, estimate_id));
+    assert_eq!(before_trip_estimates, trip_estimates_json(dir, "1"));
+    assert_eq!(before_expenses, itinerary_expense_count(dir, "1"));
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_basic_confirm_deletes_estimate() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = fixture_path("apply-delete-estimate-basic-fragment.json");
+    let (itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let before_trip_estimate_count = trip_estimate_count(dir, "1");
+    let before_expenses = itinerary_expense_count(dir, "1");
+
+    let parsed = run_delete_estimate_confirm_json(dir, &fragment);
+    assert_eq!(parsed["confirm"], true);
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(parsed["deleted_estimate_id"], estimate_id);
+    let delete_preview = &parsed["preview"]["estimate_delete_preview"];
+    assert_eq!(delete_preview["target_itinerary_id"], itinerary_id);
+    assert_eq!(delete_preview["target_estimate_id"], estimate_id);
+
+    let show = run_cli_in(dir, &["estimate", "show", &estimate_id.to_string()]);
+    assert!(!show.status.success());
+    assert_eq!(
+        trip_estimate_count(dir, "1"),
+        before_trip_estimate_count - 1
+    );
+    assert_eq!(itinerary_expense_count(dir, "1"), before_expenses);
+
+    let after_trip_estimates = trip_estimates_json(dir, "1");
+    assert!(after_trip_estimates["estimates"]
+        .as_array()
+        .is_none_or(|items| items.is_empty()));
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_confirm_second_attempt_blocks_as_not_found() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = fixture_path("apply-delete-estimate-basic-fragment.json");
+    seed_trip_with_estimate(dir);
+    run_delete_estimate_confirm_json(dir, &fragment);
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    let errors = parsed["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(errors.contains("Estimate not found"), "got: {errors}");
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_sibling_and_foreign_estimates_unchanged_on_confirm() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_itinerary(dir);
+    let first_itinerary = first_itinerary_id(dir);
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            &first_itinerary.to_string(),
+            "--amount",
+            "10000",
+            "--currency",
+            "JPY",
+            "--title",
+            "Keep me",
+        ],
+    )
+    .status
+    .success());
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            &first_itinerary.to_string(),
+            "--amount",
+            "5000",
+            "--currency",
+            "JPY",
+            "--title",
+            "Delete me",
+        ],
+    )
+    .status
+    .success());
+    let list_output = run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "list",
+            "--itinerary",
+            &first_itinerary.to_string(),
+            "--json",
+        ],
+    );
+    let list_parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&list_output.stdout)).unwrap();
+    let keep_id = list_parsed["estimates"][0]["id"].as_i64().unwrap();
+    let delete_id = list_parsed["estimates"][1]["id"].as_i64().unwrap();
+    let before_keep = estimate_show_json(dir, keep_id);
+
+    assert!(
+        run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "Second stop"],)
+            .status
+            .success()
+    );
+    let second_output = run_cli_in(dir, &["itinerary", "list", "1", "--json"]);
+    let second_itineraries: Vec<serde_json::Value> =
+        serde_json::from_str(&String::from_utf8_lossy(&second_output.stdout)).unwrap();
+    let second_itinerary_id = second_itineraries[1]["id"].as_i64().unwrap();
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            &second_itinerary_id.to_string(),
+            "--amount",
+            "3000",
+            "--currency",
+            "JPY",
+        ],
+    )
+    .status
+    .success());
+    let foreign_output = run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "list",
+            "--itinerary",
+            &second_itinerary_id.to_string(),
+            "--json",
+        ],
+    );
+    let foreign_parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&foreign_output.stdout)).unwrap();
+    let foreign_id = foreign_parsed["estimates"][0]["id"].as_i64().unwrap();
+    let before_foreign = estimate_show_json(dir, foreign_id);
+
+    let fragment = write_delete_estimate_inline_fragment(
+        dir,
+        "delete-estimate-sibling-confirm.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(r#"{{ "estimate_id": {delete_id} }}"#),
+    );
+    let parsed = run_delete_estimate_confirm_json(dir, &fragment);
+    assert_eq!(parsed["deleted_estimate_id"], delete_id);
+    assert_eq!(estimate_show_json(dir, keep_id), before_keep);
+    assert_eq!(estimate_show_json(dir, foreign_id), before_foreign);
+    assert_eq!(trip_estimate_count(dir, "1"), 2);
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_not_found_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_delete_estimate_inline_fragment(
+        dir,
+        "delete-estimate-not-found-confirm.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 9999 }"#,
+    );
+    assert_delete_estimate_invalid_confirm(dir, &fragment, "Estimate not found");
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_baseline_mismatch_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert_delete_estimate_invalid_confirm(
+        dir,
+        &fixture_path("apply-delete-estimate-baseline-mismatch-fragment.json"),
+        "baseline mismatch",
+    );
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_stale_row_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let before = estimate_show_json(dir, estimate_id);
+    let fragment = write_delete_estimate_inline_fragment(
+        dir,
+        "delete-estimate-stale-row-confirm.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(
+            r#"{{ "estimate_id": {estimate_id}, "expected_amount": "10000", "expected_currency": "JPY", "expected_title": "Lunch estimate", "expected_note": "Original note", "expected_sort_order": "0", "expected_updated_at": "{}" }}"#,
+            before["updated_at"].as_str().unwrap()
+        ),
+    );
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "update",
+            &estimate_id.to_string(),
+            "--amount",
+            "20000",
+        ],
+    )
+    .status
+    .success());
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    let errors = parsed["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(errors.contains("baseline mismatch"), "got: {errors}");
+    assert_eq!(estimate_show_json(dir, estimate_id)["amount"], 20000);
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_mutation_field_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_delete_estimate_inline_fragment(
+        dir,
+        "delete-estimate-mutation-confirm.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        r#"{ "estimate_id": 1, "amount": "15000" }"#,
+    );
+    assert_delete_estimate_invalid_confirm(dir, &fragment, "指定できません");
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_required_decisions_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_estimate(dir);
+    let fragment = fixture_path("apply-delete-estimate-required-decisions-fragment.json");
+    let before_trip_estimates = trip_estimates_json(dir, "1");
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    assert_eq!(before_trip_estimates, trip_estimates_json(dir, "1"));
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_cross_itinerary_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    seed_trip_with_itinerary(dir);
+    assert!(
+        run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "Second stop"],)
+            .status
+            .success()
+    );
+    let second_output = run_cli_in(dir, &["itinerary", "list", "1", "--json"]);
+    let second_itineraries: Vec<serde_json::Value> =
+        serde_json::from_str(&String::from_utf8_lossy(&second_output.stdout)).unwrap();
+    let second_itinerary_id = second_itineraries[1]["id"].as_i64().unwrap();
+    assert!(run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            &second_itinerary_id.to_string(),
+            "--amount",
+            "5000",
+            "--currency",
+            "JPY",
+        ],
+    )
+    .status
+    .success());
+    let estimate_output = run_cli_in(
+        dir,
+        &[
+            "estimate",
+            "list",
+            "--itinerary",
+            &second_itinerary_id.to_string(),
+            "--json",
+        ],
+    );
+    let estimate_parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&estimate_output.stdout)).unwrap();
+    let foreign_estimate_id = estimate_parsed["estimates"][0]["id"].as_i64().unwrap();
+    let before = estimate_show_json(dir, foreign_estimate_id);
+
+    let fragment = write_delete_estimate_inline_fragment(
+        dir,
+        "delete-estimate-cross-itinerary-confirm.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(r#"{{ "estimate_id": {foreign_estimate_id} }}"#),
+    );
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--confirm",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(!output.status.success());
+    assert_eq!(before, estimate_show_json(dir, foreign_estimate_id));
+}
+
+#[test]
+fn cli_fragment_apply_delete_estimate_itinerary_title_change_confirm_still_succeeds() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    assert!(run_cli_in(
+        dir,
+        &[
+            "itinerary",
+            "update",
+            &itinerary_id.to_string(),
+            "--title",
+            "Renamed temple",
+        ],
+    )
+    .status
+    .success());
+
+    let fragment = write_delete_estimate_inline_fragment(
+        dir,
+        "delete-estimate-after-title-rename-confirm.json",
+        &format!(
+            r#"{{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": {itinerary_id} }}"#
+        ),
+        &format!(r#"{{ "estimate_id": {estimate_id} }}"#),
+    );
+    let parsed = run_delete_estimate_confirm_json(dir, &fragment);
+    assert_eq!(parsed["deleted_estimate_id"], estimate_id);
 }

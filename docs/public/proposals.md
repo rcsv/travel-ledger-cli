@@ -163,6 +163,7 @@ v4.7.48 P-6o update_estimate --confirm — リリース済み
 v4.7.49 P-6o update_estimate post-release review — リリース済み（documentation-only）
 v4.8.0 P-6p delete_estimate planning — リリース済み（documentation-only）
 v4.8.1 P-6p delete_estimate dry-run — リリース済み
+v4.8.2 P-6p delete_estimate --confirm — リリース済み
 ```
 
 `add_estimate` の利用者向け契約・CLI 例: [v4.7.45 spec](../specifications/v4.7.45-estimate-documentation-and-cli-usage-review.md)
@@ -177,7 +178,9 @@ v4.8.1 P-6p delete_estimate dry-run — リリース済み
 
 `delete_estimate` planning 正本: [v4.8.0 spec](../specifications/v4.8.0-p6p-delete-estimate-planning.md)
 
-`delete_estimate` dry-run 実装正本: [v4.8.1 spec](../specifications/v4.8.1-p6p-delete-estimate-dry-run.md)（`--confirm` は v4.8.2 候補）
+`delete_estimate` dry-run 実装正本: [v4.8.1 spec](../specifications/v4.8.1-p6p-delete-estimate-dry-run.md)
+
+`delete_estimate` confirm 実装正本: [v4.8.2 spec](../specifications/v4.8.2-p6p-delete-estimate-confirm.md)
 
 Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6j confirm: v4.7.32 · P-6j delete dry-run: [v4.7.31 spec](../specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) · P-6j policy: [v4.7.30 spec](../specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) · P-6i confirm: [v4.7.29 spec](../specifications/v4.7.29-fragment-apply-update-itinerary-confirm.md) · P-6i dry-run: [v4.7.28 spec](../specifications/v4.7.28-fragment-apply-update-itinerary-dry-run.md) · P-6h confirm: [v4.7.27 spec](../specifications/v4.7.27-fragment-apply-add-reservation-confirm.md) · P-6h dry-run: [v4.7.26 spec](../specifications/v4.7.26-fragment-apply-add-reservation-dry-run.md) · P-6g confirm: [v4.7.25 spec](../specifications/v4.7.25-fragment-apply-add-expense-confirm.md) · P-6g dry-run: [v4.7.24 spec](../specifications/v4.7.24-fragment-apply-add-expense-dry-run.md) · P-6f confirm: [v4.7.23 spec](../specifications/v4.7.23-fragment-apply-add-note-confirm.md) · P-6f dry-run: [v4.7.22 spec](../specifications/v4.7.22-fragment-apply-add-note-dry-run.md) · P-6e: [v4.7.21 spec](../specifications/v4.7.21-fragment-apply-add-itinerary-field-expansion.md) · P-6 review: [v4.7.20 spec](../specifications/v4.7.20-p6-post-implementation-review.md) · P-6d: [v4.7.19 spec](../specifications/v4.7.19-fragment-apply-confirm.md) · P-6c: [v4.7.18 spec](../specifications/v4.7.18-fragment-apply-dry-run.md) · P-6b: [v4.7.17 spec](../specifications/v4.7.17-proposal-materialize-confirm.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md)
 
@@ -196,9 +199,9 @@ caglla fragment apply <fragment.json> --dry-run --trip <id> [--output preview.js
 caglla fragment apply <fragment.json> --confirm --trip <id>  # v4.7.19+
 ```
 
-`fragment apply --dry-run`: **apply preview / apply simulation** — **read-only DB access** で既存 Trip を読み取り、Trip / Day / Itinerary / Expense / Reservation は変更しない。v4.7.26+ で `add_reservation`（itinerary target）preview もサポート。v4.7.31+ で `delete_itinerary`（itinerary target、childless のみ preview 成功）もサポート。v4.7.42+ で `add_estimate`、**v4.7.47+ で `update_estimate`**（itinerary target、部分更新 preview）もサポート。preview Trip JSON を `trip diff` 等で扱う場合は **`--output`** を使う。`--json` は gate report のみ。`fragment validate` とは異なり file-only ではない。
+`fragment apply --dry-run`: **apply preview / apply simulation** — **read-only DB access** で既存 Trip を読み取り、Trip / Day / Itinerary / Expense / Reservation は変更しない。v4.7.26+ で `add_reservation`（itinerary target）preview もサポート。v4.7.31+ で `delete_itinerary`（itinerary target、childless のみ preview 成功）もサポート。v4.7.42+ で `add_estimate`、**v4.7.47+ で `update_estimate`**、**v4.8.1+ で `delete_estimate`**（itinerary target、削除 preview）もサポート。preview Trip JSON を `trip diff` 等で扱う場合は **`--output`** を使う。`--json` は gate report のみ。`fragment validate` とは異なり file-only ではない。
 
-`fragment apply --confirm`: gate 通過後に **add_itinerary**（day target）、**add_note**（trip/day/itinerary）、**add_expense**（itinerary target）、**add_estimate**（itinerary target）、**add_reservation**（itinerary target）、**update_itinerary**（itinerary target）、**update_estimate**（itinerary target、v4.7.48+）、**delete_itinerary**（itinerary target、row-only delete）を DB へ反映。`--dry-run` と `--confirm` は併用不可（dry-run means no Trip domain data side effects）。
+`fragment apply --confirm`: gate 通過後に **add_itinerary**（day target）、**add_note**（trip/day/itinerary）、**add_expense**（itinerary target）、**add_estimate**（itinerary target）、**add_reservation**（itinerary target）、**update_itinerary**（itinerary target）、**update_estimate**（itinerary target、v4.7.48+）、**delete_itinerary**（itinerary target、row-only delete）、**delete_estimate**（itinerary target、scoped DELETE、v4.8.2+）を DB へ反映。`--dry-run` と `--confirm` は併用不可（dry-run means no Trip domain data side effects）。
 
 `proposal materialize --dry-run` / `--confirm`: Trip JSON 候補または DB 保存。`--dry-run` と `--confirm` は併用不可（dry-run means no side effects）。
 
