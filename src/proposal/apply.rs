@@ -221,7 +221,7 @@ pub struct FragmentApplyDryRunReport {
     pub trip_export_valid: bool,
     pub trip_id: i64,
     pub errors: Vec<String>,
-    #[serde(skip)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) structured_errors: Vec<StructuredApplyError>,
     pub warnings: Vec<String>,
     pub required_decisions: Vec<String>,
@@ -8354,7 +8354,7 @@ mod tests {
     }
 
     #[test]
-    fn structured_errors_are_skipped_in_json_report() {
+    fn structured_errors_are_exposed_in_json_report() {
         let conn = open_db_at(":memory:").unwrap();
         let trip_id =
             crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
@@ -8373,10 +8373,93 @@ mod tests {
         let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
         assert!(!report.valid);
         assert!(!report.structured_errors.is_empty());
+        assert!(!report.errors.is_empty());
+
+        let value: serde_json::Value = serde_json::to_value(&report).unwrap();
+        let structured = value
+            .get("structured_errors")
+            .and_then(serde_json::Value::as_array)
+            .expect("structured_errors array");
+        assert!(!structured.is_empty());
+        let first = &structured[0];
+        assert_eq!(first["code"], "APPLY_UNSUPPORTED_TARGET");
+        assert_eq!(first["kind"], "blocking");
+        assert_eq!(first["phase"], "simulate");
+        assert!(first["message"]
+            .as_str()
+            .unwrap()
+            .contains("add_expense は itinerary target のみ"));
+        assert_eq!(first["intent"], "add_expense");
+        assert_eq!(first["target_type"], "trip");
+        assert!(value
+            .get("errors")
+            .and_then(serde_json::Value::as_array)
+            .is_some());
+    }
+
+    #[test]
+    fn success_report_omits_empty_structured_errors_from_json() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let (report, _) =
+            fragment_apply_dry_run_json(&conn, "test.json", APPLY_READY_FRAGMENT, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        assert!(report.structured_errors.is_empty());
 
         let serialized = serde_json::to_string(&report).unwrap();
         assert!(!serialized.contains("structured_errors"));
-        assert!(serialized.contains("\"errors\""));
+    }
+
+    #[test]
+    fn json_structured_error_includes_stable_code_kind_phase() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, _itinerary_id, _estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "delete_estimate",
+            "candidate_content": { "estimate_id": 99999 }
+          },
+          "adoption_hints": { "required_decisions": [] }
+        }"#;
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        let value: serde_json::Value = serde_json::to_value(&report).unwrap();
+        let structured = value["structured_errors"]
+            .as_array()
+            .expect("structured_errors");
+        let entity_not_found = structured
+            .iter()
+            .find(|item| item["code"] == "APPLY_ENTITY_NOT_FOUND")
+            .expect("APPLY_ENTITY_NOT_FOUND");
+        assert_eq!(entity_not_found["kind"], "blocking");
+        assert_eq!(entity_not_found["phase"], "simulate");
+        assert_eq!(entity_not_found["intent"], "delete_estimate");
+        assert_eq!(
+            entity_not_found["field_path"],
+            "candidate_content.estimate_id"
+        );
     }
 
     #[test]

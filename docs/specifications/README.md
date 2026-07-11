@@ -83,6 +83,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.7.46-p6o-update-estimate-planning.md](v4.7.46-p6o-update-estimate-planning.md) | P-6o update_estimate planning（documentation-only） |
 | [v4.7.47-p6o-update-estimate-dry-run.md](v4.7.47-p6o-update-estimate-dry-run.md) | P-6o update_estimate dry-run（**v4.7.47 released**） |
 | [v4.7.49-p6o-update-estimate-post-release-review.md](v4.7.49-p6o-update-estimate-post-release-review.md) | P-6o update_estimate post-release review（**v4.7.49 released** — documentation-only） |
+| [v4.8.6-fragment-apply-json-structured-errors-exposure.md](v4.8.6-fragment-apply-json-structured-errors-exposure.md) | Fragment apply JSON structured_errors[] exposure（**v4.8.6 released** — additive field） |
 | [v4.8.5-fragment-apply-internal-structured-error-model.md](v4.8.5-fragment-apply-internal-structured-error-model.md) | Fragment apply internal structured error model + code registry（**v4.8.5 released** — limited wiring） |
 | [v4.8.4-fragment-apply-structured-errors-api-readiness-planning.md](v4.8.4-fragment-apply-structured-errors-api-readiness-planning.md) | Fragment apply structured errors / API readiness planning（**v4.8.4 released** — documentation-only） |
 | [v4.8.3-p6p-delete-estimate-post-release-review.md](v4.8.3-p6p-delete-estimate-post-release-review.md) | P-6p delete_estimate post-release review（**v4.8.3 released** — documentation-only） |

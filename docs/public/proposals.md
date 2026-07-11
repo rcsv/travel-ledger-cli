@@ -166,8 +166,11 @@ v4.8.1 P-6p delete_estimate dry-run — リリース済み
 v4.8.2 P-6p delete_estimate --confirm — リリース済み
 v4.8.3 P-6p delete_estimate post-release review — リリース済み（documentation-only — P-6p 系列完了）
 v4.8.4 Fragment apply structured errors / API readiness planning — リリース済み（documentation-only）
-v4.8.5 Fragment apply internal structured error model + code registry — リリース済み（`structured_errors` は internal only / JSON 露出は v4.8.6 候補）
+v4.8.5 Fragment apply internal structured error model + code registry — リリース済み
+v4.8.6 Fragment apply JSON structured_errors[] exposure — リリース済み（additive JSON field、`schema_version: 2` 維持）
 ```
+
+Fragment apply JSON structured_errors exposure 正本: [v4.8.6 spec](../specifications/v4.8.6-fragment-apply-json-structured-errors-exposure.md)
 
 Fragment apply internal structured error model 正本: [v4.8.5 spec](../specifications/v4.8.5-fragment-apply-internal-structured-error-model.md)
 

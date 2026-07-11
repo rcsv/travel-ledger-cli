@@ -1,7 +1,7 @@
-//! Fragment apply structured errors — internal model (v4.8.5).
+//! Fragment apply structured errors — internal model (v4.8.5+) / JSON exposure (v4.8.6+).
 //!
-//! Stable codes for API/GUI readiness. Human `errors: Vec<String>` remains the
-//! external contract until v4.8.6+ JSON exposure.
+//! Stable codes for API/GUI readiness. Human `errors: Vec<String>` remains for backward
+//! compatibility; `structured_errors[]` is the additive JSON contract (v4.8.6+).
 
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ pub enum ApplyErrorCode {
 }
 
 impl ApplyErrorCode {
-    #[allow(dead_code)] // unit tests + reserved for v4.8.6 JSON `code` field
+    #[allow(dead_code)] // unit tests; JSON `code` field uses serde rename
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ApplyUnsupportedIntent => "APPLY_UNSUPPORTED_INTENT",
@@ -149,5 +149,24 @@ mod tests {
             ApplyErrorCode::ApplyScopedWriteMultipleRows.as_str(),
             "APPLY_SCOPED_WRITE_MULTIPLE_ROWS"
         );
+    }
+
+    #[test]
+    fn structured_apply_error_serializes_minimal_json_shape() {
+        let error = StructuredApplyError::blocking(
+            ApplyErrorCode::ApplyTargetAmbiguous,
+            ApplyErrorPhase::Gate,
+            "target が曖昧です",
+        )
+        .with_field_path("target.itinerary_reference");
+
+        let value = serde_json::to_value(&error).unwrap();
+        assert_eq!(value["code"], "APPLY_TARGET_AMBIGUOUS");
+        assert_eq!(value["kind"], "blocking");
+        assert_eq!(value["phase"], "gate");
+        assert_eq!(value["message"], "target が曖昧です");
+        assert_eq!(value["field_path"], "target.itinerary_reference");
+        assert!(value.get("intent").is_none());
+        assert!(value.get("target_type").is_none());
     }
 }
