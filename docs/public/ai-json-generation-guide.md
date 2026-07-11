@@ -1,6 +1,6 @@
 # AI JSON generation guide
 
-生成 AI や外部 provider が Travel Ledger 関連 JSON を **安全に** 生成するための作法です。詳細仕様は [v4.7.5 spec](../specifications/v4.7.5-public-examples-ai-json-generation-guide.md)。例は [examples.md](examples.md)。
+生成 AI や外部 provider が Travel Ledger 関連 JSON を **安全に** 生成するための作法です。連携の全体像は [../ai.md](../ai.md)、公開契約は [proposals.md](proposals.md)。詳細仕様は [v4.7.5 spec](../specifications/v4.7.5-public-examples-ai-json-generation-guide.md)。例は [examples.md](examples.md)。
 
 **最重要:** きれいな JSON を作ることより、**未確定情報を正式データに混ぜない** こと。
 
@@ -110,8 +110,8 @@ AI には **gate を bypass する出力をさせない**。`"status": "adopted"
 
 ```text
 schema v8 Trip          → trip validate-export 対象
-Trip Proposal Envelope  → proposal validate / show / inspect 対象（v4.7.9+）— trip validate-export ではない
-Proposal Fragment       → 対象外（将来 fragment validate）
+Trip Proposal Envelope  → proposal validate / show / inspect 対象 — trip validate-export ではない
+Proposal Fragment       → fragment validate 対象 — trip validate-export ではない
 gate 後の Trip          → trip validate-export 対象
 ```
 
@@ -192,6 +192,7 @@ Travel Ledger 用の JSON を生成してください。
 
 ## 関連
 
+- [AI integration guide](../ai.md)
 - [Public examples](examples.md)
 - [schema v8 JSON files](examples/)
 - [Non-normative examples](examples-non-normative/)

@@ -7,7 +7,55 @@
 - Do not change behavior while doing documentation, release, or versioning work.
 - Before editing, inspect the current state and explain the minimal change plan.
 - Prefer small, reviewable diffs.
-- Keep the working tree clean after release work.
+- Do not leave generated artifacts or temporary files behind after release work.
+
+## README editorial policy
+
+The root README is a product entrance, not a changelog, spec dump, or internal planning note.
+
+Keep it focused on:
+
+- What the CLI does
+- Real CLI output
+- Safe Quick Start using `--db`
+- User-facing capabilities
+- Installation
+- Links to deeper docs
+
+Do not reintroduce:
+
+- Destructive Quick Start examples such as `db reset`
+- Long release history tables
+- Unverified commands or output
+- Internal AI/spec/planning material
+- Confusion between Caglla.Travel CLI, `travel-ledger-cli`, Travel Ledger, and `caglla.db`
+
+When adding detail, link out instead of expanding README:
+
+| Topic | Put it here |
+|---|---|
+| Product overview, Quick Start, install | `README.md` |
+| AI coding agent rules | `AGENTS.md` |
+| AI integration concepts | `docs/ai.md` |
+| Proposal / Fragment public contract | `docs/public/proposals.md` |
+| AI JSON generation rules | `docs/public/ai-json-generation-guide.md` |
+| Command options and examples | `docs/command-reference.md` |
+| Internal specs and planning | `docs/specifications/` |
+| Release history | `docs/releases/` |
+| Contributor / release workflow | `CONTRIBUTING.md`, `tools/release/README.md` |
+
+## Naming conventions
+
+Use names consistently. Do not guess or unify without checking the binary, Cargo package, and release workflow.
+
+| Name | Meaning |
+|---|---|
+| **Caglla.Travel CLI** | Product name (`--about` output) |
+| **Travel Ledger** | Public Trip data format (export schema v8) |
+| **travel-ledger-cli** | Repository, Cargo package, release binary, and **command name** |
+| **caglla.db** / **caglla.toml** | Default DB filename and project config filename |
+
+In user-facing docs and Quick Start examples, prefer `travel-ledger-cli`. Do not mix `cargo run --` with installed-binary examples in the same Quick Start block.
 
 ## Scope discipline
 
@@ -33,7 +81,7 @@ For every release bump, check at least:
 
 - Cargo.toml
 - Cargo.lock
-- README.md
+- README.md (Latest Release one-liner only — not a full history table)
 - docs/current-work.md
 - docs/release/index.md
 - docs/specification/index.md

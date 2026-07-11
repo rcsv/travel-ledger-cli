@@ -14,6 +14,14 @@ Caglla.Travel CLI のドキュメント索引です。GitHub トップの [READM
 | [development.md](development.md) | `make check`・CI・プロジェクト構成・サンプル |
 | [github-workflow.md](github-workflow.md) | Issue / Milestone / Project による開発運用 |
 
+## AI integration
+
+| ドキュメント | 内容 |
+|---|---|
+| [ai.md](ai.md) | AI 連携の概念・責務分担・dry-run / apply の流れ |
+| [public/proposals.md](public/proposals.md) | Proposal / Fragment の公開契約 |
+| [public/ai-json-generation-guide.md](public/ai-json-generation-guide.md) | 生成 AI 向け JSON 作法・プロンプト例 |
+
 ## Planning
 
 | ドキュメント | 内容 |

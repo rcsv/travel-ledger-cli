@@ -87,14 +87,7 @@ Trip と Day を軸に Itinerary（行動）を組み立て、Reservation・Note
 
 ### Work with proposals safely
 
-AI や外部ツールからの提案を安全に扱うため、**dry-run → 確認 → apply** の流れを実装しています。
-
-- `proposal validate` / `proposal show` / `proposal inspect` — Envelope ファイルの検証・閲覧
-- `proposal materialize --dry-run` / `--confirm` — Envelope から Trip JSON 候補の生成
-- `fragment validate` — Fragment ファイルの検証
-- `fragment apply --dry-run` / `--confirm` — 既存 Trip への部分適用（preview は DB を変更しない）
-
-詳細: [docs/public/proposals.md](docs/public/proposals.md) · 全コマンド: [docs/command-reference.md](docs/command-reference.md)
+外部 AI やツールからの旅行案は、**dry-run → 確認 → apply** の流れで安全に扱えます。詳細は [docs/ai.md](docs/ai.md) と [docs/public/proposals.md](docs/public/proposals.md) を参照してください。
 
 ## Core Concepts / Data Model
 
@@ -130,8 +123,6 @@ Trip（旅行全体）
 | macOS (Apple Silicon) | `travel-ledger-cli-4.8.6-macos-arm64.tar.gz` | `travel-ledger-cli` |
 | Windows (x86_64) | `travel-ledger-cli-4.8.6-windows-amd64.zip` | `travel-ledger-cli.exe` |
 
-リリース作業の詳細は [CONTRIBUTING.md](CONTRIBUTING.md) と [tools/release/README.md](tools/release/README.md) を参照してください。
-
 ### Build from source
 
 リポジトリをクローンしたあと:
@@ -155,6 +146,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 | [docs/getting-started.md](docs/getting-started.md) | インストール・DB・Quick Start |
 | [docs/command-reference.md](docs/command-reference.md) | 全コマンドのオプションと例 |
 | [docs/data-model.md](docs/data-model.md) | データモデルと設計原則 |
+| [docs/ai.md](docs/ai.md) | AI 連携の概念と責務分担 |
 | [docs/export-import.md](docs/export-import.md) | JSON export/import・`--json` 出力 |
 | [docs/markdown-export.md](docs/markdown-export.md) | Markdown 旅行しおり出力 |
 | [docs/development.md](docs/development.md) | 開発・CI・サンプルデータ |
@@ -172,8 +164,6 @@ cargo run -- --db ./okinawa-demo.db trip list
 | JSON 出力（`--json`） | ツール連携向け。**内部仕様扱い**（Travel Ledger schema v8 の公開契約とは別） |
 | 精算（Settlement） | 未対応 |
 | 類似旅行検索（Similarity） | 将来候補（現 CLI には未実装） |
-
-将来候補は [docs/future-roadmap-planning-memo.md](docs/future-roadmap-planning-memo.md) を参照。現行機能として記載しません。
 
 ## Contributing / Security / License
 

@@ -1,10 +1,6 @@
-# Proposals — outline
+# Proposals — public contract
 
-AI、旅行業者、ブログ、手入力などから来る **まだ採用していない旅行案** の扱いです。
-
-- [v4.7.2](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md) — **Trip Proposal Envelope**（旅行全体の未採用案）
-- [v4.7.3](../specifications/v4.7.3-proposal-fragment-concept-spec.md) — **Proposal Fragment**（既存 Trip への部分提案）
-- [v4.7.4](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md) — **Adoption gate**（採用・validation）
+AI、旅行業者、ブログ、手入力などから来る **まだ採用していない旅行案** の公開契約です。概念の背景や実装上の詳細は [v4.7.2](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)（Envelope）、[v4.7.3](../specifications/v4.7.3-proposal-fragment-concept-spec.md)（Fragment）、[v4.7.4](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md)（gate）を参照してください。
 
 ---
 
@@ -31,7 +27,7 @@ Fragment は「小さい Trip」ではない。
 
 ---
 
-## Adoption gate（v4.7.4）
+## Adoption gate
 
 **Adoption gate** は、Proposal / Fragment を正式データにしてよいか人間が判断する **門番** です。
 
@@ -41,10 +37,10 @@ Gate    → human review / required decisions / validation / warnings
 Output  → new Trip | updated Trip | reject | defer
 ```
 
-| ルート | 操作（概念） | 結果 |
+| ルート | 操作 | 結果 |
 |---|---|---|
 | Trip Proposal Envelope | **materialize** | 新しい schema v8 Trip |
-| Proposal Fragment | **apply**（候補名） | 既存 schema v8 Trip を更新 |
+| Proposal Fragment | **apply** | 既存 schema v8 Trip を更新 |
 
 ### Validation（概要）
 
@@ -54,8 +50,6 @@ non-blocking: 期限切れ、古い情報、time_overlap の可能性 など →
 ```
 
 期限切れ・古さは **warning のみ**。自動破棄や import 禁止にはしない。
-
-詳細: [v4.7.4 spec](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md)
 
 ---
 
@@ -70,8 +64,6 @@ Trip Proposal Envelope
 
 Gate で確定すること（例）: `start_date` / `end_date`、title、Day 構成、Itinerary 採否。
 
-詳細: [v4.7.2 spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
-
 ---
 
 ## Proposal Fragment
@@ -85,8 +77,6 @@ Proposal Fragment
 ```
 
 Gate で確定すること（例）: target Trip / Day / Itinerary、intent、conflict 対応。
-
-詳細: [v4.7.3 spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
 
 ---
 
@@ -111,142 +101,75 @@ expired → warning only — not auto-delete or import block
 
 ---
 
-## Specification roadmap
+## CLI commands
 
-```text
-v4.7.2  Trip Proposal Envelope — 完了
-v4.7.3  Proposal Fragment — 完了
-v4.7.4  materialize gate / validation rules — 完了
-v4.7.5  public examples / AI JSON generation guide — 完了
-v4.7.6  public JSON examples / concept stream post-review — 完了
-v4.7.7  public schema post-review — 完了
-v4.7.8  Proposal implementation planning — 完了
-v4.7.9  Proposal Envelope file validation — 完了
-v4.7.10 Proposal Envelope show / inspect — 完了
-v4.7.11 Proposal Fragment file validation — 完了
-v4.7.12 Public examples validation guard — 完了
-v4.7.13 Proposal storage strategy planning — 完了
-v4.7.14 Public examples guard CI isolation hotfix — 完了
-v4.7.15 Materialize / apply planning — 完了
-v4.7.16 Proposal materialize dry-run (P-6a) — 完了
-v4.7.17 Proposal materialize --confirm (P-6b) — 完了
-v4.7.18 Fragment apply dry-run (P-6c) — 完了
-v4.7.19 Fragment apply --confirm (P-6d) — 完了
-v4.7.20 P-6 post-implementation review — 実装済み
-v4.7.21 Fragment apply add_itinerary field expansion (P-6e) — 実装済み
-v4.7.22 Fragment apply add_note dry-run (P-6f) — 実装済み
-v4.7.23 Fragment apply add_note --confirm (P-6f) — 実装済み
-v4.7.24 Fragment apply add_expense dry-run (P-6g) — 実装済み
-v4.7.25 Fragment apply add_expense --confirm (P-6g) — 実装済み
-v4.7.26 Fragment apply add_reservation dry-run (P-6h) — 実装済み
-v4.7.27 Fragment apply add_reservation --confirm (P-6h) — 実装済み
-v4.7.28 Fragment apply update_itinerary dry-run (P-6i) — 実装済み
-v4.7.29 Fragment apply update_itinerary --confirm (P-6i) — 実装済み
-v4.7.30 P-6j destructive / structural apply policy — planning 済み
-v4.7.31 Fragment apply delete_itinerary dry-run (P-6j) — 実装済み
-v4.7.32 Fragment apply delete_itinerary --confirm (P-6j) — 実装済み
-v4.7.33 P-6j safety / UX hardening for delete_itinerary — 実装済み
-v4.7.34 P-6k reorder_itinerary planning — documentation-only（planning 済み）
-v4.7.35 P-6k reorder_itinerary dry-run（same-day）— 実装済み
-v4.7.36 P-6k reorder_itinerary --confirm（same-day）— 実装済み
-v4.7.37 P-6l cross-day move planning — documentation-only（planning 済み）
-v4.7.38 P-6l move_itinerary dry-run（cross-day）— 実装済み
-v4.7.39 P-6l move_itinerary --confirm（cross-day）— 実装済み
-v4.7.40 P-6m reorder / move post-release review — documentation-only（レビュー済み）
-v4.7.41 P-6n add_estimate planning — documentation-only（planning 済み）
-v4.7.42 P-6n add_estimate dry-run — 実装済み
-v4.7.43 P-6n add_estimate --confirm — 実装済み
-v4.7.45 P-6n Estimate user docs / CLI usage review — documentation-only（レビュー済み）
-v4.7.46 P-6o update_estimate planning — documentation-only（planning 済み）
-v4.7.47 P-6o update_estimate dry-run — リリース済み
-v4.7.48 P-6o update_estimate --confirm — リリース済み
-v4.7.49 P-6o update_estimate post-release review — リリース済み（documentation-only）
-v4.8.0 P-6p delete_estimate planning — リリース済み（documentation-only）
-v4.8.1 P-6p delete_estimate dry-run — リリース済み
-v4.8.2 P-6p delete_estimate --confirm — リリース済み
-v4.8.3 P-6p delete_estimate post-release review — リリース済み（documentation-only — P-6p 系列完了）
-v4.8.4 Fragment apply structured errors / API readiness planning — リリース済み（documentation-only）
-v4.8.5 Fragment apply internal structured error model + code registry — リリース済み
-v4.8.6 Fragment apply JSON structured_errors[] exposure — リリース済み（additive JSON field、`schema_version: 2` 維持）
-```
-
-Fragment apply JSON structured_errors exposure 正本: [v4.8.6 spec](../specifications/v4.8.6-fragment-apply-json-structured-errors-exposure.md)
-
-Fragment apply internal structured error model 正本: [v4.8.5 spec](../specifications/v4.8.5-fragment-apply-internal-structured-error-model.md)
-
-Fragment apply structured errors planning 正本: [v4.8.4 spec](../specifications/v4.8.4-fragment-apply-structured-errors-api-readiness-planning.md)
-
-`add_estimate` の利用者向け契約・CLI 例: [v4.7.45 spec](../specifications/v4.7.45-estimate-documentation-and-cli-usage-review.md)
-
-`update_estimate` planning 正本: [v4.7.46 spec](../specifications/v4.7.46-p6o-update-estimate-planning.md)
-
-`update_estimate` dry-run 実装正本: [v4.7.47 spec](../specifications/v4.7.47-p6o-update-estimate-dry-run.md)
-
-`update_estimate` confirm 実装正本: [v4.7.48 spec](../specifications/v4.7.48-p6o-update-estimate-confirm.md)
-
-`update_estimate` post-release review: [v4.7.49 spec](../specifications/v4.7.49-p6o-update-estimate-post-release-review.md)
-
-`delete_estimate` planning 正本: [v4.8.0 spec](../specifications/v4.8.0-p6p-delete-estimate-planning.md)
-
-`delete_estimate` dry-run 実装正本: [v4.8.1 spec](../specifications/v4.8.1-p6p-delete-estimate-dry-run.md)
-
-`delete_estimate` confirm 実装正本: [v4.8.2 spec](../specifications/v4.8.2-p6p-delete-estimate-confirm.md)
-
-`delete_estimate` post-release review: [v4.8.3 spec](../specifications/v4.8.3-p6p-delete-estimate-post-release-review.md)（P-6p 系列完了）
-
-Implementation plan: [v4.7.8 spec](../specifications/v4.7.8-proposal-implementation-planning.md) · P-6j confirm: v4.7.32 · P-6j delete dry-run: [v4.7.31 spec](../specifications/v4.7.31-p6j-delete-itinerary-dry-run.md) · P-6j policy: [v4.7.30 spec](../specifications/v4.7.30-p6j-destructive-structural-apply-policy.md) · P-6i confirm: [v4.7.29 spec](../specifications/v4.7.29-fragment-apply-update-itinerary-confirm.md) · P-6i dry-run: [v4.7.28 spec](../specifications/v4.7.28-fragment-apply-update-itinerary-dry-run.md) · P-6h confirm: [v4.7.27 spec](../specifications/v4.7.27-fragment-apply-add-reservation-confirm.md) · P-6h dry-run: [v4.7.26 spec](../specifications/v4.7.26-fragment-apply-add-reservation-dry-run.md) · P-6g confirm: [v4.7.25 spec](../specifications/v4.7.25-fragment-apply-add-expense-confirm.md) · P-6g dry-run: [v4.7.24 spec](../specifications/v4.7.24-fragment-apply-add-expense-dry-run.md) · P-6f confirm: [v4.7.23 spec](../specifications/v4.7.23-fragment-apply-add-note-confirm.md) · P-6f dry-run: [v4.7.22 spec](../specifications/v4.7.22-fragment-apply-add-note-dry-run.md) · P-6e: [v4.7.21 spec](../specifications/v4.7.21-fragment-apply-add-itinerary-field-expansion.md) · P-6 review: [v4.7.20 spec](../specifications/v4.7.20-p6-post-implementation-review.md) · P-6d: [v4.7.19 spec](../specifications/v4.7.19-fragment-apply-confirm.md) · P-6c: [v4.7.18 spec](../specifications/v4.7.18-fragment-apply-dry-run.md) · P-6b: [v4.7.17 spec](../specifications/v4.7.17-proposal-materialize-confirm.md) · P-6a: [v4.7.16 spec](../specifications/v4.7.16-proposal-materialize-dry-run.md) · P-5: [v4.7.15 spec](../specifications/v4.7.15-materialize-apply-planning-spec.md)
-
-### CLI（v4.7.9+）
+コマンド名は `travel-ledger-cli` です。
 
 ```bash
-caglla proposal validate <envelope.json>
-caglla proposal validate <envelope.json> --json
-caglla proposal show <envelope.json>      # v4.7.10+
-caglla proposal inspect <envelope.json>     # v4.7.10+
-caglla proposal materialize <envelope.json> --dry-run [--output trip.json] [--start YYYY-MM-DD] [--end YYYY-MM-DD]  # v4.7.16+
-caglla proposal materialize <envelope.json> --confirm [--start YYYY-MM-DD] [--end YYYY-MM-DD]  # v4.7.17+
-caglla fragment validate <fragment.json>    # v4.7.11+
-caglla fragment validate <fragment.json> --json
-caglla fragment apply <fragment.json> --dry-run --trip <id> [--output preview.json]  # v4.7.18+
-caglla fragment apply <fragment.json> --confirm --trip <id>  # v4.7.19+
+travel-ledger-cli proposal validate <envelope.json>
+travel-ledger-cli proposal validate <envelope.json> --json
+travel-ledger-cli proposal show <envelope.json>
+travel-ledger-cli proposal inspect <envelope.json>
+travel-ledger-cli proposal materialize <envelope.json> --dry-run [--output trip.json] [--start YYYY-MM-DD] [--end YYYY-MM-DD]
+travel-ledger-cli proposal materialize <envelope.json> --confirm [--start YYYY-MM-DD] [--end YYYY-MM-DD]
+travel-ledger-cli fragment validate <fragment.json>
+travel-ledger-cli fragment validate <fragment.json> --json
+travel-ledger-cli fragment apply <fragment.json> --dry-run --trip <id> [--output preview.json]
+travel-ledger-cli fragment apply <fragment.json> --confirm --trip <id>
 ```
 
-`fragment apply --dry-run`: **apply preview / apply simulation** — **read-only DB access** で既存 Trip を読み取り、Trip / Day / Itinerary / Expense / Reservation は変更しない。v4.7.26+ で `add_reservation`（itinerary target）preview もサポート。v4.7.31+ で `delete_itinerary`（itinerary target、childless のみ preview 成功）もサポート。v4.7.42+ で `add_estimate`、**v4.7.47+ で `update_estimate`**、**v4.8.1+ で `delete_estimate`**（itinerary target、削除 preview）もサポート。preview Trip JSON を `trip diff` 等で扱う場合は **`--output`** を使う。`--json` は gate report のみ。`fragment validate` とは異なり file-only ではない。
+### dry-run と confirm
 
-`fragment apply --confirm`: gate 通過後に **add_itinerary**（day target）、**add_note**（trip/day/itinerary）、**add_expense**（itinerary target）、**add_estimate**（itinerary target）、**add_reservation**（itinerary target）、**update_itinerary**（itinerary target）、**update_estimate**（itinerary target、v4.7.48+）、**delete_itinerary**（itinerary target、row-only delete）、**delete_estimate**（itinerary target、scoped DELETE、v4.8.2+）を DB へ反映。`--dry-run` と `--confirm` は併用不可（dry-run means no Trip domain data side effects）。
+| コマンド | 意味 | DB への影響 |
+|---|---|---|
+| `proposal materialize --dry-run` | Trip JSON 候補の preview | なし |
+| `proposal materialize --confirm` | 新規 Trip を DB に保存 | あり |
+| `fragment apply --dry-run` | 既存 Trip 更新の preview（read-only DB access） | なし |
+| `fragment apply --confirm` | gate 通過後に既存 Trip を更新 | あり |
 
-`proposal materialize --dry-run` / `--confirm`: Trip JSON 候補または DB 保存。`--dry-run` と `--confirm` は併用不可（dry-run means no side effects）。
+`--dry-run` と `--confirm` は併用できません。
 
-Trip Proposal Envelope file の validation / 概要 / 詳細確認。**`trip validate-export` とは別責務** — schema v8 Trip には使わない。
+`fragment apply --confirm` で反映できる intent には、itinerary への add / update / delete、note・expense・estimate・reservation の追加などがあります。対応範囲の詳細は [command-reference.md](../command-reference.md) を参照してください。
 
-Proposal Fragment file の validation。**Envelope とも Trip export とも別責務** — 既存 Trip への部分提案の入口。
+### validate の責務
 
-Authoring 例: [examples/](examples/) · [examples-non-normative/](examples-non-normative/) · [examples.md](examples.md) · [ai-json-generation-guide.md](ai-json-generation-guide.md)
+| 対象 | コマンド | 備考 |
+|---|---|---|
+| schema v8 Trip | `trip validate-export` | 採用済み Trip JSON の検証 |
+| Trip Proposal Envelope | `proposal validate` | `trip validate-export` とは別責務 |
+| Proposal Fragment | `fragment validate` | Envelope / Trip export とも別責務 |
 
 ---
 
-## Out of scope (still)
+## Authoring and examples
 
-```text
-fragment show / inspect
-materialize / apply commands（P-6 以降）
-proposal / fragment import / list（P-4+）
-JSON schemas 確定
-GUI for proposal review
-```
+- [examples/](examples/) — schema v8 Trip JSON（normative）
+- [examples-non-normative/](examples-non-normative/) — Envelope / Fragment 概念例
+- [examples.md](examples.md) — narrative と validate-export の読み方
+- [ai-json-generation-guide.md](ai-json-generation-guide.md) — 生成 AI 向け作法
+- [../ai.md](../ai.md) — AI 連携の概念と責務分担
+
+---
+
+## Not in public contract yet
+
+以下は現時点の公開契約の外です。将来追加の候補であり、現行 CLI にあるとは限りません。
+
+- `fragment show` / `fragment inspect`
+- `proposal import` / `fragment import` / 一覧コマンド
+- Proposal / Fragment の確定 JSON Schema 公開
+- GUI による proposal review
+
+実装メモ・バージョン別の詳細仕様は [specifications/](../specifications/) と [releases/](../releases/) を参照してください。
 
 ---
 
 ## Related
 
-- [Public JSON examples](examples/) — schema v8 Trip files
-- [Non-normative examples](examples-non-normative/) — Envelope / Fragment
-- [Examples](examples.md) — narrative と validate-export
-- [AI JSON generation guide](ai-json-generation-guide.md) — 生成 AI 向け作法
 - [Public README](README.md)
 - [Travel Ledger](travel-ledger.md)
 - [Schema overview](schema.md)
-- [v4.7.8 Implementation planning spec](../specifications/v4.7.8-proposal-implementation-planning.md)
-- [v4.7.4 Materialize gate spec](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md)
-- [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
+- [AI integration guide](../ai.md)
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
+- [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
+- [v4.7.4 Materialize gate spec](../specifications/v4.7.4-materialize-gate-concept-validation-rules.md)
