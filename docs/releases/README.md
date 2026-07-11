@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.8.4 | Fragment apply structured errors / API readiness planning (documentation-only) | [v4.8.4-notes.md](v4.8.4-notes.md) |
 | v4.8.3 | P-6p delete_estimate post-release review (documentation-only) | [v4.8.3-notes.md](v4.8.3-notes.md) |
 | v4.8.2 | P-6p delete_estimate --confirm | [v4.8.2-notes.md](v4.8.2-notes.md) |
 | v4.8.1 | P-6p delete_estimate dry-run | [v4.8.1-notes.md](v4.8.1-notes.md) |
