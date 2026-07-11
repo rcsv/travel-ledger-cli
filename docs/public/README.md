@@ -50,7 +50,7 @@ AIが提案し、人が選び、旅の記録として残る。
 Travel Ledger schema
   └─ 公式 Trip データ契約（現時点: export schema v8）
 
-travel-ledger-cli（本リポジトリ）
+travel-ledger-cli（本リポジトリ — 実行コマンド名も `travel-ledger-cli`）
   ├─ reference implementation
   ├─ validator      trip validate-export
   ├─ converter      trip import / export / diff
