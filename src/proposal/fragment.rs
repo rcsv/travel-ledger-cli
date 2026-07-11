@@ -13,6 +13,7 @@ const VALID_INTENTS: &[&str] = &[
     "add_expense",
     "add_estimate",
     "update_estimate",
+    "delete_estimate",
     "add_reservation",
     "update_itinerary",
     "delete_itinerary",
@@ -270,7 +271,7 @@ fn validate_fragment_fields(
         None => report.errors.push("fragment.intent が必要です".to_string()),
         Some(value) if !VALID_INTENTS.contains(&value.as_str()) => {
             report.errors.push(format!(
-                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_estimate / update_estimate / add_reservation / update_itinerary / delete_itinerary / reorder_itinerary / move_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
+                "fragment.intent が想定範囲外です: {value}（add / add_note / add_expense / add_estimate / update_estimate / delete_estimate / add_reservation / update_itinerary / delete_itinerary / reorder_itinerary / move_itinerary / enrich / replace_candidate / reorder_hint / warning のいずれか）"
             ));
         }
         _ => {}
@@ -307,6 +308,9 @@ fn fragment_body_nearly_empty(
     }
     if intent == Some("delete_itinerary") {
         return false;
+    }
+    if intent == Some("delete_estimate") {
+        return delete_estimate_body_nearly_empty(fragment);
     }
     let has_notes = non_empty_string(fragment.get("notes")).is_some();
     let candidate = fragment.get("candidate_content");
@@ -374,6 +378,31 @@ fn is_update_estimate_field_key(key: &str) -> bool {
             | "expected_title"
             | "expected_note"
             | "expected_sort_order"
+    )
+}
+
+fn delete_estimate_body_nearly_empty(fragment: &serde_json::Map<String, Value>) -> bool {
+    let Some(candidate) = fragment.get("candidate_content").and_then(Value::as_object) else {
+        return true;
+    };
+    if candidate.is_empty() {
+        return true;
+    }
+    candidate.get("estimate_id").is_none()
+        && !candidate
+            .keys()
+            .any(|key| is_delete_estimate_field_key(key.as_str()))
+}
+
+fn is_delete_estimate_field_key(key: &str) -> bool {
+    matches!(
+        key,
+        "expected_amount"
+            | "expected_currency"
+            | "expected_title"
+            | "expected_note"
+            | "expected_sort_order"
+            | "expected_updated_at"
     )
 }
 

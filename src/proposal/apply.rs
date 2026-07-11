@@ -56,6 +56,21 @@ pub struct FragmentApplyEstimateUpdatePreview {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FragmentApplyEstimateDeletePreview {
+    pub target_itinerary_id: i64,
+    pub target_itinerary_title: String,
+    pub target_estimate_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub amount: i64,
+    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    pub sort_order: i64,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FragmentApplyPreviewSummary {
     pub intent: String,
     pub action: String,
@@ -83,6 +98,8 @@ pub struct FragmentApplyPreviewSummary {
     pub estimate_update_preview: Option<FragmentApplyEstimateUpdatePreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub estimate_field_changes: Option<Vec<FragmentApplyEstimateFieldChange>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimate_delete_preview: Option<FragmentApplyEstimateDeletePreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reservations_before: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -226,6 +243,8 @@ pub struct FragmentApplyDryRunReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_itinerary_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub deleted_estimate_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reordered_itineraries: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub moved_itinerary_id: Option<i64>,
@@ -257,6 +276,7 @@ impl FragmentApplyDryRunReport {
             updated_estimate_id: None,
             updated_itinerary_id: None,
             deleted_itinerary_id: None,
+            deleted_estimate_id: None,
             reordered_itineraries: None,
             moved_itinerary_id: None,
             moved_itinerary_updated_rows: None,
@@ -2711,6 +2731,7 @@ fn apply_delete_itinerary_preview(
         estimate_preview: None,
         estimate_update_preview: None,
         estimate_field_changes: None,
+        estimate_delete_preview: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -2907,6 +2928,7 @@ fn apply_reorder_itinerary_preview(
         estimate_preview: None,
         estimate_update_preview: None,
         estimate_field_changes: None,
+        estimate_delete_preview: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -3004,6 +3026,7 @@ fn apply_move_itinerary_preview(
         estimate_preview: None,
         estimate_update_preview: None,
         estimate_field_changes: None,
+        estimate_delete_preview: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -4916,6 +4939,137 @@ fn detect_update_estimate_baseline_conflicts(
     Ok(())
 }
 
+fn reject_explicit_null_delete_estimate_keys(candidate: &Map<String, Value>) -> Result<(), String> {
+    for key in [
+        "estimate_id",
+        "expected_amount",
+        "expected_currency",
+        "expected_title",
+        "expected_note",
+        "expected_sort_order",
+        "expected_updated_at",
+    ] {
+        reject_explicit_null_candidate_field(candidate, key)?;
+    }
+    Ok(())
+}
+
+fn reject_delete_estimate_mutation_fields(candidate: &Map<String, Value>) -> Result<(), String> {
+    for key in [
+        "amount",
+        "currency",
+        "title",
+        "note",
+        "sort_order",
+        "clear_title",
+        "clear_note",
+        "clear_amount",
+        "clear_currency",
+        "clear_sort_order",
+    ] {
+        if candidate.contains_key(key) {
+            return Err(format!(
+                "candidate_content.{key} は delete_estimate では指定できません"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn warn_unsupported_delete_estimate_candidate_keys(
+    candidate: &Map<String, Value>,
+    report: &mut FragmentApplyDryRunReport,
+) {
+    const SUPPORTED: &[&str] = &[
+        "estimate_id",
+        "expected_amount",
+        "expected_currency",
+        "expected_title",
+        "expected_note",
+        "expected_sort_order",
+        "expected_updated_at",
+    ];
+    for key in candidate.keys() {
+        if SUPPORTED.contains(&key.as_str()) {
+            continue;
+        }
+        push_unique(
+            &mut report.warnings,
+            format!("unsupported_field: candidate_content.{key} は delete_estimate では未反映です"),
+        );
+    }
+}
+
+fn parse_delete_estimate_fields(
+    fragment: &Map<String, Value>,
+    report: Option<&mut FragmentApplyDryRunReport>,
+) -> Result<i64, String> {
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    if let Some(report) = report {
+        warn_unsupported_delete_estimate_candidate_keys(candidate, report);
+    }
+
+    reject_explicit_null_delete_estimate_keys(candidate)?;
+    reject_delete_estimate_mutation_fields(candidate)?;
+
+    let estimate_id = parse_estimate_id_field(candidate)?;
+    if estimate_id <= 0 {
+        return Err("candidate_content.estimate_id は正の整数である必要があります".to_string());
+    }
+    Ok(estimate_id)
+}
+
+fn detect_delete_estimate_baseline_conflicts(
+    candidate: &Map<String, Value>,
+    current: &Estimate,
+) -> Result<(), String> {
+    let checks = [
+        ("expected_amount", current.amount.to_string()),
+        ("expected_currency", current.currency.clone()),
+        ("expected_title", fmt_diff_option_str(&current.title)),
+        ("expected_note", fmt_diff_option_str(&current.note)),
+        (
+            "expected_sort_order",
+            fmt_diff_option_i64(Some(current.sort_order)),
+        ),
+        ("expected_updated_at", current.updated_at.clone()),
+    ];
+
+    for (expected_key, current_value) in checks {
+        let Some(expected_text) = non_empty_string(candidate.get(expected_key)) else {
+            continue;
+        };
+        if expected_text != current_value {
+            return Err(format!(
+                "baseline mismatch: {expected_key} ({expected_text}) が現行値 ({current_value}) と一致しません"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn build_estimate_delete_preview(
+    target_itinerary_id: i64,
+    target_itinerary_title: String,
+    current: &Estimate,
+) -> FragmentApplyEstimateDeletePreview {
+    FragmentApplyEstimateDeletePreview {
+        target_itinerary_id,
+        target_itinerary_title,
+        target_estimate_id: current.id,
+        title: current.title.clone(),
+        amount: current.amount,
+        currency: current.currency.clone(),
+        note: current.note.clone(),
+        sort_order: current.sort_order,
+        updated_at: current.updated_at.clone(),
+    }
+}
+
 fn estimate_display_value_for_field(field: &str, estimate: &Estimate) -> String {
     match field {
         "amount" => estimate.amount.to_string(),
@@ -5079,6 +5233,102 @@ fn apply_update_estimate_preview(
         reorder_preview: None,
         move_preview: None,
         delete_preview: None,
+        estimate_delete_preview: None,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_delete_estimate_preview(
+    conn: &Connection,
+    export: &mut TripExportV3,
+    resolved: &ResolvedApplyTarget,
+    fragment: &Map<String, Value>,
+    intent: &str,
+    itineraries_before: usize,
+    estimates_before: usize,
+    report: &mut FragmentApplyDryRunReport,
+) -> Result<FragmentApplyPreviewSummary, String> {
+    if resolved.target_type != "itinerary" {
+        return Err(
+            "delete_estimate は itinerary target のみサポートしています（trip / day は未対応）"
+                .to_string(),
+        );
+    }
+    if resolved.resolution == "ambiguous" {
+        return Err("target が曖昧です — apply preview を続行しません".to_string());
+    }
+
+    let day_number = resolved.day_number.ok_or_else(|| {
+        "delete_estimate の Itinerary target が解決されていません（day）".to_string()
+    })?;
+    let itinerary_sort_order = resolved.itinerary_sort_order.ok_or_else(|| {
+        "delete_estimate の Itinerary target が解決されていません（sort_order）".to_string()
+    })?;
+    let target_itinerary_id =
+        lookup_itinerary_db_id_from_resolved(conn, resolved.trip_id, resolved)?;
+    let target_itinerary_title = resolved.itinerary_title.clone().ok_or_else(|| {
+        "delete_estimate の Itinerary target が解決されていません（title）".to_string()
+    })?;
+
+    let estimate_id = parse_delete_estimate_fields(fragment, Some(report))?;
+    let candidate = fragment
+        .get("candidate_content")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "candidate_content object が必要です".to_string())?;
+
+    let current =
+        get_estimate(conn, estimate_id).map_err(|error| format!("Estimate not found: {error}"))?;
+    if current.itinerary_id != target_itinerary_id {
+        return Err(format!(
+            "Estimate {id} は Itinerary {target_itinerary_id} 配下ではありません",
+            id = estimate_id
+        ));
+    }
+
+    detect_delete_estimate_baseline_conflicts(candidate, &current)?;
+    let delete_preview =
+        build_estimate_delete_preview(target_itinerary_id, target_itinerary_title, &current);
+
+    push_unique(
+        &mut report.warnings,
+        "delete_estimate は hard delete です — confirm 成功後の undo は保証されません".to_string(),
+    );
+
+    ensure_day_in_range(export, day_number)?;
+    let estimate_index = find_estimate_index_in_itinerary(conn, target_itinerary_id, estimate_id)?;
+    let day = find_or_create_day(export, day_number);
+    let itinerary = find_itinerary_mut_in_export_day(day, itinerary_sort_order).ok_or_else(|| {
+        format!(
+            "preview 内に itinerary (day {day_number}, sort_order {itinerary_sort_order}) が見つかりません"
+        )
+    })?;
+    itinerary.estimates.remove(estimate_index);
+    let estimates_after = count_estimates(export);
+
+    Ok(FragmentApplyPreviewSummary {
+        intent: intent.to_string(),
+        action: "delete_estimate".to_string(),
+        candidate_title: current.title.clone(),
+        itineraries_before,
+        itineraries_after: itineraries_before,
+        notes_before: None,
+        notes_after: None,
+        expenses_before: None,
+        expenses_after: None,
+        expense_preview: None,
+        estimates_before: Some(estimates_before),
+        estimates_after: Some(estimates_after),
+        estimate_preview: None,
+        estimate_update_preview: None,
+        estimate_field_changes: None,
+        estimate_delete_preview: Some(delete_preview),
+        reservations_before: None,
+        reservations_after: None,
+        reservation_preview: None,
+        itinerary_field_changes: None,
+        reorder_preview: None,
+        move_preview: None,
+        delete_preview: None,
     })
 }
 
@@ -5152,6 +5402,7 @@ fn apply_update_itinerary_preview(
         estimate_preview: None,
         estimate_update_preview: None,
         estimate_field_changes: None,
+        estimate_delete_preview: None,
         reservations_before: None,
         reservations_after: None,
         reservation_preview: None,
@@ -5399,6 +5650,7 @@ fn simulate_apply_preview(
                 estimate_preview: None,
                 estimate_update_preview: None,
                 estimate_field_changes: None,
+                estimate_delete_preview: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -5429,6 +5681,7 @@ fn simulate_apply_preview(
                 estimate_preview: None,
                 estimate_update_preview: None,
                 estimate_field_changes: None,
+                estimate_delete_preview: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -5485,6 +5738,7 @@ fn simulate_apply_preview(
                 estimate_preview: None,
                 estimate_update_preview: None,
                 estimate_field_changes: None,
+                estimate_delete_preview: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -5548,6 +5802,7 @@ fn simulate_apply_preview(
                 }),
                 estimate_update_preview: None,
                 estimate_field_changes: None,
+                estimate_delete_preview: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -5599,6 +5854,7 @@ fn simulate_apply_preview(
                 estimate_preview: None,
                 estimate_update_preview: None,
                 estimate_field_changes: None,
+                estimate_delete_preview: None,
                 reservations_before: Some(reservations_before),
                 reservations_after: Some(reservations_after),
                 reservation_preview: Some(FragmentApplyReservationPreview {
@@ -5625,6 +5881,16 @@ fn simulate_apply_preview(
             report,
         ),
         "update_estimate" => apply_update_estimate_preview(
+            conn,
+            export,
+            resolved,
+            fragment,
+            intent,
+            itineraries_before,
+            estimates_before,
+            report,
+        ),
+        "delete_estimate" => apply_delete_estimate_preview(
             conn,
             export,
             resolved,
@@ -5680,6 +5946,7 @@ fn simulate_apply_preview(
                 estimate_preview: None,
                 estimate_update_preview: None,
                 estimate_field_changes: None,
+                estimate_delete_preview: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -5725,6 +5992,7 @@ fn simulate_apply_preview(
             estimate_preview: None,
             estimate_update_preview: None,
             estimate_field_changes: None,
+            estimate_delete_preview: None,
             reservations_before: None,
             reservations_after: None,
             reservation_preview: None,
@@ -5753,6 +6021,7 @@ fn simulate_apply_preview(
                 estimate_preview: None,
                 estimate_update_preview: None,
                 estimate_field_changes: None,
+                estimate_delete_preview: None,
                 reservations_before: None,
                 reservations_after: None,
                 reservation_preview: None,
@@ -6004,6 +6273,35 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
             println!(
                 "  delete_preview.blocking_children.notes: {}",
                 delete_preview.blocking_children.notes
+            );
+        }
+        if let Some(estimate_delete_preview) = &preview.estimate_delete_preview {
+            println!(
+                "  estimate_delete_preview.target_itinerary_id: {}",
+                estimate_delete_preview.target_itinerary_id
+            );
+            println!(
+                "  estimate_delete_preview.target_estimate_id: {}",
+                estimate_delete_preview.target_estimate_id
+            );
+            if let Some(title) = &estimate_delete_preview.title {
+                println!("  estimate_delete_preview.title: {title}");
+            }
+            println!(
+                "  estimate_delete_preview.amount: {}",
+                estimate_delete_preview.amount
+            );
+            println!(
+                "  estimate_delete_preview.currency: {}",
+                estimate_delete_preview.currency
+            );
+            println!(
+                "  estimate_delete_preview.sort_order: {}",
+                estimate_delete_preview.sort_order
+            );
+            println!(
+                "  estimate_delete_preview.updated_at: {}",
+                estimate_delete_preview.updated_at
             );
         }
     }
@@ -7098,5 +7396,202 @@ mod tests {
         let error = verify_updated_estimate_matches_proposed(&stored, 10, &proposed).unwrap_err();
         assert!(error.contains("amount"));
         assert!(error.contains("DB 更新しません"));
+    }
+
+    const DELETE_ESTIMATE_FRAGMENT: &str = r#"{
+      "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+      "target": {
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      },
+      "fragment": {
+        "intent": "delete_estimate",
+        "candidate_content": {
+          "estimate_id": 1
+        }
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+    #[test]
+    fn delete_estimate_dry_run_preview_removes_estimate_without_db_write() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let before = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", DELETE_ESTIMATE_FRAGMENT, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        assert!(report.deleted_estimate_id.is_none());
+        let preview = report.preview.expect("preview summary");
+        assert_eq!(preview.action, "delete_estimate");
+        assert_eq!(preview.estimates_before, Some(1));
+        assert_eq!(preview.estimates_after, Some(0));
+        let delete_preview = preview
+            .estimate_delete_preview
+            .expect("estimate_delete_preview");
+        assert_eq!(delete_preview.target_itinerary_id, itinerary_id);
+        assert_eq!(delete_preview.target_estimate_id, estimate_id);
+        assert_eq!(delete_preview.title, before.title);
+        assert_eq!(delete_preview.amount, before.amount);
+        assert_eq!(delete_preview.currency, before.currency);
+        assert_eq!(delete_preview.note, before.note);
+        assert_eq!(delete_preview.sort_order, before.sort_order);
+        assert_eq!(delete_preview.updated_at, before.updated_at);
+        assert!(report
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("hard delete")));
+
+        let preview_json = preview_json.expect("preview json");
+        let export: TripExportV3 = serde_json::from_str(&preview_json).unwrap();
+        assert_eq!(count_estimates(&export), 0);
+
+        let after = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+        assert_eq!(after, before);
+    }
+
+    #[test]
+    fn delete_estimate_not_found_blocks_preview() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", DELETE_ESTIMATE_FRAGMENT, trip_id);
+        assert!(!report.valid);
+        assert!(preview_json.is_none());
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("Estimate not found")));
+    }
+
+    #[test]
+    fn delete_estimate_cross_itinerary_blocks_preview() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let second_itinerary_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Second stop",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let foreign_estimate_id = crate::estimate::add_estimate(
+            &conn,
+            second_itinerary_id,
+            "5000",
+            "JPY",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let before = crate::estimate::get_estimate(&conn, foreign_estimate_id).unwrap();
+
+        let fragment = format!(
+            r#"{{
+      "metadata": {{ "created_at": "2026-03-15T14:00:00Z", "source": "manual" }},
+      "target": {{
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      }},
+      "fragment": {{
+        "intent": "delete_estimate",
+        "candidate_content": {{
+          "estimate_id": {foreign_estimate_id}
+        }}
+      }},
+      "adoption_hints": {{ "required_decisions": [] }}
+    }}"#
+        );
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", &fragment, trip_id);
+        assert!(!report.valid);
+        assert!(preview_json.is_none());
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("配下ではありません")));
+        assert_eq!(
+            crate::estimate::get_estimate(&conn, foreign_estimate_id).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn delete_estimate_mutation_field_blocks_preview() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, _itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let before = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+        let fragment = r#"{
+      "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+      "target": {
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      },
+      "fragment": {
+        "intent": "delete_estimate",
+        "candidate_content": {
+          "estimate_id": 1,
+          "amount": 15000
+        }
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", fragment, trip_id);
+        assert!(!report.valid);
+        assert!(preview_json.is_none());
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("指定できません")));
+        assert_eq!(
+            crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
+            before
+        );
     }
 }

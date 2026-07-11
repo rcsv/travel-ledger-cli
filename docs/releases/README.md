@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.8.1 | P-6p delete_estimate dry-run | [v4.8.1-notes.md](v4.8.1-notes.md) |
 | v4.8.0 | P-6p delete_estimate Proposal Fragment planning (documentation-only) | [v4.8.0-notes.md](v4.8.0-notes.md) |
 | v4.7.49 | P-6o update_estimate post-release review (documentation-only) | [v4.7.49-notes.md](v4.7.49-notes.md) |
 | v4.7.48 | P-6o update_estimate --confirm | [v4.7.48-notes.md](v4.7.48-notes.md) |

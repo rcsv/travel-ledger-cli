@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "fragment_id": "frag-delete-estimate-ambiguous-target",
+    "created_at": "2026-03-15T14:00:00Z",
+    "source": "manual",
+    "provider": "fixture"
+  },
+  "target": {
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": 2
+  },
+  "fragment": {
+    "intent": "delete_estimate",
+    "candidate_content": {
+      "estimate_id": 1
+    }
+  },
+  "adoption_hints": {
+    "required_decisions": []
+  }
+}
