@@ -3,6 +3,7 @@
 //! Separate from schema v8 Trip export validation (`trip validate-export`).
 
 pub mod apply;
+mod apply_errors;
 pub mod envelope;
 pub mod fragment;
 pub mod materialize;

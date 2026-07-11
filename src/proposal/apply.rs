@@ -16,6 +16,7 @@ use crate::output::json::print_json;
 use crate::reservation::{validate_provider_name, validate_reservation_type};
 use crate::trip::{analyze_trip_export_json, build_trip_export_v3, get_trip};
 
+use super::apply_errors::{ApplyErrorCode, ApplyErrorPhase, StructuredApplyError};
 use super::fragment::analyze_proposal_fragment_json;
 
 pub const FRAGMENT_APPLY_REPORT_SCHEMA_VERSION: i32 = 2;
@@ -220,6 +221,8 @@ pub struct FragmentApplyDryRunReport {
     pub trip_export_valid: bool,
     pub trip_id: i64,
     pub errors: Vec<String>,
+    #[serde(skip)]
+    pub(crate) structured_errors: Vec<StructuredApplyError>,
     pub warnings: Vec<String>,
     pub required_decisions: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -264,6 +267,7 @@ impl FragmentApplyDryRunReport {
             trip_export_valid: false,
             trip_id,
             errors: Vec::new(),
+            structured_errors: Vec::new(),
             warnings: Vec::new(),
             required_decisions: Vec::new(),
             resolved_target: None,
@@ -282,6 +286,26 @@ impl FragmentApplyDryRunReport {
             moved_itinerary_updated_rows: None,
         }
     }
+}
+
+fn push_structured_error(report: &mut FragmentApplyDryRunReport, error: StructuredApplyError) {
+    let message = error.message.clone();
+    report.structured_errors.push(error);
+    push_unique(&mut report.errors, message);
+}
+
+fn push_legacy_error_if_missing(report: &mut FragmentApplyDryRunReport, message: String) {
+    if !report.errors.iter().any(|existing| existing == &message) {
+        report.errors.push(message);
+    }
+}
+
+fn fail_simulate(
+    report: &mut FragmentApplyDryRunReport,
+    error: StructuredApplyError,
+) -> Result<FragmentApplyPreviewSummary, String> {
+    push_structured_error(report, error.clone());
+    Err(error.message)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -827,7 +851,7 @@ fn fragment_apply_gate_json(
     ) {
         Ok(summary) => summary,
         Err(message) => {
-            report.errors.push(message);
+            push_legacy_error_if_missing(&mut report, message);
             return (report, None);
         }
     };
@@ -867,9 +891,13 @@ fn fragment_apply_gate_json(
     }
 
     if !report.required_decisions.is_empty() {
-        report.errors.push(
-            "required decisions が未解決です — apply preview は valid confirm candidate ではありません"
-                .to_string(),
+        push_structured_error(
+            &mut report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyRequiredDecision,
+                ApplyErrorPhase::Gate,
+                "required decisions が未解決です — apply preview は valid confirm candidate ではありません",
+            ),
         );
         report.preview = Some(preview_summary);
         return (report, Some(preview_json));
@@ -887,15 +915,25 @@ fn validate_confirm_scope(
     report: &mut FragmentApplyDryRunReport,
 ) -> bool {
     if resolved.resolution == "ambiguous" {
-        report
-            .errors
-            .push("target が曖昧です — DB 更新しません".to_string());
+        push_structured_error(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyTargetAmbiguous,
+                ApplyErrorPhase::ConfirmScope,
+                "target が曖昧です — DB 更新しません",
+            ),
+        );
         return false;
     }
     if !report.required_decisions.is_empty() {
-        report
-            .errors
-            .push("required decisions が未解決です — DB 更新しません".to_string());
+        push_structured_error(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyRequiredDecision,
+                ApplyErrorPhase::ConfirmScope,
+                "required decisions が未解決です — DB 更新しません",
+            ),
+        );
         return false;
     }
 
@@ -922,10 +960,20 @@ fn validate_confirm_scope(
         }
         ("add_expense", "add_expense") => {
             if resolved.target_type != "itinerary" {
-                report.errors.push(format!(
+                let message = format!(
                     "v4.7.25 --confirm は itinerary target + add_expense のみサポートしています（現在: target_type={}）",
                     resolved.target_type
-                ));
+                );
+                push_structured_error(
+                    report,
+                    StructuredApplyError::blocking(
+                        ApplyErrorCode::ApplyUnsupportedTarget,
+                        ApplyErrorPhase::ConfirmScope,
+                        message,
+                    )
+                    .with_intent("add_expense")
+                    .with_target_type(&resolved.target_type),
+                );
                 return false;
             }
             true
@@ -994,10 +1042,20 @@ fn validate_confirm_scope(
         }
         ("delete_estimate", "delete_estimate") => {
             if resolved.target_type != "itinerary" {
-                report.errors.push(format!(
+                let message = format!(
                     "v4.8.2 --confirm は itinerary target + delete_estimate のみサポートしています（現在: target_type={}）",
                     resolved.target_type
-                ));
+                );
+                push_structured_error(
+                    report,
+                    StructuredApplyError::blocking(
+                        ApplyErrorCode::ApplyUnsupportedTarget,
+                        ApplyErrorPhase::ConfirmScope,
+                        message,
+                    )
+                    .with_intent("delete_estimate")
+                    .with_target_type(&resolved.target_type),
+                );
                 return false;
             }
             if preview.estimate_delete_preview.is_none() {
@@ -1057,10 +1115,19 @@ fn validate_confirm_scope(
             true
         }
         _ => {
-            report.errors.push(format!(
-                "v4.8.2 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、add_estimate、update_itinerary、update_estimate、delete_estimate、delete_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={}）",
+            let message = format!(
+                "v4.8.2 --confirm は intent add (add_itinerary)、add_note、add_expense、add_reservation、add_estimate、update_itinerary、update_estimate、delete_estimate、delete_itinerary、または将来の confirm 対象 intent のみサポートしています（現在: intent={intent}, action={})",
                 preview.action
-            ));
+            );
+            push_structured_error(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyUnsupportedIntent,
+                    ApplyErrorPhase::ConfirmScope,
+                    message,
+                )
+                .with_intent(intent),
+            );
             false
         }
     }
@@ -2658,17 +2725,27 @@ fn resolve_apply_target(
     let target_type = match non_empty_string(target.get("target_type")) {
         Some(kind) => kind,
         None => {
-            report
-                .errors
-                .push("target.target_type が必要です".to_string());
+            push_structured_error(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyFieldInvalid,
+                    ApplyErrorPhase::Gate,
+                    "target.target_type が必要です",
+                )
+                .with_field_path("target.target_type"),
+            );
             return Err(());
         }
     };
 
     if target_type == "unresolved" {
-        report.errors.push(
-            "target が unresolved です — apply preview には Day / Itinerary の解決が必要です"
-                .to_string(),
+        push_structured_error(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyTargetUnresolved,
+                ApplyErrorPhase::Gate,
+                "target が unresolved です — apply preview には Day / Itinerary の解決が必要です",
+            ),
         );
         return Err(());
     }
@@ -2691,9 +2768,17 @@ fn resolve_apply_target(
                 None => return Err(()),
             };
             if find_day_by_trip_and_day_number(conn, trip_id, day_number).is_err() {
-                report.errors.push(format!(
-                    "target day_reference ({day_number}) が Trip {trip_id} に存在しません"
-                ));
+                let message =
+                    format!("target day_reference ({day_number}) が Trip {trip_id} に存在しません");
+                push_structured_error(
+                    report,
+                    StructuredApplyError::blocking(
+                        ApplyErrorCode::ApplyEntityNotFound,
+                        ApplyErrorPhase::Gate,
+                        message,
+                    )
+                    .with_field_path("target.day_reference"),
+                );
                 return Err(());
             }
             resolved.day_number = Some(day_number);
@@ -2705,9 +2790,17 @@ fn resolve_apply_target(
                 None => return Err(()),
             };
             if find_day_by_trip_and_day_number(conn, trip_id, day_number).is_err() {
-                report.errors.push(format!(
-                    "target day_reference ({day_number}) が Trip {trip_id} に存在しません"
-                ));
+                let message =
+                    format!("target day_reference ({day_number}) が Trip {trip_id} に存在しません");
+                push_structured_error(
+                    report,
+                    StructuredApplyError::blocking(
+                        ApplyErrorCode::ApplyEntityNotFound,
+                        ApplyErrorPhase::Gate,
+                        message,
+                    )
+                    .with_field_path("target.day_reference"),
+                );
                 return Err(());
             }
             let items =
@@ -2730,9 +2823,18 @@ fn resolve_apply_target(
                         let id_item = id_matches[0];
                         let sort_item = sort_matches[0];
                         if id_item.id != sort_item.id {
-                            report.errors.push(format!(
+                            let message = format!(
                                 "itinerary_reference (数値 {v}) が itinerary_id と sort_order の両方に一致し曖昧です"
-                            ));
+                            );
+                            push_structured_error(
+                                report,
+                                StructuredApplyError::blocking(
+                                    ApplyErrorCode::ApplyTargetAmbiguous,
+                                    ApplyErrorPhase::Gate,
+                                    message,
+                                )
+                                .with_field_path("target.itinerary_reference"),
+                            );
                             resolved.resolution = "ambiguous".to_string();
                             return Err(());
                         }
@@ -2740,26 +2842,53 @@ fn resolve_apply_target(
 
                     let picked = if !id_matches.is_empty() {
                         if id_matches.len() > 1 {
-                            report.errors.push(format!(
+                            let message = format!(
                                 "itinerary_reference (itinerary_id {v}) が Day {day_number} で曖昧です"
-                            ));
+                            );
+                            push_structured_error(
+                                report,
+                                StructuredApplyError::blocking(
+                                    ApplyErrorCode::ApplyTargetAmbiguous,
+                                    ApplyErrorPhase::Gate,
+                                    message,
+                                )
+                                .with_field_path("target.itinerary_reference"),
+                            );
                             resolved.resolution = "ambiguous".to_string();
                             return Err(());
                         }
                         id_matches[0]
                     } else if !sort_matches.is_empty() {
                         if sort_matches.len() > 1 {
-                            report.errors.push(format!(
+                            let message = format!(
                                 "itinerary_reference (sort_order {v}) が Day {day_number} で曖昧です"
-                            ));
+                            );
+                            push_structured_error(
+                                report,
+                                StructuredApplyError::blocking(
+                                    ApplyErrorCode::ApplyTargetAmbiguous,
+                                    ApplyErrorPhase::Gate,
+                                    message,
+                                )
+                                .with_field_path("target.itinerary_reference"),
+                            );
                             resolved.resolution = "ambiguous".to_string();
                             return Err(());
                         }
                         sort_matches[0]
                     } else {
-                        report.errors.push(format!(
+                        let message = format!(
                             "itinerary_reference (id/sort_order {v}) が Day {day_number} に見つかりません"
-                        ));
+                        );
+                        push_structured_error(
+                            report,
+                            StructuredApplyError::blocking(
+                                ApplyErrorCode::ApplyEntityNotFound,
+                                ApplyErrorPhase::Gate,
+                                message,
+                            )
+                            .with_field_path("target.itinerary_reference"),
+                        );
                         return Err(());
                     };
                     (Some(picked.sort_order), Some(picked.title.clone()))
@@ -2771,24 +2900,47 @@ fn resolve_apply_target(
                         .filter(|item| item.title.trim() == needle)
                         .collect();
                     if matches.is_empty() {
-                        report.errors.push(format!(
+                        let message = format!(
                             "itinerary_reference (title \"{needle}\") が Day {day_number} に見つかりません"
-                        ));
+                        );
+                        push_structured_error(
+                            report,
+                            StructuredApplyError::blocking(
+                                ApplyErrorCode::ApplyEntityNotFound,
+                                ApplyErrorPhase::Gate,
+                                message,
+                            )
+                            .with_field_path("target.itinerary_reference"),
+                        );
                         return Err(());
                     }
                     if matches.len() > 1 {
-                        report.errors.push(format!(
+                        let message = format!(
                             "itinerary_reference (title \"{needle}\") が Day {day_number} で曖昧です"
-                        ));
+                        );
+                        push_structured_error(
+                            report,
+                            StructuredApplyError::blocking(
+                                ApplyErrorCode::ApplyTargetAmbiguous,
+                                ApplyErrorPhase::Gate,
+                                message,
+                            )
+                            .with_field_path("target.itinerary_reference"),
+                        );
                         resolved.resolution = "ambiguous".to_string();
                         return Err(());
                     }
                     (Some(matches[0].sort_order), Some(matches[0].title.clone()))
                 }
                 _ => {
-                    report.errors.push(
-                        "target_type が itinerary ですが itinerary_reference がありません"
-                            .to_string(),
+                    push_structured_error(
+                        report,
+                        StructuredApplyError::blocking(
+                            ApplyErrorCode::ApplyFieldInvalid,
+                            ApplyErrorPhase::Gate,
+                            "target_type が itinerary ですが itinerary_reference がありません",
+                        )
+                        .with_field_path("target.itinerary_reference"),
                     );
                     return Err(());
                 }
@@ -2799,9 +2951,16 @@ fn resolve_apply_target(
             Ok(Some(resolved))
         }
         other => {
-            report
-                .errors
-                .push(format!("未対応の target_type です: {other}"));
+            let message = format!("未対応の target_type です: {other}");
+            push_structured_error(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyUnsupportedTarget,
+                    ApplyErrorPhase::Gate,
+                    message,
+                )
+                .with_target_type(other),
+            );
             Err(())
         }
     }
@@ -2814,15 +2973,28 @@ fn day_reference_number(
     match target.get("day_reference").and_then(Value::as_i64) {
         Some(day) if day >= 1 => Some(day),
         Some(day) => {
-            report.errors.push(format!(
-                "target.day_reference ({day}) は 1 以上である必要があります"
-            ));
+            let message = format!("target.day_reference ({day}) は 1 以上である必要があります");
+            push_structured_error(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyFieldInvalid,
+                    ApplyErrorPhase::Gate,
+                    message,
+                )
+                .with_field_path("target.day_reference"),
+            );
             None
         }
         None => {
-            report
-                .errors
-                .push("target.day_reference が必要です".to_string());
+            push_structured_error(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyFieldInvalid,
+                    ApplyErrorPhase::Gate,
+                    "target.day_reference が必要です",
+                )
+                .with_field_path("target.day_reference"),
+            );
             None
         }
     }
@@ -5300,23 +5472,49 @@ fn warn_unsupported_delete_estimate_candidate_keys(
 
 fn parse_delete_estimate_fields(
     fragment: &Map<String, Value>,
-    report: Option<&mut FragmentApplyDryRunReport>,
+    mut report: Option<&mut FragmentApplyDryRunReport>,
 ) -> Result<i64, String> {
     let candidate = fragment
         .get("candidate_content")
         .and_then(Value::as_object)
         .ok_or_else(|| "candidate_content object が必要です".to_string())?;
 
-    if let Some(report) = report {
+    if let Some(report) = report.as_mut() {
         warn_unsupported_delete_estimate_candidate_keys(candidate, report);
     }
 
     reject_explicit_null_delete_estimate_keys(candidate)?;
-    reject_delete_estimate_mutation_fields(candidate)?;
+    if let Err(message) = reject_delete_estimate_mutation_fields(candidate) {
+        if let Some(report) = report.as_mut() {
+            push_structured_error(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyMutationFieldRejected,
+                    ApplyErrorPhase::Simulate,
+                    message.clone(),
+                )
+                .with_intent("delete_estimate"),
+            );
+        }
+        return Err(message);
+    }
 
     let estimate_id = parse_estimate_id_field(candidate)?;
     if estimate_id <= 0 {
-        return Err("candidate_content.estimate_id は正の整数である必要があります".to_string());
+        let message = "candidate_content.estimate_id は正の整数である必要があります".to_string();
+        if let Some(report) = report.as_mut() {
+            push_structured_error(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyFieldInvalid,
+                    ApplyErrorPhase::Simulate,
+                    message.clone(),
+                )
+                .with_intent("delete_estimate")
+                .with_field_path("candidate_content.estimate_id"),
+            );
+        }
+        return Err(message);
     }
     Ok(estimate_id)
 }
@@ -5449,13 +5647,27 @@ fn apply_update_estimate_preview(
     report: &mut FragmentApplyDryRunReport,
 ) -> Result<FragmentApplyPreviewSummary, String> {
     if resolved.target_type != "itinerary" {
-        return Err(
-            "update_estimate は itinerary target のみサポートしています（trip / day は未対応）"
-                .to_string(),
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyUnsupportedTarget,
+                ApplyErrorPhase::Simulate,
+                "update_estimate は itinerary target のみサポートしています（trip / day は未対応）",
+            )
+            .with_intent("update_estimate")
+            .with_target_type(&resolved.target_type),
         );
     }
     if resolved.resolution == "ambiguous" {
-        return Err("target が曖昧です — apply preview を続行しません".to_string());
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyTargetAmbiguous,
+                ApplyErrorPhase::Simulate,
+                "target が曖昧です — apply preview を続行しません",
+            )
+            .with_intent("update_estimate"),
+        );
     }
 
     let day_number = resolved.day_number.ok_or_else(|| {
@@ -5476,16 +5688,48 @@ fn apply_update_estimate_preview(
         .and_then(Value::as_object)
         .ok_or_else(|| "candidate_content object が必要です".to_string())?;
 
-    let current = get_estimate(conn, fields.estimate_id)
-        .map_err(|error| format!("Estimate not found: {error}"))?;
+    let current = match get_estimate(conn, fields.estimate_id) {
+        Ok(estimate) => estimate,
+        Err(error) => {
+            return fail_simulate(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyEntityNotFound,
+                    ApplyErrorPhase::Simulate,
+                    format!("Estimate not found: {error}"),
+                )
+                .with_intent("update_estimate")
+                .with_field_path("candidate_content.estimate_id"),
+            );
+        }
+    };
     if current.itinerary_id != target_itinerary_id {
-        return Err(format!(
-            "Estimate {id} は Itinerary {target_itinerary_id} 配下ではありません",
-            id = fields.estimate_id
-        ));
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyEntityParentMismatch,
+                ApplyErrorPhase::Simulate,
+                format!(
+                    "Estimate {id} は Itinerary {target_itinerary_id} 配下ではありません",
+                    id = fields.estimate_id
+                ),
+            )
+            .with_intent("update_estimate")
+            .with_field_path("candidate_content.estimate_id"),
+        );
     }
 
-    detect_update_estimate_baseline_conflicts(candidate, &current)?;
+    if let Err(message) = detect_update_estimate_baseline_conflicts(candidate, &current) {
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyBaselineMismatch,
+                ApplyErrorPhase::Simulate,
+                message,
+            )
+            .with_intent("update_estimate"),
+        );
+    }
     let proposed = compute_update_estimate_proposed(&current, &fields)?;
     let changes = build_update_estimate_field_changes(&current, &proposed, &fields);
 
@@ -5547,13 +5791,27 @@ fn apply_delete_estimate_preview(
     report: &mut FragmentApplyDryRunReport,
 ) -> Result<FragmentApplyPreviewSummary, String> {
     if resolved.target_type != "itinerary" {
-        return Err(
-            "delete_estimate は itinerary target のみサポートしています（trip / day は未対応）"
-                .to_string(),
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyUnsupportedTarget,
+                ApplyErrorPhase::Simulate,
+                "delete_estimate は itinerary target のみサポートしています（trip / day は未対応）",
+            )
+            .with_intent("delete_estimate")
+            .with_target_type(&resolved.target_type),
         );
     }
     if resolved.resolution == "ambiguous" {
-        return Err("target が曖昧です — apply preview を続行しません".to_string());
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyTargetAmbiguous,
+                ApplyErrorPhase::Simulate,
+                "target が曖昧です — apply preview を続行しません",
+            )
+            .with_intent("delete_estimate"),
+        );
     }
 
     let day_number = resolved.day_number.ok_or_else(|| {
@@ -5574,16 +5832,48 @@ fn apply_delete_estimate_preview(
         .and_then(Value::as_object)
         .ok_or_else(|| "candidate_content object が必要です".to_string())?;
 
-    let current =
-        get_estimate(conn, estimate_id).map_err(|error| format!("Estimate not found: {error}"))?;
+    let current = match get_estimate(conn, estimate_id) {
+        Ok(estimate) => estimate,
+        Err(error) => {
+            return fail_simulate(
+                report,
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyEntityNotFound,
+                    ApplyErrorPhase::Simulate,
+                    format!("Estimate not found: {error}"),
+                )
+                .with_intent("delete_estimate")
+                .with_field_path("candidate_content.estimate_id"),
+            );
+        }
+    };
     if current.itinerary_id != target_itinerary_id {
-        return Err(format!(
-            "Estimate {id} は Itinerary {target_itinerary_id} 配下ではありません",
-            id = estimate_id
-        ));
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyEntityParentMismatch,
+                ApplyErrorPhase::Simulate,
+                format!(
+                    "Estimate {id} は Itinerary {target_itinerary_id} 配下ではありません",
+                    id = estimate_id
+                ),
+            )
+            .with_intent("delete_estimate")
+            .with_field_path("candidate_content.estimate_id"),
+        );
     }
 
-    detect_delete_estimate_baseline_conflicts(candidate, &current)?;
+    if let Err(message) = detect_delete_estimate_baseline_conflicts(candidate, &current) {
+        return fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyBaselineMismatch,
+                ApplyErrorPhase::Simulate,
+                message,
+            )
+            .with_intent("delete_estimate"),
+        );
+    }
     let delete_preview =
         build_estimate_delete_preview(target_itinerary_id, target_itinerary_title, &current);
 
@@ -5991,9 +6281,15 @@ fn simulate_apply_preview(
         }
         "add_expense" => {
             if resolved.target_type != "itinerary" {
-                return Err(
-                    "add_expense は itinerary target のみサポートしています（trip / day は未対応）"
-                        .to_string(),
+                return fail_simulate(
+                    report,
+                    StructuredApplyError::blocking(
+                        ApplyErrorCode::ApplyUnsupportedTarget,
+                        ApplyErrorPhase::Simulate,
+                        "add_expense は itinerary target のみサポートしています（trip / day は未対応）",
+                    )
+                    .with_intent("add_expense")
+                    .with_target_type(&resolved.target_type),
                 );
             }
             let day_number = resolved.day_number.ok_or_else(|| {
@@ -6329,7 +6625,15 @@ fn simulate_apply_preview(
                 delete_preview: None,
             })
         }
-        other => Err(format!("未対応の intent です: {other}")),
+        other => fail_simulate(
+            report,
+            StructuredApplyError::blocking(
+                ApplyErrorCode::ApplyUnsupportedIntent,
+                ApplyErrorPhase::Simulate,
+                format!("未対応の intent です: {other}"),
+            )
+            .with_intent(other),
+        ),
     }
 }
 
@@ -8047,5 +8351,121 @@ mod tests {
             crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
             after_update
         );
+    }
+
+    #[test]
+    fn structured_errors_are_skipped_in_json_report() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "trip" },
+          "fragment": {
+            "intent": "add_expense",
+            "candidate_content": {
+              "amount": "1000",
+              "currency": "JPY"
+            }
+          }
+        }"#;
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(!report.valid);
+        assert!(!report.structured_errors.is_empty());
+
+        let serialized = serde_json::to_string(&report).unwrap();
+        assert!(!serialized.contains("structured_errors"));
+        assert!(serialized.contains("\"errors\""));
+    }
+
+    #[test]
+    fn confirm_unsupported_intent_populates_structured_error_and_legacy_errors() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "trip" },
+          "fragment": { "intent": "warning", "notes": "heads up" }
+        }"#;
+
+        let (report, _) = fragment_apply_gate_json(&conn, "test.json", json, trip_id, false, true);
+        assert!(!report.valid);
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("intent=warning")));
+        let structured = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyUnsupportedIntent)
+            .expect("structured unsupported intent");
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmScope);
+        assert_eq!(structured.intent.as_deref(), Some("warning"));
+    }
+
+    #[test]
+    fn add_expense_unsupported_target_structured_error() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "trip" },
+          "fragment": {
+            "intent": "add_expense",
+            "candidate_content": {
+              "amount": "1000",
+              "currency": "JPY"
+            }
+          }
+        }"#;
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("add_expense は itinerary target のみ")));
+        let structured = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyUnsupportedTarget)
+            .expect("structured unsupported target");
+        assert_eq!(structured.phase, ApplyErrorPhase::Simulate);
+        assert_eq!(structured.intent.as_deref(), Some("add_expense"));
+        assert_eq!(structured.target_type.as_deref(), Some("trip"));
+    }
+
+    #[test]
+    fn delete_estimate_not_found_structured_error() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, _itinerary_id, _estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "delete_estimate",
+            "candidate_content": { "estimate_id": 99999 }
+          },
+          "adoption_hints": { "required_decisions": [] }
+        }"#;
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("Estimate not found")));
+        let structured = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyEntityNotFound)
+            .expect("structured entity not found");
+        assert_eq!(structured.phase, ApplyErrorPhase::Simulate);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
     }
 }

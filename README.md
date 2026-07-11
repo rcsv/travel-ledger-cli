@@ -132,12 +132,13 @@ Related documents for contributors and AI assistants:
 
 GitHub Release 用ノートは [docs/releases/](docs/releases/) にあります。
 
-**最新 formal release:** [v4.8.4](docs/releases/v4.8.4-notes.md) — Fragment apply structured errors / API readiness planning（documentation-only）。次実装候補は **v4.8.5** internal error model。
+**最新 formal release:** [v4.8.5](docs/releases/v4.8.5-notes.md) — Fragment apply internal structured error model + code registry（limited wiring、`structured_errors` は internal only）。
 
 **直近のリリース履歴:**
 
 | Version | 種別 | 概要 |
 |---|---|---|
+| [v4.8.5](docs/releases/v4.8.5-notes.md) | minor | Fragment apply internal structured error model + code registry |
 | [v4.8.4](docs/releases/v4.8.4-notes.md) | docs | Fragment apply structured errors / API readiness planning |
 | [v4.8.3](docs/releases/v4.8.3-notes.md) | docs | P-6p delete_estimate post-release review（P-6p 系列完了） |
 | [v4.8.2](docs/releases/v4.8.2-notes.md) | minor | P-6p delete_estimate --confirm |
