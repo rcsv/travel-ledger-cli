@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.8.16 | Receipt / inbox CLI strict currency integration | [v4.8.16-notes.md](v4.8.16-notes.md) |
 | v4.8.15 | validate-export currency warnings | [v4.8.15-notes.md](v4.8.15-notes.md) |
 | v4.8.14 | Proposal Fragment apply strict currency integration | [v4.8.14-notes.md](v4.8.14-notes.md) |
 | v4.8.13 | Currency CLI write-path hardening | [v4.8.13-notes.md](v4.8.13-notes.md) |

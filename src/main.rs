@@ -812,13 +812,17 @@ fn main() -> Result<()> {
                 occurred_date,
                 memo,
             } => {
+                let validated_currency = currency
+                    .as_deref()
+                    .map(crate::money::validate_cli_write_currency_code)
+                    .transpose()?;
                 let id = crate::receipt::add_receipt(
                     &conn,
                     crate::receipt::AddReceiptParams {
                         trip_id: trip,
                         day_number: day,
                         amount_input: amount.as_deref(),
-                        currency_input: currency.as_deref(),
+                        currency_input: validated_currency.as_deref(),
                         occurred_date: occurred_date.as_deref(),
                         memo: memo.as_deref(),
                     },
@@ -899,13 +903,17 @@ fn main() -> Result<()> {
                 } else {
                     memo.as_ref().map(|value| Some(value.as_str()))
                 };
+                let validated_currency = currency
+                    .as_deref()
+                    .map(crate::money::validate_cli_write_currency_code)
+                    .transpose()?;
                 crate::receipt::update_receipt(
                     &conn,
                     id,
                     crate::receipt::UpdateReceiptParams {
                         day_number: day,
                         amount_input: amount.as_deref(),
-                        currency_input: currency.as_deref(),
+                        currency_input: validated_currency.as_deref(),
                         occurred_date: occurred_date_update,
                         memo: memo_update,
                         clear_day,
@@ -923,12 +931,16 @@ fn main() -> Result<()> {
                 currency,
                 memo,
             } => {
+                let validated_currency = currency
+                    .as_deref()
+                    .map(crate::money::validate_cli_write_currency_code)
+                    .transpose()?;
                 let expense_id = crate::receipt::assign_receipt_to_itinerary(
                     &conn,
                     id,
                     itinerary,
                     amount.as_deref(),
-                    currency.as_deref(),
+                    validated_currency.as_deref(),
                     memo.as_deref(),
                 )?;
                 println!("Receipt を Expense に昇格しました (Expense ID: {expense_id})");

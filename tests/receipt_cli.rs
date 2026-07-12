@@ -340,3 +340,193 @@ fn cli_receipt_does_not_affect_trip_stats() {
     assert_eq!(stats_json["expense_totals"]["JPY"], 500);
     assert!(stats_json.get("receipt_count").is_none());
 }
+
+#[test]
+fn cli_receipt_add_normalizes_lowercase_currency() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(&dir);
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "receipt",
+            "add",
+            "--trip",
+            "1",
+            "--amount",
+            "100",
+            "--currency",
+            "jpy",
+            "--memo",
+            "snack",
+        ],
+    )
+    .status
+    .success());
+
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["receipt", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
+    assert_eq!(show["currency"], "JPY");
+}
+
+#[test]
+fn cli_receipt_add_rejects_unknown_and_denylisted_currency() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(&dir);
+
+    for currency in ["ZZZ", "ABC", "XXX", "XAU"] {
+        let output = common::run_cli_in(
+            &dir,
+            &[
+                "receipt",
+                "add",
+                "--trip",
+                "1",
+                "--amount",
+                "100",
+                "--currency",
+                currency,
+                "--memo",
+                "bad currency",
+            ],
+        );
+        assert!(
+            !output.status.success(),
+            "expected reject for currency {currency}"
+        );
+    }
+
+    let list = common::run_cli_in(&dir, &["receipt", "list", "--trip", "1", "--json"]);
+    assert!(list.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
+    assert!(parsed["receipts"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn cli_receipt_add_rejects_format_invalid_currency() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(&dir);
+
+    let output = common::run_cli_in(
+        &dir,
+        &[
+            "receipt",
+            "add",
+            "--trip",
+            "1",
+            "--amount",
+            "100",
+            "--currency",
+            "JP",
+            "--memo",
+            "bad format",
+        ],
+    );
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_receipt_update_strict_currency_only_when_explicit() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(&dir);
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "receipt",
+            "add",
+            "--trip",
+            "1",
+            "--amount",
+            "100",
+            "--currency",
+            "JPY",
+            "--memo",
+            "original",
+        ],
+    )
+    .status
+    .success());
+
+    assert!(common::run_cli_in(
+        &dir,
+        &["receipt", "update", "1", "--memo", "memo only update"],
+    )
+    .status
+    .success());
+
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["receipt", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
+    assert_eq!(show["currency"], "JPY");
+    assert_eq!(show["memo"], "memo only update");
+
+    assert!(!common::run_cli_in(
+        &dir,
+        &[
+            "receipt",
+            "update",
+            "1",
+            "--amount",
+            "200",
+            "--currency",
+            "ZZZ",
+        ],
+    )
+    .status
+    .success());
+
+    let after: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["receipt", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
+    assert_eq!(after["currency"], "JPY");
+    assert_eq!(after["amount"], 100);
+}
+
+#[test]
+fn cli_receipt_assign_rejects_unknown_cli_currency() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(&dir);
+    assert!(
+        common::run_cli_in(&dir, &["itinerary", "add", "1", "--day", "1", "Breakfast"])
+            .status
+            .success()
+    );
+    assert!(common::run_cli_in(
+        &dir,
+        &["receipt", "add", "--trip", "1", "--memo", "needs assign",],
+    )
+    .status
+    .success());
+
+    let output = common::run_cli_in(
+        &dir,
+        &[
+            "receipt",
+            "assign",
+            "1",
+            "--itinerary",
+            "1",
+            "--amount",
+            "100",
+            "--currency",
+            "ZZZ",
+        ],
+    );
+    assert!(!output.status.success());
+
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["receipt", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
+    assert_eq!(show["status"], "unreviewed");
+}
