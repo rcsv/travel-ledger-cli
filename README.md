@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.8.9](docs/releases/v4.8.9-notes.md)** — Fragment apply confirm transaction structured errors follow-up
+**[v4.8.10](docs/releases/v4.8.10-notes.md)** — Fragment apply structured errors post-release review（documentation-only）
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)

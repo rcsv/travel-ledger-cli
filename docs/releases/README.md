@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.8.10 | Fragment apply structured errors post-release review (documentation-only) | [v4.8.10-notes.md](v4.8.10-notes.md) |
 | v4.8.9 | Fragment apply confirm transaction structured errors follow-up | [v4.8.9-notes.md](v4.8.9-notes.md) |
 | v4.8.8 | Fragment apply structured errors limited wiring expansion | [v4.8.8-notes.md](v4.8.8-notes.md) |
 | v4.8.7 | Fragment apply structured errors public contract review (documentation-only) | [v4.8.7-notes.md](v4.8.7-notes.md) |
