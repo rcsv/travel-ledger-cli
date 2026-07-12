@@ -99,6 +99,22 @@ impl StructuredApplyError {
         }
     }
 
+    pub fn decision_required(
+        code: ApplyErrorCode,
+        phase: ApplyErrorPhase,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            code,
+            kind: ApplyErrorKind::DecisionRequired,
+            message: message.into(),
+            phase,
+            field_path: None,
+            intent: None,
+            target_type: None,
+        }
+    }
+
     pub fn with_field_path(mut self, field_path: impl Into<String>) -> Self {
         self.field_path = Some(field_path.into());
         self
@@ -168,5 +184,19 @@ mod tests {
         assert_eq!(value["field_path"], "target.itinerary_reference");
         assert!(value.get("intent").is_none());
         assert!(value.get("target_type").is_none());
+    }
+
+    #[test]
+    fn structured_apply_error_serializes_decision_required_kind() {
+        let error = StructuredApplyError::decision_required(
+            ApplyErrorCode::ApplyRequiredDecision,
+            ApplyErrorPhase::Gate,
+            "required decisions が未解決です",
+        );
+
+        let value = serde_json::to_value(&error).unwrap();
+        assert_eq!(value["code"], "APPLY_REQUIRED_DECISION");
+        assert_eq!(value["kind"], "decision_required");
+        assert_eq!(value["phase"], "gate");
     }
 }

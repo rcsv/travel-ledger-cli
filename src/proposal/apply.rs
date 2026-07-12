@@ -308,6 +308,32 @@ fn fail_simulate(
     Err(error.message)
 }
 
+fn fail_confirm_transaction<T>(
+    report: &mut FragmentApplyDryRunReport,
+    error: StructuredApplyError,
+) -> Result<T> {
+    push_structured_error(report, error.clone());
+    Err(anyhow::anyhow!(error.message))
+}
+
+fn structured_confirm_preview_mismatch(message: String, intent: &str) -> StructuredApplyError {
+    StructuredApplyError::blocking(
+        ApplyErrorCode::ApplyPreviewMismatch,
+        ApplyErrorPhase::ConfirmTransaction,
+        message,
+    )
+    .with_intent(intent)
+}
+
+fn structured_confirm_toctou_drift(message: String, intent: &str) -> StructuredApplyError {
+    StructuredApplyError::blocking(
+        ApplyErrorCode::ApplyToctouDrift,
+        ApplyErrorPhase::ConfirmTransaction,
+        message,
+    )
+    .with_intent(intent)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FragmentApplyOptions {
     pub dry_run: bool,
@@ -482,7 +508,7 @@ pub fn run_fragment_apply(
                         .map(ConfirmInsertResult::UpdatedEstimate)
                 }
                 "delete_estimate" => {
-                    execute_confirm_delete_estimate(conn, options.trip_id, &json, &report)
+                    execute_confirm_delete_estimate(conn, options.trip_id, &json, &mut report)
                         .map(ConfirmInsertResult::DeletedEstimate)
                 }
                 "delete_itinerary" => {
@@ -677,7 +703,7 @@ pub fn run_fragment_apply(
                 }
                 Err(error) => {
                     report.valid = false;
-                    report.errors.push(error.to_string());
+                    push_legacy_error_if_missing(&mut report, error.to_string());
                 }
             }
         }
@@ -893,7 +919,7 @@ fn fragment_apply_gate_json(
     if !report.required_decisions.is_empty() {
         push_structured_error(
             &mut report,
-            StructuredApplyError::blocking(
+            StructuredApplyError::decision_required(
                 ApplyErrorCode::ApplyRequiredDecision,
                 ApplyErrorPhase::Gate,
                 "required decisions が未解決です — apply preview は valid confirm candidate ではありません",
@@ -928,7 +954,7 @@ fn validate_confirm_scope(
     if !report.required_decisions.is_empty() {
         push_structured_error(
             report,
-            StructuredApplyError::blocking(
+            StructuredApplyError::decision_required(
                 ApplyErrorCode::ApplyRequiredDecision,
                 ApplyErrorPhase::ConfirmScope,
                 "required decisions が未解決です — DB 更新しません",
@@ -1940,19 +1966,23 @@ fn execute_confirm_delete_estimate(
     conn: &Connection,
     trip_id: i64,
     json: &str,
-    report: &FragmentApplyDryRunReport,
+    report: &mut FragmentApplyDryRunReport,
 ) -> Result<i64> {
-    let preview = report
+    let gate_preview = report
         .preview
         .as_ref()
-        .context("delete_estimate confirm には preview が必要です")?;
-    if preview.action != "delete_estimate" {
+        .context("delete_estimate confirm には preview が必要です")?
+        .estimate_delete_preview
+        .clone()
+        .context("delete_estimate confirm には estimate_delete_preview が必要です")?;
+    if report
+        .preview
+        .as_ref()
+        .map(|preview| preview.action.as_str())
+        != Some("delete_estimate")
+    {
         anyhow::bail!("gate preview の action が delete_estimate ではありません — DB 更新しません");
     }
-    let gate_preview = preview
-        .estimate_delete_preview
-        .as_ref()
-        .context("delete_estimate confirm には estimate_delete_preview が必要です")?;
 
     let trip_name = report
         .resolved_target
@@ -2033,22 +2063,37 @@ fn execute_confirm_delete_estimate(
         let itinerary_title = resolved.itinerary_title.clone().unwrap_or_default();
         let recomputed = build_estimate_delete_preview(itinerary_id, itinerary_title, &current);
 
-        verify_delete_estimate_gate_preview_matches(
-            gate_preview,
+        if let Err(message) = verify_delete_estimate_gate_preview_matches(
+            &gate_preview,
             itinerary_id,
             estimate_id,
             &recomputed,
-        )
-        .map_err(|error| anyhow::anyhow!(error))?;
+        ) {
+            return fail_confirm_transaction(
+                report,
+                structured_confirm_preview_mismatch(message, "delete_estimate"),
+            );
+        }
 
-        revalidate_delete_estimate_before_write(
+        if let Err(message) = revalidate_delete_estimate_before_write(
             tx,
             estimate_id,
             itinerary_id,
             candidate,
-            gate_preview,
-        )
-        .map_err(|error| anyhow::anyhow!(error))?;
+            &gate_preview,
+        ) {
+            let structured = if message.starts_with("TOCTOU mismatch:") {
+                structured_confirm_toctou_drift(message, "delete_estimate")
+            } else {
+                StructuredApplyError::blocking(
+                    ApplyErrorCode::ApplyTransactionFailed,
+                    ApplyErrorPhase::ConfirmTransaction,
+                    message,
+                )
+                .with_intent("delete_estimate")
+            };
+            return fail_confirm_transaction(report, structured);
+        }
 
         crate::estimate::delete_estimate_row_scoped(tx, estimate_id, itinerary_id)?;
 
@@ -6344,9 +6389,15 @@ fn simulate_apply_preview(
         }
         "add_estimate" => {
             if resolved.target_type != "itinerary" {
-                return Err(
-                    "add_estimate は itinerary target のみサポートしています（trip / day は未対応）"
-                        .to_string(),
+                return fail_simulate(
+                    report,
+                    StructuredApplyError::blocking(
+                        ApplyErrorCode::ApplyUnsupportedTarget,
+                        ApplyErrorPhase::Simulate,
+                        "add_estimate は itinerary target のみサポートしています（trip / day は未対応）",
+                    )
+                    .with_intent("add_estimate")
+                    .with_target_type(&resolved.target_type),
                 );
             }
             let day_number = resolved.day_number.ok_or_else(|| {
@@ -6972,6 +7023,7 @@ fn print_fragment_apply_report(report: &FragmentApplyDryRunReport) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proposal::apply_errors::ApplyErrorKind;
     use crate::storage::db::open_db_at;
 
     const APPLY_READY_FRAGMENT: &str = r#"{
@@ -8221,7 +8273,7 @@ mod tests {
             .unwrap()
             .len();
 
-        let (gate_report, _) = fragment_apply_gate_json(
+        let (mut gate_report, _) = fragment_apply_gate_json(
             &conn,
             "test.json",
             DELETE_ESTIMATE_FRAGMENT,
@@ -8235,7 +8287,7 @@ mod tests {
             &conn,
             trip_id,
             DELETE_ESTIMATE_CONFIRM_FRAGMENT,
-            &gate_report,
+            &mut gate_report,
         )
         .unwrap();
         assert_eq!(deleted_id, estimate_id);
@@ -8260,7 +8312,7 @@ mod tests {
         let (trip_id, itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
         let before = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
 
-        let (gate_report, _) = fragment_apply_gate_json(
+        let (mut gate_report, _) = fragment_apply_gate_json(
             &conn,
             "test.json",
             DELETE_ESTIMATE_FRAGMENT,
@@ -8288,7 +8340,7 @@ mod tests {
     }"#;
 
         let error =
-            execute_confirm_delete_estimate(&conn, trip_id, mismatch_fragment, &gate_report)
+            execute_confirm_delete_estimate(&conn, trip_id, mismatch_fragment, &mut gate_report)
                 .unwrap_err();
         let message = format!("{error:#}");
         assert!(
@@ -8309,11 +8361,11 @@ mod tests {
     }
 
     #[test]
-    fn confirm_delete_estimate_toctou_blocks_db_write() {
+    fn confirm_delete_estimate_db_drift_blocks_db_write_with_preview_mismatch() {
         let conn = open_db_at(":memory:").unwrap();
         let (trip_id, _itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
 
-        let (gate_report, _) = fragment_apply_gate_json(
+        let (mut gate_report, _) = fragment_apply_gate_json(
             &conn,
             "test.json",
             DELETE_ESTIMATE_FRAGMENT,
@@ -8338,7 +8390,7 @@ mod tests {
             &conn,
             trip_id,
             DELETE_ESTIMATE_CONFIRM_FRAGMENT,
-            &gate_report,
+            &mut gate_report,
         )
         .unwrap_err();
         let message = format!("{error:#}");
@@ -8346,10 +8398,83 @@ mod tests {
             message.contains("TOCTOU") || message.contains("gate preview"),
             "got: {message}"
         );
+        let structured = gate_report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyPreviewMismatch)
+            .expect("structured preview mismatch after DB drift");
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
 
         assert_eq!(
             crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
             after_update
+        );
+    }
+
+    #[test]
+    fn structured_confirm_toctou_drift_classifies_message() {
+        let message =
+            "TOCTOU mismatch: amount の before (100) が現行 DB (200) と一致しません — DB 更新しません"
+                .to_string();
+        let structured = structured_confirm_toctou_drift(message, "delete_estimate");
+        assert_eq!(structured.code, ApplyErrorCode::ApplyToctouDrift);
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
+    }
+
+    #[test]
+    fn confirm_delete_estimate_preview_mismatch_structured_error() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, itinerary_id, estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let before = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+
+        let (mut gate_report, _) = fragment_apply_gate_json(
+            &conn,
+            "test.json",
+            DELETE_ESTIMATE_FRAGMENT,
+            trip_id,
+            false,
+            true,
+        );
+        assert!(gate_report.valid, "errors: {:?}", gate_report.errors);
+
+        gate_report
+            .preview
+            .as_mut()
+            .unwrap()
+            .estimate_delete_preview = Some(FragmentApplyEstimateDeletePreview {
+            target_itinerary_id: itinerary_id,
+            target_itinerary_title: "Morning temple".to_string(),
+            target_estimate_id: estimate_id,
+            title: before.title.clone(),
+            amount: before.amount + 1,
+            currency: before.currency.clone(),
+            note: before.note.clone(),
+            sort_order: before.sort_order,
+            updated_at: before.updated_at.clone(),
+        });
+
+        let error = execute_confirm_delete_estimate(
+            &conn,
+            trip_id,
+            DELETE_ESTIMATE_CONFIRM_FRAGMENT,
+            &mut gate_report,
+        )
+        .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("gate preview"), "got: {message}");
+        let structured = gate_report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyPreviewMismatch)
+            .expect("structured preview mismatch");
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
+
+        assert_eq!(
+            crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
+            before
         );
     }
 
@@ -8518,6 +8643,88 @@ mod tests {
         assert_eq!(structured.phase, ApplyErrorPhase::Simulate);
         assert_eq!(structured.intent.as_deref(), Some("add_expense"));
         assert_eq!(structured.target_type.as_deref(), Some("trip"));
+    }
+
+    #[test]
+    fn add_estimate_unsupported_target_structured_error() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "ai" },
+          "target": { "target_type": "trip" },
+          "fragment": {
+            "intent": "add_estimate",
+            "candidate_content": {
+              "amount": "1000",
+              "currency": "JPY"
+            }
+          }
+        }"#;
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("add_estimate は itinerary target のみ")));
+        let structured = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyUnsupportedTarget)
+            .expect("structured unsupported target");
+        assert_eq!(structured.phase, ApplyErrorPhase::Simulate);
+        assert_eq!(structured.intent.as_deref(), Some("add_estimate"));
+        assert_eq!(structured.target_type.as_deref(), Some("trip"));
+    }
+
+    #[test]
+    fn required_decision_structured_error_uses_decision_required_kind() {
+        let conn = open_db_at(":memory:").unwrap();
+        let (trip_id, _itinerary_id, _estimate_id) = seed_update_estimate_confirm_fixture(&conn);
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "add_estimate",
+            "candidate_content": {
+              "amount": "5000",
+              "currency": "JPY",
+              "title": "Souvenir estimate"
+            }
+          },
+          "adoption_hints": {
+            "required_decisions": ["Confirm estimate assumptions before apply"]
+          }
+        }"#;
+
+        let (report, _preview) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(!report.valid);
+        assert!(!report.required_decisions.is_empty());
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("required decisions が未解決")));
+        let structured = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyRequiredDecision)
+            .expect("structured required decision");
+        assert_eq!(structured.kind, ApplyErrorKind::DecisionRequired);
+        assert_eq!(structured.phase, ApplyErrorPhase::Gate);
+
+        let value: serde_json::Value = serde_json::to_value(&report).unwrap();
+        let structured_json = value["structured_errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["code"] == "APPLY_REQUIRED_DECISION")
+            .expect("JSON structured required decision");
+        assert_eq!(structured_json["kind"], "decision_required");
+        assert!(value["required_decisions"].as_array().unwrap().len() > 0);
     }
 
     #[test]
