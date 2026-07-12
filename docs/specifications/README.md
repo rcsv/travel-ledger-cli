@@ -83,6 +83,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.7.46-p6o-update-estimate-planning.md](v4.7.46-p6o-update-estimate-planning.md) | P-6o update_estimate planning（documentation-only） |
 | [v4.7.47-p6o-update-estimate-dry-run.md](v4.7.47-p6o-update-estimate-dry-run.md) | P-6o update_estimate dry-run（**v4.7.47 released**） |
 | [v4.7.49-p6o-update-estimate-post-release-review.md](v4.7.49-p6o-update-estimate-post-release-review.md) | P-6o update_estimate post-release review（**v4.7.49 released** — documentation-only） |
+| [v4.8.11-currency-iso-validation-hardening-planning.md](v4.8.11-currency-iso-validation-hardening-planning.md) | Currency ISO validation hardening planning（**v4.8.11 released** — Issue #66, documentation-only） |
 | [v4.8.10-fragment-apply-structured-errors-post-release-review.md](v4.8.10-fragment-apply-structured-errors-post-release-review.md) | Fragment apply structured errors post-release series review（**v4.8.10 released** — documentation-only） |
 | [v4.8.9-fragment-apply-confirm-transaction-structured-errors-follow-up.md](v4.8.9-fragment-apply-confirm-transaction-structured-errors-follow-up.md) | Fragment apply confirm transaction structured errors follow-up（**v4.8.9 released**） |
 | [v4.8.8-fragment-apply-structured-errors-limited-wiring-expansion.md](v4.8.8-fragment-apply-structured-errors-limited-wiring-expansion.md) | Fragment apply structured errors limited wiring expansion（**v4.8.8 released**） |

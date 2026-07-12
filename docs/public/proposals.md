@@ -172,6 +172,7 @@ travel-ledger-cli fragment apply <fragment.json> --confirm --trip <id>
 - [AI integration guide](../ai.md)
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
 - [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
+- [v4.8.11 Currency ISO validation hardening planning](../specifications/v4.8.11-currency-iso-validation-hardening-planning.md)
 - [v4.8.10 structured errors post-release series review](../specifications/v4.8.10-fragment-apply-structured-errors-post-release-review.md)
 - [v4.8.9 confirm transaction structured errors follow-up](../specifications/v4.8.9-fragment-apply-confirm-transaction-structured-errors-follow-up.md)
 - [v4.8.8 structured errors limited wiring expansion](../specifications/v4.8.8-fragment-apply-structured-errors-limited-wiring-expansion.md)
