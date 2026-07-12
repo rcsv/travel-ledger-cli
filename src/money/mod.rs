@@ -10,9 +10,13 @@ pub(crate) enum CurrencyValidationMode {
     /// Uppercase alpha-3 format only; unknown codes allowed (legacy default).
     #[default]
     FormatOnly,
-    /// ISO 4217 registry + travel-expense denylist (v4.8.13+ write paths).
-    #[expect(dead_code, reason = "wired by CLI write paths in v4.8.13+")]
+    /// ISO 4217 registry + travel-expense denylist (v4.8.13+ CLI write paths).
     IsoStrict,
+}
+
+/// CLI create/update write paths — ISO 4217 registry + travel-expense denylist.
+pub(crate) fn validate_cli_write_currency_code(code: &str) -> Result<String> {
+    validate_currency_code_with_mode(code, CurrencyValidationMode::IsoStrict)
 }
 
 /// 通貨コードの形式を検証し、正規化した 3 文字コードを返す。
@@ -175,6 +179,13 @@ pub(crate) fn format_amount_display(amount: i64, currency: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_validate_cli_write_currency_code_rejects_unknown_and_denylist() {
+        assert!(validate_cli_write_currency_code("ZZZ").is_err());
+        assert!(validate_cli_write_currency_code("XXX").is_err());
+        assert_eq!(validate_cli_write_currency_code("jpy").unwrap(), "JPY");
+    }
 
     #[test]
     fn test_validate_currency_code_normalizes_lowercase() {

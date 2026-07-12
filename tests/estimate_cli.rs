@@ -286,3 +286,119 @@ fn cli_estimate_update_currency_without_amount_rejects() {
             .success()
     );
 }
+
+#[test]
+fn cli_estimate_add_accepts_iso_currency_and_normalizes_lowercase() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip_with_itinerary(&dir);
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            "1",
+            "--amount",
+            "1000",
+            "--currency",
+            "usd",
+        ],
+    )
+    .status
+    .success());
+
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["estimate", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
+    assert_eq!(show["currency"], "USD");
+}
+
+#[test]
+fn cli_estimate_add_rejects_unknown_and_denylisted_currency() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip_with_itinerary(&dir);
+
+    for currency in ["ZZZ", "JPN", "XXX", "XTS"] {
+        let output = common::run_cli_in(
+            &dir,
+            &[
+                "estimate",
+                "add",
+                "--itinerary",
+                "1",
+                "--amount",
+                "1000",
+                "--currency",
+                currency,
+            ],
+        );
+        assert!(
+            !output.status.success(),
+            "expected reject for currency {currency}"
+        );
+    }
+}
+
+#[test]
+fn cli_estimate_update_strict_currency_only_when_explicit() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip_with_itinerary(&dir);
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "estimate",
+            "add",
+            "--itinerary",
+            "1",
+            "--amount",
+            "1000",
+            "--currency",
+            "JPY",
+        ],
+    )
+    .status
+    .success());
+
+    assert!(common::run_cli_in(
+        &dir,
+        &["estimate", "update", "1", "--note", "No currency change"],
+    )
+    .status
+    .success());
+
+    assert!(!common::run_cli_in(
+        &dir,
+        &[
+            "estimate",
+            "update",
+            "1",
+            "--amount",
+            "2000",
+            "--currency",
+            "ZZZ",
+        ],
+    )
+    .status
+    .success());
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "estimate",
+            "update",
+            "1",
+            "--amount",
+            "20.00",
+            "--currency",
+            "USD",
+        ],
+    )
+    .status
+    .success());
+}

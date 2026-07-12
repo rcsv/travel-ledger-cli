@@ -83,6 +83,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.7.46-p6o-update-estimate-planning.md](v4.7.46-p6o-update-estimate-planning.md) | P-6o update_estimate planning（documentation-only） |
 | [v4.7.47-p6o-update-estimate-dry-run.md](v4.7.47-p6o-update-estimate-dry-run.md) | P-6o update_estimate dry-run（**v4.7.47 released**） |
 | [v4.7.49-p6o-update-estimate-post-release-review.md](v4.7.49-p6o-update-estimate-post-release-review.md) | P-6o update_estimate post-release review（**v4.7.49 released** — documentation-only） |
+| [v4.8.13-currency-cli-write-path-hardening.md](v4.8.13-currency-cli-write-path-hardening.md) | Currency CLI write-path hardening（**v4.8.13 released**） |
 | [v4.8.12-currency-iso-internal-registry-validation-mode.md](v4.8.12-currency-iso-internal-registry-validation-mode.md) | Currency ISO internal registry + validation mode（**v4.8.12 released**） |
 | [v4.8.11-currency-iso-validation-hardening-planning.md](v4.8.11-currency-iso-validation-hardening-planning.md) | Currency ISO validation hardening planning（**v4.8.11 released** — Issue #66, documentation-only） |
 | [v4.8.10-fragment-apply-structured-errors-post-release-review.md](v4.8.10-fragment-apply-structured-errors-post-release-review.md) | Fragment apply structured errors post-release series review（**v4.8.10 released** — documentation-only） |

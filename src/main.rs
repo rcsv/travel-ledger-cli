@@ -478,6 +478,7 @@ fn main() -> Result<()> {
                 shared_with,
                 expense_date,
             } => {
+                let currency = crate::money::validate_cli_write_currency_code(&currency)?;
                 let result = crate::services::expense_add::add_expense(
                     &conn,
                     crate::services::expense_add::ExpenseAddParams {
@@ -548,6 +549,9 @@ fn main() -> Result<()> {
                 expense_date,
                 note,
             } => {
+                let currency = currency
+                    .map(|value| crate::money::validate_cli_write_currency_code(&value))
+                    .transpose()?;
                 let result = crate::services::expense_update::update_expense(
                     &conn,
                     crate::services::expense_update::ExpenseUpdateParams {
@@ -586,6 +590,7 @@ fn main() -> Result<()> {
                 note,
                 sort_order,
             } => {
+                let currency = crate::money::validate_cli_write_currency_code(&currency)?;
                 let id = crate::estimate::add_estimate(
                     &conn,
                     itinerary,
@@ -649,6 +654,9 @@ fn main() -> Result<()> {
                 clear_title,
                 clear_note,
             } => {
+                let currency = currency
+                    .map(|value| crate::money::validate_cli_write_currency_code(&value))
+                    .transpose()?;
                 crate::estimate::update_estimate(
                     &conn,
                     id,

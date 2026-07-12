@@ -983,4 +983,35 @@ mod tests {
         assert_eq!(target[0].amount, source[0].amount);
         assert_eq!(target[0].sort_order, source[0].sort_order);
     }
+
+    #[test]
+    fn test_legacy_unknown_currency_readable_and_update_without_currency_change() {
+        let conn = test_db();
+        let itinerary_id = setup_itinerary(&conn);
+        let now = crate::storage::db::now_string();
+        conn.execute(
+            "INSERT INTO estimates
+             (itinerary_id, title, amount, currency, note, sort_order, created_at, updated_at)
+             VALUES (?1, NULL, ?2, ?3, NULL, 0, ?4, ?4)",
+            rusqlite::params![itinerary_id, 5000_i64, "ZZZ", &now],
+        )
+        .unwrap();
+        let id = conn.last_insert_rowid();
+
+        let estimate = get_estimate(&conn, id).unwrap();
+        assert_eq!(estimate.currency, "ZZZ");
+
+        update_estimate(
+            &conn,
+            id,
+            &UpdateEstimateParams {
+                note: Some("Legacy note"),
+                ..UpdateEstimateParams::default()
+            },
+        )
+        .unwrap();
+        let updated = get_estimate(&conn, id).unwrap();
+        assert_eq!(updated.currency, "ZZZ");
+        assert_eq!(updated.note.as_deref(), Some("Legacy note"));
+    }
 }

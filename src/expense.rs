@@ -1588,4 +1588,43 @@ mod tests {
             .unwrap();
         assert_eq!(count, 0);
     }
+
+    #[test]
+    fn test_legacy_unknown_currency_readable_and_update_without_currency_change() {
+        let conn = test_db();
+        let itinerary_id = setup_itinerary(&conn);
+        let now = crate::storage::db::now_string();
+        conn.execute(
+            "INSERT INTO expenses
+             (itinerary_id, title, amount, currency, paid_by_name, paid_by_participant_id,
+              expense_date, note, sort_order, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, 0, ?5, ?5)",
+            rusqlite::params![itinerary_id, "Legacy", 10_000_i64, "ZZZ", &now],
+        )
+        .unwrap();
+        let id = conn.last_insert_rowid();
+
+        let expense = get_expense(&conn, id).unwrap();
+        assert_eq!(expense.currency, "ZZZ");
+
+        let listed = list_expenses_for_itinerary(&conn, itinerary_id).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].currency, "ZZZ");
+
+        update_expense(
+            &conn,
+            id,
+            Some("Legacy title"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            &ExpenseSharedOptions::default(),
+        )
+        .unwrap();
+        let updated = get_expense(&conn, id).unwrap();
+        assert_eq!(updated.currency, "ZZZ");
+        assert_eq!(updated.title.as_deref(), Some("Legacy title"));
+    }
 }

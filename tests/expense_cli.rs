@@ -433,6 +433,129 @@ fn cli_expense_rejects_invalid_currency() {
 }
 
 #[test]
+fn cli_expense_add_accepts_iso_currency_and_normalizes_lowercase() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip_with_itinerary(&dir);
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "expense",
+            "add",
+            "--itinerary",
+            "1",
+            "--amount",
+            "100",
+            "--currency",
+            "jpy",
+        ],
+    )
+    .status
+    .success());
+
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["expense", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
+    assert_eq!(show["currency"], "JPY");
+}
+
+#[test]
+fn cli_expense_add_rejects_unknown_and_denylisted_currency() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip_with_itinerary(&dir);
+
+    for currency in ["ZZZ", "ABC", "XXX", "XAU"] {
+        let output = common::run_cli_in(
+            &dir,
+            &[
+                "expense",
+                "add",
+                "--itinerary",
+                "1",
+                "--amount",
+                "100",
+                "--currency",
+                currency,
+            ],
+        );
+        assert!(
+            !output.status.success(),
+            "expected reject for currency {currency}"
+        );
+    }
+}
+
+#[test]
+fn cli_expense_update_strict_currency_only_when_explicit() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip_with_itinerary(&dir);
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "expense",
+            "add",
+            "--itinerary",
+            "1",
+            "--amount",
+            "100",
+            "--currency",
+            "JPY",
+        ],
+    )
+    .status
+    .success());
+
+    assert!(common::run_cli_in(
+        &dir,
+        &["expense", "update", "1", "--title", "Updated title"],
+    )
+    .status
+    .success());
+
+    let show: serde_json::Value = serde_json::from_slice(
+        &common::run_cli_in(&dir, &["expense", "show", "1", "--json"]).stdout,
+    )
+    .unwrap();
+    assert_eq!(show["currency"], "JPY");
+    assert_eq!(show["title"], "Updated title");
+
+    assert!(!common::run_cli_in(
+        &dir,
+        &[
+            "expense",
+            "update",
+            "1",
+            "--amount",
+            "200",
+            "--currency",
+            "XXX",
+        ],
+    )
+    .status
+    .success());
+
+    assert!(common::run_cli_in(
+        &dir,
+        &[
+            "expense",
+            "update",
+            "1",
+            "--amount",
+            "2.00",
+            "--currency",
+            "USD",
+        ],
+    )
+    .status
+    .success());
+}
+
+#[test]
 fn cli_expense_cascade_on_itinerary_delete() {
     let workspace = common::TestWorkspace::new();
     let dir = workspace.path();
