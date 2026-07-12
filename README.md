@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.8.13](docs/releases/v4.8.13-notes.md)** — Currency CLI write-path hardening（CLI create/update IsoStrict）
+**[v4.8.14](docs/releases/v4.8.14-notes.md)** — Proposal Fragment apply strict currency integration（Fragment apply IsoStrict）
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)

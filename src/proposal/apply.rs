@@ -11,7 +11,7 @@ use crate::domain::models::{
 };
 use crate::estimate::{get_estimate, list_estimates_for_itinerary, normalize_optional_text};
 use crate::itinerary::{parse_time_hhmm, SORT_ORDER_STEP};
-use crate::money::{parse_amount_for_currency, validate_currency_code};
+use crate::money::{parse_amount_for_currency, validate_cli_write_currency_code};
 use crate::output::json::print_json;
 use crate::reservation::{validate_provider_name, validate_reservation_type};
 use crate::trip::{analyze_trip_export_json, build_trip_export_v3, get_trip};
@@ -297,6 +297,33 @@ fn push_structured_error(report: &mut FragmentApplyDryRunReport, error: Structur
 fn push_legacy_error_if_missing(report: &mut FragmentApplyDryRunReport, message: String) {
     if !report.errors.iter().any(|existing| existing == &message) {
         report.errors.push(message);
+    }
+}
+
+fn validate_fragment_candidate_currency(
+    currency_text: &str,
+    report: &mut Option<&mut FragmentApplyDryRunReport>,
+    intent: &str,
+    phase: ApplyErrorPhase,
+) -> Result<String, String> {
+    match validate_cli_write_currency_code(currency_text) {
+        Ok(normalized) => Ok(normalized),
+        Err(error) => {
+            let message = format!("candidate_content.currency が不正です: {error}");
+            if let Some(report) = report.as_mut() {
+                push_structured_error(
+                    report,
+                    StructuredApplyError::blocking(
+                        ApplyErrorCode::ApplyFieldInvalid,
+                        phase,
+                        message.clone(),
+                    )
+                    .with_intent(intent)
+                    .with_field_path("candidate_content.currency"),
+                );
+            }
+            Err(message)
+        }
     }
 }
 
@@ -4593,21 +4620,25 @@ fn itinerary_title_exists_in_other_day(
 
 fn parse_add_expense_fields(
     fragment: &Map<String, Value>,
-    report: Option<&mut FragmentApplyDryRunReport>,
+    mut report: Option<&mut FragmentApplyDryRunReport>,
 ) -> Result<ParsedAddExpenseFields, String> {
     let candidate = fragment
         .get("candidate_content")
         .and_then(Value::as_object)
         .ok_or_else(|| "candidate_content object が必要です".to_string())?;
 
-    if let Some(report) = report {
+    if let Some(report) = report.as_mut() {
         warn_unsupported_add_expense_candidate_keys(candidate, report);
     }
 
     let currency_text = non_empty_string(candidate.get("currency"))
         .ok_or_else(|| "candidate_content.currency が必要です".to_string())?;
-    let currency = validate_currency_code(&currency_text)
-        .map_err(|error| format!("candidate_content.currency が不正です: {error}"))?;
+    let currency = validate_fragment_candidate_currency(
+        &currency_text,
+        &mut report,
+        "add_expense",
+        ApplyErrorPhase::Simulate,
+    )?;
 
     let amount = parse_expense_amount_field(candidate.get("amount"), &currency)?;
 
@@ -4673,14 +4704,14 @@ fn warn_unsupported_add_expense_candidate_keys(
 
 fn parse_add_estimate_fields(
     fragment: &Map<String, Value>,
-    report: Option<&mut FragmentApplyDryRunReport>,
+    mut report: Option<&mut FragmentApplyDryRunReport>,
 ) -> Result<ParsedAddEstimateFields, String> {
     let candidate = fragment
         .get("candidate_content")
         .and_then(Value::as_object)
         .ok_or_else(|| "candidate_content object が必要です".to_string())?;
 
-    if let Some(report) = report {
+    if let Some(report) = report.as_mut() {
         warn_unsupported_add_estimate_candidate_keys(candidate, report);
     }
 
@@ -4692,8 +4723,12 @@ fn parse_add_estimate_fields(
 
     let currency_text = non_empty_string(candidate.get("currency"))
         .ok_or_else(|| "candidate_content.currency が必要です".to_string())?;
-    let currency = validate_currency_code(&currency_text)
-        .map_err(|error| format!("candidate_content.currency が不正です: {error}"))?;
+    let currency = validate_fragment_candidate_currency(
+        &currency_text,
+        &mut report,
+        "add_estimate",
+        ApplyErrorPhase::Simulate,
+    )?;
 
     let amount = parse_expense_amount_field(candidate.get("amount"), &currency)?;
 
@@ -5363,14 +5398,14 @@ fn warn_unsupported_update_estimate_candidate_keys(
 
 fn parse_update_estimate_fields(
     fragment: &Map<String, Value>,
-    report: Option<&mut FragmentApplyDryRunReport>,
+    mut report: Option<&mut FragmentApplyDryRunReport>,
 ) -> Result<ParsedUpdateEstimateFields, String> {
     let candidate = fragment
         .get("candidate_content")
         .and_then(Value::as_object)
         .ok_or_else(|| "candidate_content object が必要です".to_string())?;
 
-    if let Some(report) = report {
+    if let Some(report) = report.as_mut() {
         warn_unsupported_update_estimate_candidate_keys(candidate, report);
     }
 
@@ -5393,10 +5428,14 @@ fn parse_update_estimate_fields(
         None
     };
     let currency_text = if has_currency {
-        Some(
-            non_empty_string(candidate.get("currency"))
-                .ok_or_else(|| "candidate_content.currency が必要です".to_string())?,
-        )
+        let raw = non_empty_string(candidate.get("currency"))
+            .ok_or_else(|| "candidate_content.currency が必要です".to_string())?;
+        Some(validate_fragment_candidate_currency(
+            &raw,
+            &mut report,
+            "update_estimate",
+            ApplyErrorPhase::Simulate,
+        )?)
     } else {
         None
     };
@@ -5492,8 +5531,10 @@ fn compute_update_estimate_proposed(
     };
 
     if fields.has_currency {
-        proposed.currency = validate_currency_code(currency_for_amount)
-            .map_err(|error| format!("candidate_content.currency が不正です: {error}"))?;
+        proposed.currency = fields
+            .currency_text
+            .clone()
+            .ok_or_else(|| "candidate_content.currency が必要です".to_string())?;
     }
 
     if fields.has_amount {
@@ -8629,6 +8670,190 @@ mod tests {
             crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
             before
         );
+    }
+
+    const ADD_EXPENSE_STRICT_CURRENCY_TARGET_JSON: &str = r#"{
+      "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+      "target": {
+        "target_type": "itinerary",
+        "day_reference": 1,
+        "itinerary_reference": "Morning temple"
+      },
+      "fragment": {
+        "intent": "add_expense",
+        "candidate_content": {
+          "title": "Temple admission",
+          "amount": 500,
+          "currency": "CURRENCY_PLACEHOLDER"
+        }
+      },
+      "adoption_hints": { "required_decisions": [] }
+    }"#;
+
+    fn seed_add_expense_strict_currency_fixture(conn: &Connection) -> i64 {
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            Some(1000),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        trip_id
+    }
+
+    #[test]
+    fn add_expense_invalid_currency_emits_apply_field_invalid() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id = seed_add_expense_strict_currency_fixture(&conn);
+        let before_expenses = crate::expense::list_expenses_for_itinerary(&conn, 1)
+            .map(|items| items.len())
+            .unwrap_or(0);
+        let json = ADD_EXPENSE_STRICT_CURRENCY_TARGET_JSON.replace("CURRENCY_PLACEHOLDER", "ZZZ");
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", &json, trip_id);
+        assert!(!report.valid);
+        let structured = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyFieldInvalid)
+            .expect("APPLY_FIELD_INVALID");
+        assert_eq!(structured.phase, ApplyErrorPhase::Simulate);
+        assert_eq!(structured.intent.as_deref(), Some("add_expense"));
+        assert_eq!(
+            structured.field_path.as_deref(),
+            Some("candidate_content.currency")
+        );
+        assert!(report.errors.iter().any(|error| error.contains("currency")));
+        assert_eq!(
+            crate::expense::list_expenses_for_itinerary(&conn, 1)
+                .map(|items| items.len())
+                .unwrap_or(0),
+            before_expenses
+        );
+    }
+
+    #[test]
+    fn add_expense_lowercase_currency_normalizes_on_dry_run() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id = seed_add_expense_strict_currency_fixture(&conn);
+        let json = ADD_EXPENSE_STRICT_CURRENCY_TARGET_JSON.replace("CURRENCY_PLACEHOLDER", "jpy");
+
+        let (report, preview_json) =
+            fragment_apply_dry_run_json(&conn, "test.json", &json, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        let preview_json = preview_json.expect("preview json");
+        let preview: TripExportV3 = serde_json::from_str(&preview_json).unwrap();
+        let expense = preview
+            .days
+            .iter()
+            .flat_map(|day| day.itineraries.iter())
+            .flat_map(|item| item.expenses.iter())
+            .next()
+            .expect("preview expense");
+        assert_eq!(expense.currency, "JPY");
+    }
+
+    #[test]
+    fn add_estimate_denylist_currency_emits_apply_field_invalid() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id = seed_add_expense_strict_currency_fixture(&conn);
+        let json = r#"{
+          "metadata": { "created_at": "2026-03-15T14:00:00Z", "source": "manual" },
+          "target": {
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          },
+          "fragment": {
+            "intent": "add_estimate",
+            "candidate_content": {
+              "amount": 1000,
+              "currency": "XXX"
+            }
+          },
+          "adoption_hints": { "required_decisions": [] }
+        }"#;
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", json, trip_id);
+        assert!(!report.valid);
+        let structured = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyFieldInvalid)
+            .expect("APPLY_FIELD_INVALID");
+        assert_eq!(structured.intent.as_deref(), Some("add_estimate"));
+        assert_eq!(
+            structured.field_path.as_deref(),
+            Some("candidate_content.currency")
+        );
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("旅行費用として許可されていません")));
+    }
+
+    #[test]
+    fn update_estimate_without_currency_skips_strict_revalidation_of_legacy_row() {
+        let conn = open_db_at(":memory:").unwrap();
+        let trip_id =
+            crate::trip::add_trip(&conn, "Trip", "2026-05-01", "2026-05-01", None).unwrap();
+        let itinerary_id = crate::itinerary::add_itinerary_item(
+            &conn,
+            trip_id,
+            1,
+            "Morning temple",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let estimate_id = crate::estimate::add_estimate(
+            &conn,
+            itinerary_id,
+            "10000",
+            "ZZZ",
+            Some("Legacy estimate"),
+            None,
+            None,
+        )
+        .unwrap();
+        let json = format!(
+            r#"{{
+          "metadata": {{ "created_at": "2026-03-15T14:00:00Z", "source": "manual" }},
+          "target": {{
+            "target_type": "itinerary",
+            "day_reference": 1,
+            "itinerary_reference": "Morning temple"
+          }},
+          "fragment": {{
+            "intent": "update_estimate",
+            "candidate_content": {{
+              "estimate_id": {estimate_id},
+              "title": "Renamed legacy estimate"
+            }}
+          }},
+          "adoption_hints": {{ "required_decisions": [] }}
+        }}"#
+        );
+
+        let (report, _) = fragment_apply_dry_run_json(&conn, "test.json", &json, trip_id);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        let stored = crate::estimate::get_estimate(&conn, estimate_id).unwrap();
+        assert_eq!(stored.currency, "ZZZ");
+        assert_eq!(stored.title.as_deref(), Some("Legacy estimate"));
     }
 
     #[test]

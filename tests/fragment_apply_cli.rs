@@ -1537,9 +1537,29 @@ fn cli_fragment_apply_add_expense_invalid_currency_blocks_without_db_write() {
     let fragment = fixture_path("apply-add-expense-invalid-currency-fragment.json");
     seed_trip_with_itinerary(&dir);
 
-    let before = itinerary_expense_count(&dir, "1");
-    let output = run_cli_in(
+    assert_fragment_currency_structured_blocking(
         &dir,
+        &fragment,
+        false,
+        "add_expense",
+        itinerary_expense_count_for_first_itinerary,
+    );
+}
+
+#[test]
+fn cli_fragment_apply_add_expense_valid_iso_currency_dry_run_succeeds() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_add_expense_inline_fragment(
+        dir,
+        "add-expense-valid-usd.json",
+        r#"{ "title": "Museum", "amount": 1200, "currency": "USD" }"#,
+    );
+    seed_trip_with_itinerary(&dir);
+    let before = itinerary_expense_count_for_first_itinerary(dir);
+
+    let output = run_cli_in(
+        dir,
         &[
             "fragment",
             "apply",
@@ -1550,8 +1570,94 @@ fn cli_fragment_apply_add_expense_invalid_currency_blocks_without_db_write() {
             "--json",
         ],
     );
-    assert!(!output.status.success());
-    assert_eq!(itinerary_expense_count(&dir, "1"), before);
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(parsed["preview"]["expense_preview"]["currency"], "USD");
+    assert_eq!(itinerary_expense_count_for_first_itinerary(dir), before);
+}
+
+#[test]
+fn cli_fragment_apply_add_expense_lowercase_currency_normalizes_on_dry_run() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_add_expense_inline_fragment(
+        dir,
+        "add-expense-lowercase-jpy.json",
+        r#"{ "title": "Snack", "amount": 300, "currency": "jpy" }"#,
+    );
+    seed_trip_with_itinerary(&dir);
+
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["preview"]["expense_preview"]["currency"], "JPY");
+}
+
+#[test]
+fn cli_fragment_apply_add_expense_unknown_currency_blocks_with_structured_error() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_add_expense_inline_fragment(
+        dir,
+        "add-expense-unknown-zzz.json",
+        r#"{ "title": "Bad", "amount": 100, "currency": "ZZZ" }"#,
+    );
+    seed_trip_with_itinerary(&dir);
+    assert_fragment_currency_structured_blocking(
+        &dir,
+        &fragment,
+        false,
+        "add_expense",
+        itinerary_expense_count_for_first_itinerary,
+    );
+}
+
+#[test]
+fn cli_fragment_apply_add_expense_denylist_currency_blocks_with_structured_error() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_add_expense_inline_fragment(
+        dir,
+        "add-expense-denylist-xxx.json",
+        r#"{ "title": "Bad", "amount": 100, "currency": "XXX" }"#,
+    );
+    seed_trip_with_itinerary(&dir);
+    assert_fragment_currency_structured_blocking(
+        &dir,
+        &fragment,
+        false,
+        "add_expense",
+        itinerary_expense_count_for_first_itinerary,
+    );
+}
+
+#[test]
+fn cli_fragment_apply_add_expense_invalid_currency_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = fixture_path("apply-add-expense-invalid-currency-fragment.json");
+    seed_trip_with_itinerary(&dir);
+    assert_fragment_currency_structured_blocking(
+        &dir,
+        &fragment,
+        true,
+        "add_expense",
+        itinerary_expense_count_for_first_itinerary,
+    );
 }
 
 #[test]
@@ -2290,11 +2396,28 @@ fn cli_fragment_apply_add_estimate_invalid_currency_blocks_without_db_write() {
     let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-invalid-currency.json");
     seed_trip_with_itinerary(&dir);
-    let itinerary_id = first_itinerary_id(&dir);
-    let before = itinerary_estimate_count(&dir, &itinerary_id.to_string());
+    assert_fragment_currency_structured_blocking(
+        &dir,
+        &fragment,
+        false,
+        "add_estimate",
+        itinerary_estimate_count_for_first_itinerary,
+    );
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_valid_iso_currency_dry_run_succeeds() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_add_estimate_inline_fragment(
+        dir,
+        "add-estimate-valid-eur.json",
+        r#"{ "amount": 2500, "currency": "EUR", "title": "Dinner" }"#,
+    );
+    seed_trip_with_itinerary(&dir);
 
     let output = run_cli_in(
-        &dir,
+        dir,
         &[
             "fragment",
             "apply",
@@ -2305,10 +2428,47 @@ fn cli_fragment_apply_add_estimate_invalid_currency_blocks_without_db_write() {
             "--json",
         ],
     );
-    assert!(!output.status.success());
-    assert_eq!(
-        itinerary_estimate_count(&dir, &itinerary_id.to_string()),
-        before
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["preview"]["estimate_preview"]["currency"], "EUR");
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_unknown_currency_blocks_with_structured_error() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_add_estimate_inline_fragment(
+        dir,
+        "add-estimate-unknown-abc.json",
+        r#"{ "amount": 1000, "currency": "ABC" }"#,
+    );
+    seed_trip_with_itinerary(&dir);
+    assert_fragment_currency_structured_blocking(
+        &dir,
+        &fragment,
+        false,
+        "add_estimate",
+        itinerary_estimate_count_for_first_itinerary,
+    );
+}
+
+#[test]
+fn cli_fragment_apply_add_estimate_denylist_currency_blocks_with_structured_error() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let fragment = write_add_estimate_inline_fragment(
+        dir,
+        "add-estimate-denylist-xau.json",
+        r#"{ "amount": 1000, "currency": "XAU" }"#,
+    );
+    seed_trip_with_itinerary(&dir);
+    assert_fragment_currency_structured_blocking(
+        &dir,
+        &fragment,
+        false,
+        "add_estimate",
+        itinerary_estimate_count_for_first_itinerary,
     );
 }
 
@@ -2716,7 +2876,13 @@ fn cli_fragment_apply_add_estimate_invalid_currency_confirm_blocks_without_db_wr
     let dir = workspace.path();
     let fragment = fixture_path("apply-add-estimate-invalid-currency.json");
     seed_trip_with_itinerary(&dir);
-    assert_add_estimate_invalid_confirm(&dir, &fragment);
+    assert_fragment_currency_structured_blocking(
+        &dir,
+        &fragment,
+        true,
+        "add_estimate",
+        itinerary_estimate_count_for_first_itinerary,
+    );
 }
 
 #[test]
@@ -6094,6 +6260,115 @@ fn write_update_estimate_inline_fragment(
     path
 }
 
+fn write_add_expense_inline_fragment(
+    dir: &std::path::Path,
+    filename: &str,
+    candidate_json: &str,
+) -> std::path::PathBuf {
+    let path = dir.join(filename);
+    let content = format!(
+        r#"{{
+  "target": {{
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  }},
+  "fragment": {{
+    "intent": "add_expense",
+    "candidate_content": {candidate_json}
+  }},
+  "adoption_hints": {{ "required_decisions": [] }}
+}}"#
+    );
+    std::fs::write(&path, content).unwrap();
+    path
+}
+
+fn write_add_estimate_inline_fragment(
+    dir: &std::path::Path,
+    filename: &str,
+    candidate_json: &str,
+) -> std::path::PathBuf {
+    let path = dir.join(filename);
+    let content = format!(
+        r#"{{
+  "target": {{
+    "target_type": "itinerary",
+    "day_reference": 1,
+    "itinerary_reference": "Morning temple"
+  }},
+  "fragment": {{
+    "intent": "add_estimate",
+    "candidate_content": {candidate_json}
+  }},
+  "adoption_hints": {{ "required_decisions": [] }}
+}}"#
+    );
+    std::fs::write(&path, content).unwrap();
+    path
+}
+
+fn assert_fragment_currency_structured_blocking(
+    dir: &std::path::Path,
+    fragment_path: &std::path::Path,
+    confirm: bool,
+    intent: &str,
+    before_count_fn: impl Fn(&std::path::Path) -> usize,
+) {
+    let before = before_count_fn(dir);
+    let mut args = vec![
+        "fragment",
+        "apply",
+        fragment_path.to_str().unwrap(),
+        "--trip",
+        "1",
+        "--json",
+    ];
+    if confirm {
+        args.push("--confirm");
+    } else {
+        args.push("--dry-run");
+    }
+    let output = run_cli_in(dir, &args);
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], false);
+    let errors = parsed["errors"]
+        .as_array()
+        .expect("errors array")
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        errors.contains("currency"),
+        "expected legacy errors[] currency mirror, got: {errors}"
+    );
+    let structured = parsed["structured_errors"]
+        .as_array()
+        .expect("structured_errors array");
+    let currency_error = structured
+        .iter()
+        .find(|error| {
+            error["code"] == "APPLY_FIELD_INVALID"
+                && error["field_path"] == "candidate_content.currency"
+        })
+        .unwrap_or_else(|| panic!("APPLY_FIELD_INVALID currency missing: {structured:?}"));
+    assert_eq!(currency_error["kind"], "blocking");
+    assert_eq!(currency_error["phase"], "simulate");
+    assert_eq!(currency_error["intent"], intent);
+    assert_eq!(before_count_fn(dir), before);
+}
+
+fn itinerary_expense_count_for_first_itinerary(dir: &std::path::Path) -> usize {
+    itinerary_expense_count(dir, &first_itinerary_id(dir).to_string())
+}
+
+fn itinerary_estimate_count_for_first_itinerary(dir: &std::path::Path) -> usize {
+    itinerary_estimate_count(dir, &first_itinerary_id(dir).to_string())
+}
+
 fn run_update_estimate_dry_run_json(
     dir: &std::path::Path,
     fragment_path: &std::path::Path,
@@ -6708,7 +6983,81 @@ fn cli_fragment_apply_update_estimate_invalid_currency_blocks_without_db_write()
         r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
         r#"{ "estimate_id": 1, "amount": "100", "currency": "JP" }"#,
     );
-    assert_update_estimate_invalid_dry_run(dir, &fragment, "currency");
+    seed_trip_with_estimate(dir);
+    assert_fragment_currency_structured_blocking(dir, &fragment, false, "update_estimate", |_| 1);
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_explicit_unknown_currency_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-unknown-zzz.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(r#"{{ "estimate_id": {estimate_id}, "amount": "100", "currency": "ZZZ" }}"#),
+    );
+    let before = estimate_show_json(dir, estimate_id);
+    assert_fragment_currency_structured_blocking(dir, &fragment, false, "update_estimate", |_| 1);
+    assert_eq!(estimate_show_json(dir, estimate_id), before);
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_without_currency_skips_legacy_currency_revalidation() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let db_path = dir.join("caglla.db");
+    let sql = format!("UPDATE estimates SET currency = 'ZZZ' WHERE id = {estimate_id};");
+    let output = Command::new("sqlite3")
+        .arg(&db_path)
+        .arg(&sql)
+        .output()
+        .expect("sqlite3 required");
+    assert!(output.status.success());
+    let before = estimate_show_json(dir, estimate_id);
+    assert_eq!(before["currency"], "ZZZ");
+
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-title-only-legacy-zzz.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(r#"{{ "estimate_id": {estimate_id}, "title": "Renamed legacy" }}"#),
+    );
+    let output = run_cli_in(
+        dir,
+        &[
+            "fragment",
+            "apply",
+            fragment.to_str().unwrap(),
+            "--dry-run",
+            "--trip",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).expect("json report");
+    assert_eq!(parsed["valid"], true);
+    assert_eq!(estimate_show_json(dir, estimate_id), before);
+}
+
+#[test]
+fn cli_fragment_apply_update_estimate_invalid_currency_confirm_blocks_without_db_write() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let (_itinerary_id, estimate_id) = seed_trip_with_estimate(dir);
+    let fragment = write_update_estimate_inline_fragment(
+        dir,
+        "update-estimate-invalid-currency-confirm.json",
+        r#"{ "target_type": "itinerary", "day_reference": 1, "itinerary_reference": "Morning temple" }"#,
+        &format!(r#"{{ "estimate_id": {estimate_id}, "amount": "100", "currency": "ZZZ" }}"#),
+    );
+    let before = estimate_show_json(dir, estimate_id);
+    assert_fragment_currency_structured_blocking(dir, &fragment, true, "update_estimate", |_| 1);
+    assert_eq!(estimate_show_json(dir, estimate_id), before);
 }
 
 #[test]
