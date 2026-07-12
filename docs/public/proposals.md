@@ -172,6 +172,7 @@ travel-ledger-cli fragment apply <fragment.json> --confirm --trip <id>
 - [AI integration guide](../ai.md)
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
 - [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
+Latest validate-export currency warnings: [v4.8.15 validate-export currency warnings](../specifications/v4.8.15-validate-export-currency-warnings.md)（released）
 - [v4.8.14 Currency Fragment apply strict integration](../specifications/v4.8.14-currency-fragment-apply-strict-integration.md)
 - [v4.8.13 Currency CLI write-path hardening](../specifications/v4.8.13-currency-cli-write-path-hardening.md)
 - [v4.8.12 Currency ISO internal registry + validation mode](../specifications/v4.8.12-currency-iso-internal-registry-validation-mode.md)

@@ -59,6 +59,25 @@ fn validate_iso_strict(normalized: &str) -> Result<String> {
     Ok(normalized.to_string())
 }
 
+/// validate-export 向け currency 品質 warning（format invalid は既存 error path に委譲）。
+pub(crate) fn validate_export_currency_quality_warning(
+    code: &str,
+    field_path: &str,
+) -> Option<String> {
+    let normalized = normalize_currency_format(code).ok()?;
+    if is_travel_expense_denylisted(&normalized) {
+        return Some(format!(
+            "{field_path}: currency code is not allowed for travel expenses: {normalized}"
+        ));
+    }
+    if !is_iso4217_alpha3(&normalized) {
+        return Some(format!(
+            "{field_path}: currency code is not a known ISO 4217 code: {normalized}"
+        ));
+    }
+    None
+}
+
 /// 通貨の最小通貨単位における小数桁数（ISO 4217 の主要通貨のみ。未知は 2）。
 fn currency_minor_unit_digits(currency: &str) -> u32 {
     match currency {
@@ -257,6 +276,44 @@ mod tests {
             assert!(validate_currency_code_with_mode("JPYY", mode).is_err());
             assert!(validate_currency_code_with_mode("JP1", mode).is_err());
         }
+    }
+
+    #[test]
+    fn test_validate_export_currency_quality_warning_unknown_code() {
+        let warning =
+            validate_export_currency_quality_warning("ZZZ", "days[0].expenses[0].currency")
+                .expect("warning");
+        assert!(warning.contains("not a known ISO 4217 code"));
+        assert!(warning.contains("ZZZ"));
+    }
+
+    #[test]
+    fn test_validate_export_currency_quality_warning_denylist_code() {
+        let warning =
+            validate_export_currency_quality_warning("XXX", "days[0].expenses[0].currency")
+                .expect("warning");
+        assert!(warning.contains("not allowed for travel expenses"));
+        assert!(warning.contains("XXX"));
+    }
+
+    #[test]
+    fn test_validate_export_currency_quality_warning_valid_iso_none() {
+        assert!(
+            validate_export_currency_quality_warning("JPY", "days[0].expenses[0].currency")
+                .is_none()
+        );
+        assert!(
+            validate_export_currency_quality_warning("jpy", "days[0].expenses[0].currency")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_validate_export_currency_quality_warning_format_invalid_none() {
+        assert!(
+            validate_export_currency_quality_warning("JP", "days[0].expenses[0].currency")
+                .is_none()
+        );
     }
 
     #[test]

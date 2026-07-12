@@ -540,6 +540,51 @@ fn push_check(checks: &mut Vec<ExportValidationCheck>, id: ExportValidationCheck
     checks.push(ExportValidationCheck { id, passed });
 }
 
+fn collect_export_currency_quality_warnings(
+    export: &TripExportV3,
+    effective_schema: i32,
+) -> Vec<String> {
+    if effective_schema < TRIP_EXPORT_SCHEMA_VERSION_V3 {
+        return Vec::new();
+    }
+
+    let mut warnings = Vec::new();
+    for (d_index, day) in export.days.iter().enumerate() {
+        for (i_index, itinerary) in day.itineraries.iter().enumerate() {
+            for (e_index, expense) in itinerary.expenses.iter().enumerate() {
+                if expense.currency.trim().is_empty() {
+                    continue;
+                }
+                let field_path =
+                    format!("days[{d_index}].itineraries[{i_index}].expenses[{e_index}].currency");
+                if let Some(warning) = crate::money::validate_export_currency_quality_warning(
+                    &expense.currency,
+                    &field_path,
+                ) {
+                    warnings.push(warning);
+                }
+            }
+            if effective_schema < TRIP_EXPORT_SCHEMA_VERSION_V6 {
+                continue;
+            }
+            for (e_index, estimate) in itinerary.estimates.iter().enumerate() {
+                if estimate.currency.trim().is_empty() {
+                    continue;
+                }
+                let field_path =
+                    format!("days[{d_index}].itineraries[{i_index}].estimates[{e_index}].currency");
+                if let Some(warning) = crate::money::validate_export_currency_quality_warning(
+                    &estimate.currency,
+                    &field_path,
+                ) {
+                    warnings.push(warning);
+                }
+            }
+        }
+    }
+    warnings
+}
+
 /// export JSON 文字列を検証する（`valid` = import 可能か）
 pub(crate) fn analyze_trip_export_json(file: &str, json: &str) -> ExportValidationReport {
     let mut report = ExportValidationReport::new(file);
@@ -748,6 +793,12 @@ pub(crate) fn analyze_trip_export_json(file: &str, json: &str) -> ExportValidati
             .errors
             .extend(crate::receipt::collect_export_receipt_validation_errors(
                 export.receipts(),
+                effective_schema,
+            ));
+        report
+            .warnings
+            .extend(collect_export_currency_quality_warnings(
+                &export,
                 effective_schema,
             ));
         report.valid = report.errors.is_empty();
@@ -3098,6 +3149,130 @@ mod tests {
             .warnings
             .iter()
             .any(|warning| warning.contains("exported_at") && warning.contains("RFC3339")));
+    }
+
+    #[test]
+    fn test_analyze_trip_export_unknown_currency_is_warning_only() {
+        let json = r#"{
+            "schema_version": 8,
+            "trip": {
+                "id": 1,
+                "name": "Unknown Currency Trip",
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "days": [
+                {
+                    "day_number": 1,
+                    "itineraries": [
+                        {
+                            "title": "Lunch",
+                            "sort_order": 0,
+                            "expenses": [
+                                { "amount": 1000, "currency": "ZZZ", "sort_order": 0 }
+                            ],
+                            "estimates": [
+                                { "amount": 2000, "currency": "ABC", "sort_order": 0 }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "checklist_items": [],
+            "notes": [],
+            "participants": []
+        }"#;
+
+        let report = analyze_trip_export_json("unknown-currency.json", json);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        assert!(report.warnings.iter().any(|warning| warning
+            .contains("not a known ISO 4217 code")
+            && warning.contains("ZZZ")));
+        assert!(report.warnings.iter().any(|warning| warning
+            .contains("not a known ISO 4217 code")
+            && warning.contains("ABC")));
+    }
+
+    #[test]
+    fn test_analyze_trip_export_denylist_currency_is_warning_only() {
+        let json = r#"{
+            "schema_version": 8,
+            "trip": {
+                "id": 1,
+                "name": "Denylist Currency Trip",
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "days": [
+                {
+                    "day_number": 1,
+                    "itineraries": [
+                        {
+                            "title": "Souvenir",
+                            "sort_order": 0,
+                            "expenses": [
+                                { "amount": 1000, "currency": "XXX", "sort_order": 0 }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "checklist_items": [],
+            "notes": [],
+            "participants": []
+        }"#;
+
+        let report = analyze_trip_export_json("denylist-currency.json", json);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        assert!(report.warnings.iter().any(|warning| {
+            warning.contains("not allowed for travel expenses") && warning.contains("XXX")
+        }));
+    }
+
+    #[test]
+    fn test_analyze_trip_export_valid_iso_currency_has_no_currency_warning() {
+        let json = r#"{
+            "schema_version": 8,
+            "trip": {
+                "id": 1,
+                "name": "Valid Currency Trip",
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "days": [
+                {
+                    "day_number": 1,
+                    "itineraries": [
+                        {
+                            "title": "Museum",
+                            "sort_order": 0,
+                            "expenses": [
+                                { "amount": 1000, "currency": "jpy", "sort_order": 0 }
+                            ],
+                            "estimates": [
+                                { "amount": 2000, "currency": "USD", "sort_order": 0 }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "checklist_items": [],
+            "notes": [],
+            "participants": []
+        }"#;
+
+        let report = analyze_trip_export_json("valid-currency.json", json);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        assert!(!report
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("ISO 4217") || warning.contains("travel expenses")));
     }
 
     #[test]

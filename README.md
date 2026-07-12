@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.8.14](docs/releases/v4.8.14-notes.md)** — Proposal Fragment apply strict currency integration（Fragment apply IsoStrict）
+**[v4.8.15](docs/releases/v4.8.15-notes.md)** — validate-export currency warnings（unknown / denylist → warning）
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)

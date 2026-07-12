@@ -594,3 +594,131 @@ fn cli_validate_export_v5_import_skips_estimate_checks() {
         .expect("estimates check");
     assert_eq!(estimates_check["passed"], true);
 }
+
+#[test]
+fn cli_validate_export_unknown_currency_is_warning_only() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let export_path = write_v3_export(
+        &dir,
+        "unknown-currency.json",
+        r#"[
+    {
+      "day_number": 1,
+      "itineraries": [
+        {
+          "title": "Lunch",
+          "sort_order": 0,
+          "expenses": [
+            { "amount": 1000, "currency": "ZZZ", "sort_order": 0 }
+          ]
+        }
+      ]
+    }
+  ]"#,
+    );
+
+    let output = common::run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "validate-export",
+            export_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(parsed["valid"], true);
+    let warnings = parsed["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|warning| warning
+            .as_str()
+            .unwrap()
+            .contains("not a known ISO 4217 code")),
+        "warnings: {warnings:?}"
+    );
+}
+
+#[test]
+fn cli_validate_export_denylist_currency_is_warning_only() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let export_path = write_v3_export(
+        &dir,
+        "denylist-currency.json",
+        r#"[
+    {
+      "day_number": 1,
+      "itineraries": [
+        {
+          "title": "Souvenir",
+          "sort_order": 0,
+          "expenses": [
+            { "amount": 1000, "currency": "XAU", "sort_order": 0 }
+          ]
+        }
+      ]
+    }
+  ]"#,
+    );
+
+    let output = common::run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "validate-export",
+            export_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(parsed["valid"], true);
+    let warnings = parsed["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|warning| warning
+            .as_str()
+            .unwrap()
+            .contains("not allowed for travel expenses")),
+        "warnings: {warnings:?}"
+    );
+}
+
+#[test]
+fn cli_validate_export_unknown_currency_import_still_succeeds() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    let export_path = write_v3_export(
+        &dir,
+        "import-unknown-currency.json",
+        r#"[
+    {
+      "day_number": 1,
+      "itineraries": [
+        {
+          "title": "Lunch",
+          "sort_order": 0,
+          "expenses": [
+            { "title": "Snack", "amount": 1000, "currency": "ZZZ", "sort_order": 0 }
+          ]
+        }
+      ]
+    }
+  ]"#,
+    );
+
+    let import_output =
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    assert!(
+        import_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&import_output.stderr)
+    );
+
+    let list_output = common::run_cli_in(&dir, &["expense", "list", "--trip", "1", "--json"]);
+    assert!(list_output.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&list_output.stdout).unwrap();
+    assert_eq!(parsed["expenses"][0]["currency"], "ZZZ");
+}
