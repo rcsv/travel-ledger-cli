@@ -1,8 +1,39 @@
+mod currency_registry;
+
 use anyhow::Result;
 
+use currency_registry::{is_iso4217_alpha3, is_travel_expense_denylisted};
+
+/// Currency validation strictness. Existing call sites default to [`FormatOnly`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum CurrencyValidationMode {
+    /// Uppercase alpha-3 format only; unknown codes allowed (legacy default).
+    #[default]
+    FormatOnly,
+    /// ISO 4217 registry + travel-expense denylist (v4.8.13+ write paths).
+    #[expect(dead_code, reason = "wired by CLI write paths in v4.8.13+")]
+    IsoStrict,
+}
+
 /// 通貨コードの形式を検証し、正規化した 3 文字コードを返す。
-/// v1.x: 大文字化 + 英字 3 文字チェックのみ（未知コードは許可）。
+/// 既定は [`CurrencyValidationMode::FormatOnly`]（既存互換）。
 pub(crate) fn validate_currency_code(code: &str) -> Result<String> {
+    validate_currency_code_with_mode(code, CurrencyValidationMode::FormatOnly)
+}
+
+/// 通貨コードを指定モードで検証し、正規化した 3 文字コードを返す。
+pub(crate) fn validate_currency_code_with_mode(
+    code: &str,
+    mode: CurrencyValidationMode,
+) -> Result<String> {
+    let normalized = normalize_currency_format(code)?;
+    match mode {
+        CurrencyValidationMode::FormatOnly => Ok(normalized),
+        CurrencyValidationMode::IsoStrict => validate_iso_strict(&normalized),
+    }
+}
+
+fn normalize_currency_format(code: &str) -> Result<String> {
     let trimmed = code.trim();
     if trimmed.len() != 3 {
         anyhow::bail!("currency は 3 文字である必要があります");
@@ -12,6 +43,16 @@ pub(crate) fn validate_currency_code(code: &str) -> Result<String> {
         anyhow::bail!("currency は英字 3 文字である必要があります");
     }
     Ok(normalized)
+}
+
+fn validate_iso_strict(normalized: &str) -> Result<String> {
+    if is_travel_expense_denylisted(normalized) {
+        anyhow::bail!("currency は旅行費用として許可されていません: {normalized}");
+    }
+    if !is_iso4217_alpha3(normalized) {
+        anyhow::bail!("currency は有効な ISO 4217 コードではありません");
+    }
+    Ok(normalized.to_string())
 }
 
 /// 通貨の最小通貨単位における小数桁数（ISO 4217 の主要通貨のみ。未知は 2）。
@@ -139,18 +180,72 @@ mod tests {
     fn test_validate_currency_code_normalizes_lowercase() {
         assert_eq!(validate_currency_code("jpy").unwrap(), "JPY");
         assert_eq!(validate_currency_code("Usd").unwrap(), "USD");
+        assert_eq!(
+            validate_currency_code_with_mode("jpy", CurrencyValidationMode::IsoStrict).unwrap(),
+            "JPY"
+        );
     }
 
     #[test]
-    fn test_validate_currency_code_allows_unknown_codes() {
+    fn test_validate_currency_code_format_only_allows_unknown_codes() {
+        assert_eq!(validate_currency_code("ZZZ").unwrap(), "ZZZ");
+        assert_eq!(
+            validate_currency_code_with_mode("ZZZ", CurrencyValidationMode::FormatOnly).unwrap(),
+            "ZZZ"
+        );
+    }
+
+    #[test]
+    fn test_validate_currency_code_format_only_allows_denylisted_codes() {
         assert_eq!(validate_currency_code("XXX").unwrap(), "XXX");
+        assert_eq!(
+            validate_currency_code_with_mode("XXX", CurrencyValidationMode::FormatOnly).unwrap(),
+            "XXX"
+        );
+    }
+
+    #[test]
+    fn test_validate_currency_code_iso_strict_accepts_valid_iso_codes() {
+        for code in ["JPY", "USD", "EUR", "HRK", "LTL"] {
+            assert_eq!(
+                validate_currency_code_with_mode(code, CurrencyValidationMode::IsoStrict).unwrap(),
+                code
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_currency_code_iso_strict_rejects_unknown_codes() {
+        for code in ["ZZZ", "ABC", "JPN"] {
+            assert!(
+                validate_currency_code_with_mode(code, CurrencyValidationMode::IsoStrict).is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_currency_code_iso_strict_rejects_denylisted_codes() {
+        for code in ["XXX", "XTS", "XAU", "XAG", "XPT", "XPD"] {
+            let error = validate_currency_code_with_mode(code, CurrencyValidationMode::IsoStrict)
+                .unwrap_err()
+                .to_string();
+            assert!(
+                error.contains("旅行費用として許可されていません"),
+                "unexpected error for {code}: {error}"
+            );
+        }
     }
 
     #[test]
     fn test_validate_currency_code_rejects_invalid_format() {
-        assert!(validate_currency_code("JP").is_err());
-        assert!(validate_currency_code("JPYY").is_err());
-        assert!(validate_currency_code("JP1").is_err());
+        for mode in [
+            CurrencyValidationMode::FormatOnly,
+            CurrencyValidationMode::IsoStrict,
+        ] {
+            assert!(validate_currency_code_with_mode("JP", mode).is_err());
+            assert!(validate_currency_code_with_mode("JPYY", mode).is_err());
+            assert!(validate_currency_code_with_mode("JP1", mode).is_err());
+        }
     }
 
     #[test]
@@ -172,6 +267,12 @@ mod tests {
     #[test]
     fn test_parse_amount_rejects_negative() {
         assert!(parse_amount_for_currency("-100", "JPY").is_err());
+    }
+
+    #[test]
+    fn test_parse_amount_unknown_currency_still_uses_format_only() {
+        // ZZZ is unknown to minor-unit table → 2 decimal fallback → 100.00
+        assert_eq!(parse_amount_for_currency("100", "ZZZ").unwrap(), 10_000);
     }
 
     #[test]

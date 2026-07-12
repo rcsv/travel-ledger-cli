@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.8.12 | Currency ISO internal registry + validation mode | [v4.8.12-notes.md](v4.8.12-notes.md) |
 | v4.8.11 | Currency ISO validation hardening planning (documentation-only) | [v4.8.11-notes.md](v4.8.11-notes.md) |
 | v4.8.10 | Fragment apply structured errors post-release review (documentation-only) | [v4.8.10-notes.md](v4.8.10-notes.md) |
 | v4.8.9 | Fragment apply confirm transaction structured errors follow-up | [v4.8.9-notes.md](v4.8.9-notes.md) |

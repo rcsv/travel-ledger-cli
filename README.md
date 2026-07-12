@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.8.11](docs/releases/v4.8.11-notes.md)** — Currency ISO validation hardening planning（documentation-only）
+**[v4.8.12](docs/releases/v4.8.12-notes.md)** — Currency ISO internal registry + validation mode（internal implementation, no CLI behavior change）
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)
