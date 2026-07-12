@@ -334,6 +334,87 @@ fn structured_confirm_toctou_drift(message: String, intent: &str) -> StructuredA
     .with_intent(intent)
 }
 
+fn baseline_mismatch_field_path(message: &str) -> Option<String> {
+    message
+        .strip_prefix("baseline mismatch: ")
+        .and_then(|rest| rest.split(' ').next())
+        .map(|key| format!("candidate_content.{key}"))
+}
+
+fn structured_confirm_baseline_mismatch(message: String, intent: &str) -> StructuredApplyError {
+    let field_path = baseline_mismatch_field_path(&message);
+    let mut error = StructuredApplyError::blocking(
+        ApplyErrorCode::ApplyBaselineMismatch,
+        ApplyErrorPhase::ConfirmTransaction,
+        message,
+    )
+    .with_intent(intent);
+    if let Some(field_path) = field_path {
+        error = error.with_field_path(field_path);
+    }
+    error
+}
+
+fn structured_confirm_scoped_write_zero_rows(
+    message: String,
+    intent: &str,
+) -> StructuredApplyError {
+    StructuredApplyError::blocking(
+        ApplyErrorCode::ApplyScopedWriteZeroRows,
+        ApplyErrorPhase::ConfirmTransaction,
+        message,
+    )
+    .with_intent(intent)
+}
+
+fn structured_confirm_scoped_write_multiple_rows(
+    message: String,
+    intent: &str,
+) -> StructuredApplyError {
+    StructuredApplyError::blocking(
+        ApplyErrorCode::ApplyScopedWriteMultipleRows,
+        ApplyErrorPhase::ConfirmTransaction,
+        message,
+    )
+    .with_intent(intent)
+}
+
+fn classify_revalidate_delete_estimate_confirm_error(
+    message: String,
+    intent: &str,
+) -> StructuredApplyError {
+    if message.starts_with("TOCTOU mismatch:") {
+        structured_confirm_toctou_drift(message, intent)
+    } else if message.starts_with("baseline mismatch:") {
+        structured_confirm_baseline_mismatch(message, intent)
+    } else {
+        StructuredApplyError::blocking(
+            ApplyErrorCode::ApplyTransactionFailed,
+            ApplyErrorPhase::ConfirmTransaction,
+            message,
+        )
+        .with_intent(intent)
+    }
+}
+
+fn classify_delete_estimate_scoped_write_error(
+    message: &str,
+    intent: &str,
+) -> StructuredApplyError {
+    if message.contains("exactly one row contract") {
+        structured_confirm_scoped_write_multiple_rows(message.to_string(), intent)
+    } else if message.contains("削除できませんでした") {
+        structured_confirm_scoped_write_zero_rows(message.to_string(), intent)
+    } else {
+        StructuredApplyError::blocking(
+            ApplyErrorCode::ApplyTransactionFailed,
+            ApplyErrorPhase::ConfirmTransaction,
+            message.to_string(),
+        )
+        .with_intent(intent)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FragmentApplyOptions {
     pub dry_run: bool,
@@ -2082,20 +2163,20 @@ fn execute_confirm_delete_estimate(
             candidate,
             &gate_preview,
         ) {
-            let structured = if message.starts_with("TOCTOU mismatch:") {
-                structured_confirm_toctou_drift(message, "delete_estimate")
-            } else {
-                StructuredApplyError::blocking(
-                    ApplyErrorCode::ApplyTransactionFailed,
-                    ApplyErrorPhase::ConfirmTransaction,
-                    message,
-                )
-                .with_intent("delete_estimate")
-            };
-            return fail_confirm_transaction(report, structured);
+            return fail_confirm_transaction(
+                report,
+                classify_revalidate_delete_estimate_confirm_error(message, "delete_estimate"),
+            );
         }
 
-        crate::estimate::delete_estimate_row_scoped(tx, estimate_id, itinerary_id)?;
+        if let Err(error) =
+            crate::estimate::delete_estimate_row_scoped(tx, estimate_id, itinerary_id)
+        {
+            return fail_confirm_transaction(
+                report,
+                classify_delete_estimate_scoped_write_error(&error.to_string(), "delete_estimate"),
+            );
+        }
 
         verify_estimate_deleted(tx, estimate_id).map_err(|error| anyhow::anyhow!(error))?;
 
@@ -8347,6 +8428,21 @@ mod tests {
             message.contains("baseline mismatch") || message.contains("gate preview"),
             "got: {message}"
         );
+        let structured = gate_report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyBaselineMismatch)
+            .expect("structured baseline mismatch");
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
+        assert_eq!(
+            structured.field_path.as_deref(),
+            Some("candidate_content.expected_amount")
+        );
+        assert!(gate_report
+            .errors
+            .iter()
+            .any(|error| error.contains("baseline mismatch")));
 
         assert_eq!(
             crate::estimate::get_estimate(&conn, estimate_id).unwrap(),
@@ -8421,6 +8517,63 @@ mod tests {
         assert_eq!(structured.code, ApplyErrorCode::ApplyToctouDrift);
         assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
         assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
+    }
+
+    #[test]
+    fn structured_confirm_baseline_mismatch_classifies_message_and_field_path() {
+        let message = "baseline mismatch: expected_amount (99999) が現行値 (15000) と一致しません"
+            .to_string();
+        let structured = structured_confirm_baseline_mismatch(message, "delete_estimate");
+        assert_eq!(structured.code, ApplyErrorCode::ApplyBaselineMismatch);
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
+        assert_eq!(
+            structured.field_path.as_deref(),
+            Some("candidate_content.expected_amount")
+        );
+    }
+
+    #[test]
+    fn structured_confirm_scoped_write_zero_rows_classifies_message() {
+        let message =
+            "Estimate 1 は Itinerary 2 配下で削除できませんでした — DB 更新しません".to_string();
+        let structured = classify_delete_estimate_scoped_write_error(&message, "delete_estimate");
+        assert_eq!(structured.code, ApplyErrorCode::ApplyScopedWriteZeroRows);
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
+    }
+
+    #[test]
+    fn structured_confirm_scoped_write_multiple_rows_classifies_message() {
+        let message =
+            "Estimate 削除が 2 行に影響しました — exactly one row contract 違反のため DB 更新しません"
+                .to_string();
+        let structured = classify_delete_estimate_scoped_write_error(&message, "delete_estimate");
+        assert_eq!(
+            structured.code,
+            ApplyErrorCode::ApplyScopedWriteMultipleRows
+        );
+        assert_eq!(structured.phase, ApplyErrorPhase::ConfirmTransaction);
+        assert_eq!(structured.intent.as_deref(), Some("delete_estimate"));
+    }
+
+    #[test]
+    fn confirm_delete_estimate_scoped_write_zero_rows_pushes_structured_error() {
+        let mut report = FragmentApplyDryRunReport::new("test.json", 1, false, true);
+        let message =
+            "Estimate 1 は Itinerary 2 配下で削除できませんでした — DB 更新しません".to_string();
+        let structured = classify_delete_estimate_scoped_write_error(&message, "delete_estimate");
+        push_structured_error(&mut report, structured);
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("削除できませんでした")));
+        let exposed = report
+            .structured_errors
+            .iter()
+            .find(|error| error.code == ApplyErrorCode::ApplyScopedWriteZeroRows)
+            .expect("structured scoped write zero rows");
+        assert_eq!(exposed.phase, ApplyErrorPhase::ConfirmTransaction);
     }
 
     #[test]
