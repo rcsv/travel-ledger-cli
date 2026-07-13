@@ -2,21 +2,22 @@
 
 ## Current phase
 
-v4.8.x Currency ISO validation — **Receipt / inbox CLI strict integration released**（v4.8.16）
+v4.8.x Currency ISO validation — **currency hardening follow-up review released**（v4.8.17）
 
-次は **v4.8.17+** 候補（minor unit ISO lookup / trip import strict reject）。
+次は v4.8.18+ の候補（minor unit / trip import strict）を整理する。
 
 ## Latest completed
 
+- v4.8.17 Currency hardening follow-up review — **released** (documentation-only)
 - v4.8.16 Receipt / inbox CLI strict currency integration — **released**
 - v4.8.15 validate-export currency warnings — **released**
 - v4.8.14 Proposal Fragment apply strict currency integration — **released**
 
 ## Repository state
 
-- Cargo version: `4.8.16`
-- Latest formal release: **v4.8.16** — [v4.8.16-notes.md](releases/v4.8.16-notes.md)
-- **Implementation spec:** [v4.8.16-receipt-inbox-cli-strict-currency-integration.md](specifications/v4.8.16-receipt-inbox-cli-strict-currency-integration.md)
+- Cargo version: `4.8.17`
+- Latest formal release: **v4.8.17** — [v4.8.17-notes.md](releases/v4.8.17-notes.md)
+- **Review:** [v4.8.17-currency-hardening-follow-up-review.md](specifications/v4.8.17-currency-hardening-follow-up-review.md)
 
 ## v4.8.16 release summary
 
@@ -26,11 +27,11 @@ v4.8.x Currency ISO validation — **Receipt / inbox CLI strict integration rele
 
 ## Next action
 
-**v4.8.17+** — minor unit ISO lookup / trip import strict reject（optional）
+**v4.8.18+** — minor unit ISO lookup / trip import strict reject（optional）
 
 ## Defer
 
-- minor unit ISO lookup（v4.8.17+）
+- minor unit ISO lookup（v4.8.18+）
 - trip import strict reject
 - Venue model
 

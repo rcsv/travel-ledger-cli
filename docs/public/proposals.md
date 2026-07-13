@@ -172,6 +172,7 @@ travel-ledger-cli fragment apply <fragment.json> --confirm --trip <id>
 - [AI integration guide](../ai.md)
 - [v4.7.2 Trip Proposal Envelope spec](../specifications/v4.7.2-trip-proposal-envelope-concept-spec.md)
 - [v4.7.3 Proposal Fragment spec](../specifications/v4.7.3-proposal-fragment-concept-spec.md)
+Latest currency hardening follow-up review: [v4.8.17 follow-up review](../specifications/v4.8.17-currency-hardening-follow-up-review.md)（released）
 Latest Receipt / inbox CLI strict integration: [v4.8.16 Receipt / inbox CLI strict currency integration](../specifications/v4.8.16-receipt-inbox-cli-strict-currency-integration.md)（released）
 - [v4.8.15 validate-export currency warnings](../specifications/v4.8.15-validate-export-currency-warnings.md)（released）
 - [v4.8.14 Currency Fragment apply strict integration](../specifications/v4.8.14-currency-fragment-apply-strict-integration.md)

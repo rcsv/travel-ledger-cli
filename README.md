@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.8.16](docs/releases/v4.8.16-notes.md)** — Receipt / inbox CLI strict currency integration（Receipt CLI IsoStrict）
+**[v4.8.17](docs/releases/v4.8.17-notes.md)** — Currency hardening follow-up review（documentation-only）
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)
