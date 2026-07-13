@@ -263,6 +263,34 @@ fn write_v3_export(dir: &std::path::Path, filename: &str, days_json: &str) -> st
     export_path
 }
 
+fn write_v8_export_with_receipts(
+    dir: &std::path::Path,
+    filename: &str,
+    receipts_json: &str,
+) -> std::path::PathBuf {
+    let export_path = dir.join(filename);
+    let json = format!(
+        r#"{{
+  "schema_version": 8,
+  "trip": {{
+    "id": 1,
+    "name": "Receipt Validate Trip",
+    "start_date": "2026-04-26",
+    "end_date": "2026-04-29",
+    "created_at": "2026-01-01 00:00:00",
+    "updated_at": "2026-01-01 00:00:00"
+  }},
+  "days": [],
+  "checklist_items": [],
+  "notes": [],
+  "participants": [],
+  "receipts": {receipts_json}
+}}"#
+    );
+    fs::write(&export_path, json).unwrap();
+    export_path
+}
+
 #[test]
 fn cli_validate_export_v3_expense_invalid_currency_fails() {
     let workspace = common::TestWorkspace::new();
@@ -686,6 +714,90 @@ fn cli_validate_export_denylist_currency_is_warning_only() {
 }
 
 #[test]
+fn cli_validate_export_receipt_unknown_currency_is_warning_only() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let export_path = write_v8_export_with_receipts(
+        &dir,
+        "receipt-unknown-currency.json",
+        r#"[{ "amount": 1000, "currency": "ZZZ", "memo": "x", "status": "unreviewed" }]"#,
+    );
+
+    let output = common::run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "validate-export",
+            export_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(parsed["valid"], true);
+    let warnings = parsed["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|warning| {
+            let s = warning.as_str().unwrap();
+            s.contains("receipts[0].currency") && s.contains("not a known ISO 4217 code")
+        }),
+        "warnings: {warnings:?}"
+    );
+}
+
+#[test]
+fn cli_validate_export_receipt_denylist_currency_is_warning_only() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let export_path = write_v8_export_with_receipts(
+        &dir,
+        "receipt-denylist-currency.json",
+        r#"[{ "amount": 1000, "currency": "XAU", "memo": "x", "status": "unreviewed" }]"#,
+    );
+
+    let output = common::run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "validate-export",
+            export_path.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert!(output.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(parsed["valid"], true);
+    let warnings = parsed["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|warning| {
+            let s = warning.as_str().unwrap();
+            s.contains("receipts[0].currency") && s.contains("not allowed for travel expenses")
+        }),
+        "warnings: {warnings:?}"
+    );
+}
+
+#[test]
+fn cli_validate_export_receipt_format_invalid_currency_is_error() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    let export_path = write_v8_export_with_receipts(
+        &dir,
+        "receipt-format-invalid-currency.json",
+        r#"[{ "amount": 1000, "currency": "JP", "memo": "x", "status": "unreviewed" }]"#,
+    );
+
+    let output = common::run_cli_in(
+        &dir,
+        &["trip", "validate-export", export_path.to_str().unwrap()],
+    );
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("無効な export ファイル"));
+    assert!(stdout.contains("receipts[0].currency"));
+}
+
+#[test]
 fn cli_validate_export_unknown_currency_import_still_succeeds() {
     let workspace = common::TestWorkspace::new();
     let dir = workspace.path();
@@ -721,4 +833,29 @@ fn cli_validate_export_unknown_currency_import_still_succeeds() {
     assert!(list_output.status.success());
     let parsed: serde_json::Value = serde_json::from_slice(&list_output.stdout).unwrap();
     assert_eq!(parsed["expenses"][0]["currency"], "ZZZ");
+}
+
+#[test]
+fn cli_validate_export_unknown_receipt_currency_import_still_succeeds() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+    let export_path = write_v8_export_with_receipts(
+        &dir,
+        "import-unknown-receipt-currency.json",
+        r#"[{ "amount": 1000, "currency": "ZZZ", "memo": "x", "status": "unreviewed" }]"#,
+    );
+
+    let import_output =
+        common::run_cli_in(&dir, &["trip", "import", export_path.to_str().unwrap()]);
+    assert!(
+        import_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&import_output.stderr)
+    );
+
+    let list_output = common::run_cli_in(&dir, &["receipt", "list", "--trip", "1", "--json"]);
+    assert!(list_output.status.success());
+    let parsed: serde_json::Value = serde_json::from_slice(&list_output.stdout).unwrap();
+    assert_eq!(parsed["receipts"][0]["currency"], "ZZZ");
 }

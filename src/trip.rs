@@ -582,6 +582,23 @@ fn collect_export_currency_quality_warnings(
             }
         }
     }
+
+    if effective_schema >= TRIP_EXPORT_SCHEMA_VERSION_V7 {
+        for (r_index, receipt) in export.receipts().iter().enumerate() {
+            let Some(currency) = receipt.currency.as_deref() else {
+                continue;
+            };
+            if currency.trim().is_empty() {
+                continue;
+            }
+            let field_path = format!("receipts[{r_index}].currency");
+            if let Some(warning) =
+                crate::money::validate_export_currency_quality_warning(currency, &field_path)
+            {
+                warnings.push(warning);
+            }
+        }
+    }
     warnings
 }
 
@@ -3273,6 +3290,66 @@ mod tests {
             .warnings
             .iter()
             .any(|warning| warning.contains("ISO 4217") || warning.contains("travel expenses")));
+    }
+
+    #[test]
+    fn test_analyze_trip_export_receipt_unknown_currency_is_warning_only() {
+        let json = r#"{
+            "schema_version": 8,
+            "trip": {
+                "id": 1,
+                "name": "Receipt Unknown Currency Trip",
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "days": [],
+            "checklist_items": [],
+            "notes": [],
+            "participants": [],
+            "receipts": [
+                { "amount": 1000, "currency": "ZZZ", "memo": "x", "status": "unreviewed" }
+            ]
+        }"#;
+
+        let report = analyze_trip_export_json("receipt-unknown-currency.json", json);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        assert!(report.warnings.iter().any(|warning| {
+            warning.contains("receipts[0].currency")
+                && warning.contains("not a known ISO 4217 code")
+                && warning.contains("ZZZ")
+        }));
+    }
+
+    #[test]
+    fn test_analyze_trip_export_receipt_denylist_currency_is_warning_only() {
+        let json = r#"{
+            "schema_version": 8,
+            "trip": {
+                "id": 1,
+                "name": "Receipt Denylist Currency Trip",
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-03",
+                "created_at": "2026-01-01 00:00:00",
+                "updated_at": "2026-01-01 00:00:00"
+            },
+            "days": [],
+            "checklist_items": [],
+            "notes": [],
+            "participants": [],
+            "receipts": [
+                { "amount": 1000, "currency": "XAU", "memo": "x", "status": "unreviewed" }
+            ]
+        }"#;
+
+        let report = analyze_trip_export_json("receipt-denylist-currency.json", json);
+        assert!(report.valid, "errors: {:?}", report.errors);
+        assert!(report.warnings.iter().any(|warning| {
+            warning.contains("receipts[0].currency")
+                && warning.contains("not allowed for travel expenses")
+                && warning.contains("XAU")
+        }));
     }
 
     #[test]

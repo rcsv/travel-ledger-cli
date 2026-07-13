@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.8.18 | validate-export Receipt currency warnings | [v4.8.18-notes.md](v4.8.18-notes.md) |
 | v4.8.17 | Currency hardening follow-up review (documentation-only) | [v4.8.17-notes.md](v4.8.17-notes.md) |
 | v4.8.16 | Receipt / inbox CLI strict currency integration | [v4.8.16-notes.md](v4.8.16-notes.md) |
 | v4.8.15 | validate-export currency warnings | [v4.8.15-notes.md](v4.8.15-notes.md) |
