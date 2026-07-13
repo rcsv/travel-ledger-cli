@@ -2,38 +2,46 @@
 
 ## Current phase
 
-v4.8.x Currency ISO validation — **validate-export Receipt currency warnings released**（v4.8.18）
+v4.9.x Desktop transition — **Trip metadata foundation released**（v4.9.0, documentation-only）
 
-次は v4.8.19+ の候補（minor unit / trip import strict）を整理する。
+次は **v4.9.1 — Trip optional metadata DB implementation**（実装リリース）。
 
 ## Latest completed
 
+- v4.9.0 Desktop transition and Trip metadata foundation — **released** (documentation-only)
 - v4.8.18 validate-export Receipt currency warnings — **released**
 - v4.8.17 Currency hardening follow-up review — **released** (documentation-only)
 - v4.8.16 Receipt / inbox CLI strict currency integration — **released**
-- v4.8.15 validate-export currency warnings — **released**
 
 ## Repository state
 
-- Cargo version: `4.8.18`
-- Latest formal release: **v4.8.18** — [v4.8.18-notes.md](releases/v4.8.18-notes.md)
-- **Implementation:** [v4.8.18-validate-export-receipt-currency-warnings.md](specifications/v4.8.18-validate-export-receipt-currency-warnings.md)
+- Cargo version: `4.9.0`
+- Latest formal release: **v4.9.0** — [v4.9.0-notes.md](releases/v4.9.0-notes.md)
+- **Foundation:** [v4.9.0-desktop-transition-and-trip-metadata-foundation.md](specifications/v4.9.0-desktop-transition-and-trip-metadata-foundation.md)
 
-## v4.8.18 release summary
+## v4.9.0 release summary
 
-- **Warning-only:** `trip validate-export` — `receipts[{i}].currency`（schema ≥ v7）
-- **Unknown / denylist:** warning（`valid: true` 維持）
-- **Format invalid:** error（既存契約維持）
-- **FormatOnly 維持:** trip import, read/export, domain layer
+- **GUI transition:** export/import 深掘りを下げ、Trip / Day / Itinerary 日常操作と service facade を優先
+- **Trip metadata (optional):** `main_destination` / `main_destination_country_code` / `default_currency`
+- **Boundaries:** Main Destination ≠ Venue、Default Currency ≠ Expense currency 正本
+- **Country code validation:** format vs ISO registry strict は v4.9.1 で決定
 
 ## Next action
 
-**v4.8.19+** — minor unit ISO lookup / trip import strict reject（optional）
+**v4.9.1** — Trip optional metadata DB implementation
+
+- `trips.main_destination` / `main_destination_country_code` / `default_currency`
+- migration（NULL 許容）
+- `trip add` / `trip update` / `trip show` / JSON output
+- country code validation policy（registry / reserved / historical）
 
 ## Defer
 
-- minor unit ISO lookup（v4.8.19+）
+- Desktop readiness service facade（v4.9.2+）
+- Desktop vertical slice / Tauri（v4.9.x 後半〜）
+- minor unit ISO lookup
 - trip import strict reject
 - Venue model
+- cloud / login / sync
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

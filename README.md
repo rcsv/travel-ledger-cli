@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.8.18](docs/releases/v4.8.18-notes.md)** — validate-export Receipt currency warnings
+**[v4.9.0](docs/releases/v4.9.0-notes.md)** — Desktop transition and Trip metadata foundation（documentation-only）
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)
