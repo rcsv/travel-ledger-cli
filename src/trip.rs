@@ -13,6 +13,125 @@ use crate::domain::models::{
 };
 use crate::storage::db::now_string;
 
+/// Optional metadata for `trip add`.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct TripMetadataWrite<'a> {
+    pub main_destination: Option<&'a str>,
+    pub main_destination_country_code: Option<&'a str>,
+    pub default_currency: Option<&'a str>,
+}
+
+/// Core trip field updates for `trip update`.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct UpdateTripCoreWrite<'a> {
+    pub name: Option<&'a str>,
+    pub start: Option<&'a str>,
+    pub end: Option<&'a str>,
+    pub summary: Option<&'a str>,
+    pub clear_summary: bool,
+}
+
+/// Optional metadata updates for `trip update`.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct UpdateTripMetadataWrite<'a> {
+    pub main_destination: Option<&'a str>,
+    pub clear_main_destination: bool,
+    pub main_destination_country_code: Option<&'a str>,
+    pub clear_main_destination_country_code: bool,
+    pub default_currency: Option<&'a str>,
+    pub clear_default_currency: bool,
+}
+
+/// CLI JSON output for Trip（export JSON とは分離）。
+#[derive(serde::Serialize)]
+pub(crate) struct TripCliJson {
+    pub id: i64,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub main_destination: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub main_destination_country_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_currency: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+pub(crate) fn trip_to_cli_json(trip: &Trip) -> TripCliJson {
+    TripCliJson {
+        id: trip.id,
+        name: trip.name.clone(),
+        start_date: trip.start_date.clone(),
+        end_date: trip.end_date.clone(),
+        summary: trip.summary.clone(),
+        main_destination: trip.main_destination.clone(),
+        main_destination_country_code: trip.main_destination_country_code.clone(),
+        default_currency: trip.default_currency.clone(),
+        created_at: trip.created_at.clone(),
+        updated_at: trip.updated_at.clone(),
+    }
+}
+
+fn resolve_trip_metadata_for_add(
+    metadata: TripMetadataWrite<'_>,
+) -> Result<(Option<String>, Option<String>, Option<String>)> {
+    Ok((
+        crate::trip_metadata::normalize_main_destination(metadata.main_destination)?,
+        crate::trip_metadata::validate_main_destination_country_code(
+            metadata.main_destination_country_code,
+        )?,
+        crate::trip_metadata::validate_default_currency(metadata.default_currency)?,
+    ))
+}
+
+fn validate_update_metadata_conflicts(metadata: UpdateTripMetadataWrite<'_>) -> Result<()> {
+    if metadata.clear_main_destination && metadata.main_destination.is_some() {
+        anyhow::bail!("cannot combine --clear-main-destination and --main-destination");
+    }
+    if metadata.clear_main_destination_country_code
+        && metadata.main_destination_country_code.is_some()
+    {
+        anyhow::bail!(
+            "cannot combine --clear-main-destination-country-code and --main-destination-country-code"
+        );
+    }
+    if metadata.clear_default_currency && metadata.default_currency.is_some() {
+        anyhow::bail!("cannot combine --clear-default-currency and --default-currency");
+    }
+    Ok(())
+}
+
+fn apply_trip_metadata_update(
+    trip: &mut Trip,
+    metadata: UpdateTripMetadataWrite<'_>,
+) -> Result<()> {
+    if metadata.clear_main_destination {
+        trip.main_destination = None;
+    } else if let Some(value) = metadata.main_destination {
+        trip.main_destination = crate::trip_metadata::normalize_main_destination(Some(value))?;
+    }
+
+    if metadata.clear_main_destination_country_code {
+        trip.main_destination_country_code = None;
+    } else if let Some(value) = metadata.main_destination_country_code {
+        trip.main_destination_country_code =
+            crate::trip_metadata::validate_main_destination_country_code(Some(value))?;
+    }
+
+    if metadata.clear_default_currency {
+        trip.default_currency = None;
+    } else if let Some(value) = metadata.default_currency {
+        trip.default_currency = crate::trip_metadata::validate_default_currency(Some(value))?;
+    }
+    Ok(())
+}
+
 /// 新しい旅行を追加する
 pub(crate) fn add_trip(
     conn: &Connection,
@@ -21,13 +140,43 @@ pub(crate) fn add_trip(
     end: &str,
     summary: Option<&str>,
 ) -> Result<i64> {
+    add_trip_with_metadata(
+        conn,
+        name,
+        start,
+        end,
+        summary,
+        TripMetadataWrite::default(),
+    )
+}
+
+pub(crate) fn add_trip_with_metadata(
+    conn: &Connection,
+    name: &str,
+    start: &str,
+    end: &str,
+    summary: Option<&str>,
+    metadata: TripMetadataWrite<'_>,
+) -> Result<i64> {
     let day_count = crate::day::validate_trip_date_range(start, end)?;
     let summary = crate::summary::normalize_trip_summary(summary)?;
+    let (main_destination, main_destination_country_code, default_currency) =
+        resolve_trip_metadata_for_add(metadata)?;
     let now = now_string();
     conn.execute(
-        "INSERT INTO trips (name, start_date, end_date, summary, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![name, start, end, summary, &now, &now],
+        "INSERT INTO trips (name, start_date, end_date, summary, main_destination, main_destination_country_code, default_currency, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            name,
+            start,
+            end,
+            summary,
+            main_destination,
+            main_destination_country_code,
+            default_currency,
+            &now,
+            &now,
+        ],
     )
     .context("旅行の追加に失敗しました")?;
     let trip_id = conn.last_insert_rowid();
@@ -49,7 +198,7 @@ pub(crate) fn add_test_self_participant(conn: &Connection, trip_id: i64) -> Resu
 pub(crate) fn list_trips(conn: &Connection) -> Result<Vec<Trip>> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, start_date, end_date, summary, created_at, updated_at
+            "SELECT id, name, start_date, end_date, summary, main_destination, main_destination_country_code, default_currency, created_at, updated_at
              FROM trips
              ORDER BY id",
         )
@@ -68,7 +217,7 @@ pub(crate) fn list_trips(conn: &Connection) -> Result<Vec<Trip>> {
 pub(crate) fn get_trip(conn: &Connection, id: i64) -> Result<Trip> {
     crate::storage::db::map_query_row(
         conn.query_row(
-            "SELECT id, name, start_date, end_date, summary, created_at, updated_at
+            "SELECT id, name, start_date, end_date, summary, main_destination, main_destination_country_code, default_currency, created_at, updated_at
          FROM trips
          WHERE id = ?1",
             params![id],
@@ -79,6 +228,7 @@ pub(crate) fn get_trip(conn: &Connection, id: i64) -> Result<Trip> {
 }
 
 /// 旅行を更新する（指定されたフィールドのみ上書き）
+#[allow(dead_code)]
 pub(crate) fn update_trip(
     conn: &Connection,
     id: i64,
@@ -88,29 +238,68 @@ pub(crate) fn update_trip(
     summary: Option<&str>,
     clear_summary: bool,
 ) -> Result<()> {
-    if name.is_none() && start.is_none() && end.is_none() && summary.is_none() && !clear_summary {
+    update_trip_with_params(
+        conn,
+        id,
+        &UpdateTripCoreWrite {
+            name,
+            start,
+            end,
+            summary,
+            clear_summary,
+        },
+        UpdateTripMetadataWrite::default(),
+    )
+}
+
+pub(crate) fn update_trip_with_params(
+    conn: &Connection,
+    id: i64,
+    core: &UpdateTripCoreWrite<'_>,
+    metadata: UpdateTripMetadataWrite<'_>,
+) -> Result<()> {
+    if core.clear_summary && core.summary.is_some() {
+        anyhow::bail!("cannot combine --clear-summary and --summary");
+    }
+    validate_update_metadata_conflicts(metadata)?;
+
+    let has_metadata_update = metadata.main_destination.is_some()
+        || metadata.clear_main_destination
+        || metadata.main_destination_country_code.is_some()
+        || metadata.clear_main_destination_country_code
+        || metadata.default_currency.is_some()
+        || metadata.clear_default_currency;
+
+    if core.name.is_none()
+        && core.start.is_none()
+        && core.end.is_none()
+        && core.summary.is_none()
+        && !core.clear_summary
+        && !has_metadata_update
+    {
         anyhow::bail!(
-            "更新する項目を1つ以上指定してください (--name, --start, --end, --summary, --clear-summary)"
+            "更新する項目を1つ以上指定してください (--name, --start, --end, --summary, --clear-summary, trip metadata flags)"
         );
     }
 
     let mut trip = get_trip(conn, id)?;
-    if let Some(n) = name {
+    if let Some(n) = core.name {
         trip.name = n.to_string();
     }
-    if let Some(s) = start {
+    if let Some(s) = core.start {
         crate::day::parse_trip_date(s)?;
         trip.start_date = Some(s.to_string());
     }
-    if let Some(e) = end {
+    if let Some(e) = core.end {
         crate::day::parse_trip_date(e)?;
         trip.end_date = Some(e.to_string());
     }
-    if clear_summary {
+    if core.clear_summary {
         trip.summary = None;
-    } else if let Some(s) = summary {
+    } else if let Some(s) = core.summary {
         trip.summary = crate::summary::normalize_trip_summary(Some(s))?;
     }
+    apply_trip_metadata_update(&mut trip, metadata)?;
 
     let start_date = trip
         .start_date
@@ -126,13 +315,18 @@ pub(crate) fn update_trip(
     crate::storage::db::with_transaction(conn, "trip update", |tx| {
         tx.execute(
             "UPDATE trips
-             SET name = ?1, start_date = ?2, end_date = ?3, summary = ?4, updated_at = ?5
-             WHERE id = ?6",
+             SET name = ?1, start_date = ?2, end_date = ?3, summary = ?4,
+                 main_destination = ?5, main_destination_country_code = ?6, default_currency = ?7,
+                 updated_at = ?8
+             WHERE id = ?9",
             params![
                 trip.name,
                 trip.start_date,
                 trip.end_date,
                 trip.summary,
+                trip.main_destination,
+                trip.main_destination_country_code,
+                trip.default_currency,
                 &now,
                 id
             ],
@@ -1572,8 +1766,11 @@ pub(crate) fn row_to_trip(row: &rusqlite::Row) -> rusqlite::Result<Trip> {
         start_date: row.get(2)?,
         end_date: row.get(3)?,
         summary: row.get(4)?,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
+        main_destination: row.get(5)?,
+        main_destination_country_code: row.get(6)?,
+        default_currency: row.get(7)?,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
     })
 }
 /// 日付を表示用に整形する（未設定なら "-"）
@@ -1617,6 +1814,15 @@ pub(crate) fn print_trip_detail(trip: &Trip) {
         for line in summary.lines() {
             println!("            {line}");
         }
+    }
+    if let Some(main_destination) = &trip.main_destination {
+        println!("代表目的地: {main_destination}");
+    }
+    if let Some(country_code) = &trip.main_destination_country_code {
+        println!("旅行先国  : {country_code}");
+    }
+    if let Some(default_currency) = &trip.default_currency {
+        println!("既定通貨  : {default_currency}");
     }
     println!("作成日時  : {}", trip.created_at);
     println!("更新日時  : {}", trip.updated_at);
@@ -2075,7 +2281,9 @@ mod tests {
         add_test_trip(&conn, "京都旅行").unwrap();
 
         let trips = list_trips(&conn).unwrap();
-        let json = serde_json::to_string_pretty(&trips).unwrap();
+        let json =
+            serde_json::to_string_pretty(&trips.iter().map(trip_to_cli_json).collect::<Vec<_>>())
+                .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
         assert!(parsed.is_array());
@@ -2090,13 +2298,160 @@ mod tests {
         let id = add_trip(&conn, "北海道旅行", "2025-08-01", "2025-08-10", None).unwrap();
 
         let trip = get_trip(&conn, id).unwrap();
-        let json = serde_json::to_string_pretty(&trip).unwrap();
+        let json = serde_json::to_string_pretty(&trip_to_cli_json(&trip)).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed["id"], id);
         assert_eq!(parsed["name"], "北海道旅行");
         assert_eq!(parsed["start_date"], "2025-08-01");
         assert_eq!(parsed["end_date"], "2025-08-10");
+    }
+
+    #[test]
+    fn test_add_trip_with_metadata() {
+        let conn = test_db();
+        let id = add_trip_with_metadata(
+            &conn,
+            "Okinawa Trip",
+            "2026-06-01",
+            "2026-06-03",
+            None,
+            TripMetadataWrite {
+                main_destination: Some("Okinawa"),
+                main_destination_country_code: Some("jp"),
+                default_currency: Some("jpy"),
+            },
+        )
+        .unwrap();
+        let trip = get_trip(&conn, id).unwrap();
+        assert_eq!(trip.main_destination.as_deref(), Some("Okinawa"));
+        assert_eq!(trip.main_destination_country_code.as_deref(), Some("JP"));
+        assert_eq!(trip.default_currency.as_deref(), Some("JPY"));
+    }
+
+    #[test]
+    fn test_add_trip_rejects_invalid_metadata() {
+        let conn = test_db();
+        assert!(add_trip_with_metadata(
+            &conn,
+            "Bad Country",
+            "2026-06-01",
+            "2026-06-03",
+            None,
+            TripMetadataWrite {
+                main_destination_country_code: Some("ZZ"),
+                ..TripMetadataWrite::default()
+            },
+        )
+        .is_err());
+        assert!(add_trip_with_metadata(
+            &conn,
+            "Bad Currency",
+            "2026-06-01",
+            "2026-06-03",
+            None,
+            TripMetadataWrite {
+                default_currency: Some("ZZZ"),
+                ..TripMetadataWrite::default()
+            },
+        )
+        .is_err());
+        assert_eq!(list_trips(&conn).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_update_trip_metadata_and_clear() {
+        let conn = test_db();
+        let id = add_trip_with_metadata(
+            &conn,
+            "Meta Trip",
+            "2026-06-01",
+            "2026-06-03",
+            None,
+            TripMetadataWrite {
+                main_destination: Some("Hawaii"),
+                main_destination_country_code: Some("US"),
+                default_currency: Some("USD"),
+            },
+        )
+        .unwrap();
+
+        update_trip_with_params(
+            &conn,
+            id,
+            &UpdateTripCoreWrite::default(),
+            UpdateTripMetadataWrite {
+                main_destination: Some("Okinawa"),
+                ..UpdateTripMetadataWrite::default()
+            },
+        )
+        .unwrap();
+        let trip = get_trip(&conn, id).unwrap();
+        assert_eq!(trip.main_destination.as_deref(), Some("Okinawa"));
+        assert_eq!(trip.main_destination_country_code.as_deref(), Some("US"));
+
+        update_trip_with_params(
+            &conn,
+            id,
+            &UpdateTripCoreWrite::default(),
+            UpdateTripMetadataWrite {
+                clear_default_currency: true,
+                ..UpdateTripMetadataWrite::default()
+            },
+        )
+        .unwrap();
+        let trip = get_trip(&conn, id).unwrap();
+        assert!(trip.default_currency.is_none());
+
+        update_trip(&conn, id, Some("Renamed"), None, None, None, false).unwrap();
+        let trip = get_trip(&conn, id).unwrap();
+        assert_eq!(trip.name, "Renamed");
+        assert_eq!(trip.main_destination.as_deref(), Some("Okinawa"));
+    }
+
+    #[test]
+    fn test_update_trip_metadata_set_clear_conflict() {
+        let conn = test_db();
+        let id = add_test_trip(&conn, "Conflict Trip").unwrap();
+        let err = update_trip_with_params(
+            &conn,
+            id,
+            &UpdateTripCoreWrite::default(),
+            UpdateTripMetadataWrite {
+                main_destination: Some("X"),
+                clear_main_destination: true,
+                ..UpdateTripMetadataWrite::default()
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("cannot combine"));
+        let trip = get_trip(&conn, id).unwrap();
+        assert!(trip.main_destination.is_none());
+    }
+
+    #[test]
+    fn test_export_json_omits_trip_metadata() {
+        let conn = test_db();
+        let trip_id = add_trip_with_metadata(
+            &conn,
+            "Export Trip",
+            "2026-06-01",
+            "2026-06-03",
+            None,
+            TripMetadataWrite {
+                main_destination: Some("Okinawa"),
+                main_destination_country_code: Some("JP"),
+                default_currency: Some("JPY"),
+            },
+        )
+        .unwrap();
+        let json = export_trip_to_json(&conn, trip_id).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(parsed["trip"].get("main_destination").is_none());
+        assert!(parsed["trip"]
+            .get("main_destination_country_code")
+            .is_none());
+        assert!(parsed["trip"].get("default_currency").is_none());
     }
 
     #[test]

@@ -7,6 +7,7 @@ mod day;
 mod domain;
 mod estimate;
 mod expense;
+mod geo;
 mod io;
 mod itinerary;
 mod money;
@@ -20,6 +21,7 @@ mod services;
 mod storage;
 mod summary;
 mod trip;
+mod trip_metadata;
 
 use anyhow::{bail, Result};
 use clap::{CommandFactory, Parser};
@@ -1111,8 +1113,22 @@ fn main() -> Result<()> {
                 start,
                 end,
                 summary,
+                main_destination,
+                main_destination_country_code,
+                default_currency,
             } => {
-                let id = crate::trip::add_trip(&conn, &name, &start, &end, summary.as_deref())?;
+                let id = crate::trip::add_trip_with_metadata(
+                    &conn,
+                    &name,
+                    &start,
+                    &end,
+                    summary.as_deref(),
+                    crate::trip::TripMetadataWrite {
+                        main_destination: main_destination.as_deref(),
+                        main_destination_country_code: main_destination_country_code.as_deref(),
+                        default_currency: default_currency.as_deref(),
+                    },
+                )?;
                 println!("旅行を追加しました (ID: {id})");
                 println!("  名前   : {name}");
                 println!("  開始日 : {start}");
@@ -1120,11 +1136,25 @@ fn main() -> Result<()> {
                 if let Some(text) = summary {
                     println!("  概要   : {text}");
                 }
+                if let Some(text) = main_destination {
+                    println!("  代表目的地 : {text}");
+                }
+                if let Some(text) = main_destination_country_code {
+                    println!("  旅行先国   : {text}");
+                }
+                if let Some(text) = default_currency {
+                    println!("  既定通貨   : {text}");
+                }
             }
             TripAction::List { json } => {
                 let result = crate::services::trip_list::list_trips(&conn)?;
                 if json {
-                    crate::output::json::print_json(&result.trips)?;
+                    let trips: Vec<_> = result
+                        .trips
+                        .iter()
+                        .map(crate::trip::trip_to_cli_json)
+                        .collect();
+                    crate::output::json::print_json(&trips)?;
                 } else {
                     crate::trip::print_trip_list(&result.trips);
                 }
@@ -1132,7 +1162,7 @@ fn main() -> Result<()> {
             TripAction::Show { id, json } => {
                 let result = crate::services::trip_show::show_trip(&conn, id)?;
                 if json {
-                    crate::output::json::print_json(&result.trip)?;
+                    crate::output::json::print_json(&crate::trip::trip_to_cli_json(&result.trip))?;
                 } else {
                     crate::trip::print_trip_detail(&result.trip);
                 }
@@ -1144,15 +1174,31 @@ fn main() -> Result<()> {
                 end,
                 summary,
                 clear_summary,
+                main_destination,
+                clear_main_destination,
+                main_destination_country_code,
+                clear_main_destination_country_code,
+                default_currency,
+                clear_default_currency,
             } => {
-                crate::trip::update_trip(
+                crate::trip::update_trip_with_params(
                     &conn,
                     id,
-                    name.as_deref(),
-                    start.as_deref(),
-                    end.as_deref(),
-                    summary.as_deref(),
-                    clear_summary,
+                    &crate::trip::UpdateTripCoreWrite {
+                        name: name.as_deref(),
+                        start: start.as_deref(),
+                        end: end.as_deref(),
+                        summary: summary.as_deref(),
+                        clear_summary,
+                    },
+                    crate::trip::UpdateTripMetadataWrite {
+                        main_destination: main_destination.as_deref(),
+                        clear_main_destination,
+                        main_destination_country_code: main_destination_country_code.as_deref(),
+                        clear_main_destination_country_code,
+                        default_currency: default_currency.as_deref(),
+                        clear_default_currency,
+                    },
                 )?;
                 println!("旅行を更新しました (ID: {id})");
                 let trip = crate::trip::get_trip(&conn, id)?;

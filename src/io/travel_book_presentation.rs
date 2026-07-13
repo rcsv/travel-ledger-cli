@@ -488,6 +488,9 @@ mod tests {
             start_date: Some("2026-04-26".to_string()),
             end_date: Some("2026-04-29".to_string()),
             summary: None,
+            main_destination: None,
+            main_destination_country_code: None,
+            default_currency: None,
             created_at: String::new(),
             updated_at: String::new(),
         };

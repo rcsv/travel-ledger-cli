@@ -150,6 +150,12 @@ pub struct Trip {
     pub end_date: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    #[serde(skip)]
+    pub main_destination: Option<String>,
+    #[serde(skip)]
+    pub main_destination_country_code: Option<String>,
+    #[serde(skip)]
+    pub default_currency: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

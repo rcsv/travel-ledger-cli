@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.9.1 | Trip optional metadata DB implementation | [v4.9.1-notes.md](v4.9.1-notes.md) |
 | v4.9.0 | Desktop transition and Trip metadata foundation (documentation-only) | [v4.9.0-notes.md](v4.9.0-notes.md) |
 | v4.8.18 | validate-export Receipt currency warnings | [v4.8.18-notes.md](v4.8.18-notes.md) |
 | v4.8.17 | Currency hardening follow-up review (documentation-only) | [v4.8.17-notes.md](v4.8.17-notes.md) |

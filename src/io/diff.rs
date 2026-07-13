@@ -1416,6 +1416,9 @@ mod tests {
             start_date: None,
             end_date: None,
             summary: None,
+            main_destination: None,
+            main_destination_country_code: None,
+            default_currency: None,
             created_at: "2026-01-01 00:00:00".to_string(),
             updated_at: "2026-01-01 00:00:00".to_string(),
         }

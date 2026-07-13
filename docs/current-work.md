@@ -2,46 +2,45 @@
 
 ## Current phase
 
-v4.9.x Desktop transition — **Trip metadata foundation released**（v4.9.0, documentation-only）
+v4.9.x Desktop transition — **Trip optional metadata DB implementation released**（v4.9.1）
 
-次は **v4.9.1 — Trip optional metadata DB implementation**（実装リリース）。
+次は **v4.9.2 — Desktop readiness service facade**。
 
 ## Latest completed
 
+- v4.9.1 Trip optional metadata DB implementation — **released**
 - v4.9.0 Desktop transition and Trip metadata foundation — **released** (documentation-only)
 - v4.8.18 validate-export Receipt currency warnings — **released**
-- v4.8.17 Currency hardening follow-up review — **released** (documentation-only)
-- v4.8.16 Receipt / inbox CLI strict currency integration — **released**
 
 ## Repository state
 
-- Cargo version: `4.9.0`
-- Latest formal release: **v4.9.0** — [v4.9.0-notes.md](releases/v4.9.0-notes.md)
-- **Foundation:** [v4.9.0-desktop-transition-and-trip-metadata-foundation.md](specifications/v4.9.0-desktop-transition-and-trip-metadata-foundation.md)
+- Cargo version: `4.9.1`
+- Latest formal release: **v4.9.1** — [v4.9.1-notes.md](releases/v4.9.1-notes.md)
+- **Implementation:** [v4.9.1-trip-optional-metadata-db-implementation.md](specifications/v4.9.1-trip-optional-metadata-db-implementation.md)
 
-## v4.9.0 release summary
+## v4.9.1 release summary
 
-- **GUI transition:** export/import 深掘りを下げ、Trip / Day / Itinerary 日常操作と service facade を優先
-- **Trip metadata (optional):** `main_destination` / `main_destination_country_code` / `default_currency`
-- **Boundaries:** Main Destination ≠ Venue、Default Currency ≠ Expense currency 正本
-- **Country code validation:** format vs ISO registry strict は v4.9.1 で決定
+- **DB:** nullable `main_destination` / `main_destination_country_code` / `default_currency`
+- **CLI:** add / update / show / JSON（set + clear flags）
+- **Country validation:** ISO 3166-1 alpha-2 strict registry（2026-07 snapshot）
+- **Export/import:** unchanged（`TripCliJson` / `#[serde(skip)]` 分離）
 
 ## Next action
 
-**v4.9.1** — Trip optional metadata DB implementation
+**v4.9.2** — Desktop readiness service facade
 
-- `trips.main_destination` / `main_destination_country_code` / `default_currency`
-- migration（NULL 許容）
-- `trip add` / `trip update` / `trip show` / JSON output
-- country code validation policy（registry / reserved / historical）
+- `TripSummary` / `TripDetail` / `DayDetail` / `ItineraryDetail`
+- structured errors / DB path handling
+- CLI 表示構造から独立した read path
+
+その後: Desktop vertical slice（Tauri read-only Trip list / detail / Day timeline）
 
 ## Defer
 
-- Desktop readiness service facade（v4.9.2+）
-- Desktop vertical slice / Tauri（v4.9.x 後半〜）
-- minor unit ISO lookup
-- trip import strict reject
+- Trip metadata の追加拡張（v4.9.1 で一区切り）
+- country-to-currency suggestion
+- Expense default currency auto-apply
 - Venue model
-- cloud / login / sync
+- Tauri scaffold（v4.9.2 後）
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

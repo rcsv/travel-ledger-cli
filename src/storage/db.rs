@@ -195,6 +195,9 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
             start_date  TEXT,
             end_date    TEXT,
             summary     TEXT,
+            main_destination TEXT,
+            main_destination_country_code TEXT,
+            default_currency TEXT,
             created_at  TEXT NOT NULL,
             updated_at  TEXT NOT NULL
         )",
@@ -317,6 +320,7 @@ pub(crate) fn init_db(conn: &Connection) -> Result<()> {
     migrate_itinerary_items(conn)?;
     // days backfill (migrate_days) inserts into days.summary — add column first.
     migrate_summaries(conn)?;
+    migrate_trips_metadata(conn)?;
     migrate_days(conn)?;
     migrate_itinerary_day_id(conn)?;
     migrate_indexes(conn)?;
@@ -429,6 +433,14 @@ pub(crate) fn migrate_summaries(conn: &Connection) -> Result<()> {
     } else if !has_summary {
         add_column_if_not_exists_internal(conn, "days", "summary", "TEXT")?;
     }
+    Ok(())
+}
+
+/// trips optional metadata columns（v4.9.1+）
+pub(crate) fn migrate_trips_metadata(conn: &Connection) -> Result<()> {
+    add_column_if_not_exists_internal(conn, "trips", "main_destination", "TEXT")?;
+    add_column_if_not_exists_internal(conn, "trips", "main_destination_country_code", "TEXT")?;
+    add_column_if_not_exists_internal(conn, "trips", "default_currency", "TEXT")?;
     Ok(())
 }
 
@@ -609,6 +621,53 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_migrate_trips_metadata_adds_columns_idempotently() {
+        let conn = Connection::open(":memory:").unwrap();
+        conn.execute(
+            "CREATE TABLE trips (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                start_date  TEXT,
+                end_date    TEXT,
+                summary     TEXT,
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            )",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO trips (name, start_date, end_date, created_at, updated_at)
+             VALUES ('Legacy Trip', '2026-01-01', '2026-01-03', 't', 't')",
+            [],
+        )
+        .unwrap();
+
+        migrate_trips_metadata(&conn).unwrap();
+        migrate_trips_metadata(&conn).unwrap();
+
+        let columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(trips)")
+            .unwrap()
+            .query_map([], |row| row.get(1))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        for col in [
+            "main_destination",
+            "main_destination_country_code",
+            "default_currency",
+        ] {
+            assert!(columns.contains(&col.to_string()), "missing column {col}");
+        }
+
+        let trip = crate::trip::get_trip(&conn, 1).unwrap();
+        assert!(trip.main_destination.is_none());
+        assert!(trip.main_destination_country_code.is_none());
+        assert!(trip.default_currency.is_none());
     }
 
     #[test]

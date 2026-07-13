@@ -128,6 +128,15 @@ pub enum TripAction {
         /// 旅行の概要（任意）
         #[arg(long)]
         summary: Option<String>,
+        /// 代表目的地（任意）
+        #[arg(long)]
+        main_destination: Option<String>,
+        /// 旅行先国コード ISO 3166-1 alpha-2（任意）
+        #[arg(long)]
+        main_destination_country_code: Option<String>,
+        /// 既定通貨 ISO 4217（任意）
+        #[arg(long)]
+        default_currency: Option<String>,
     },
     /// 旅行一覧を表示
     List {
@@ -157,11 +166,29 @@ pub enum TripAction {
         #[arg(long)]
         end: Option<String>,
         /// 旅行の概要
-        #[arg(long)]
+        #[arg(long, conflicts_with = "clear_summary")]
         summary: Option<String>,
         /// 旅行の概要をクリアする
-        #[arg(long)]
+        #[arg(long, conflicts_with = "summary")]
         clear_summary: bool,
+        /// 代表目的地
+        #[arg(long, conflicts_with = "clear_main_destination")]
+        main_destination: Option<String>,
+        /// 代表目的地をクリアする
+        #[arg(long, conflicts_with = "main_destination")]
+        clear_main_destination: bool,
+        /// 旅行先国コード ISO 3166-1 alpha-2
+        #[arg(long, conflicts_with = "clear_main_destination_country_code")]
+        main_destination_country_code: Option<String>,
+        /// 旅行先国コードをクリアする
+        #[arg(long, conflicts_with = "main_destination_country_code")]
+        clear_main_destination_country_code: bool,
+        /// 既定通貨 ISO 4217
+        #[arg(long, conflicts_with = "clear_default_currency")]
+        default_currency: Option<String>,
+        /// 既定通貨をクリアする
+        #[arg(long, conflicts_with = "default_currency")]
+        clear_default_currency: bool,
     },
     /// 旅行を削除
     Delete {
