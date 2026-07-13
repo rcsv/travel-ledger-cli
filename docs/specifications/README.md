@@ -83,6 +83,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.7.46-p6o-update-estimate-planning.md](v4.7.46-p6o-update-estimate-planning.md) | P-6o update_estimate planning（documentation-only） |
 | [v4.7.47-p6o-update-estimate-dry-run.md](v4.7.47-p6o-update-estimate-dry-run.md) | P-6o update_estimate dry-run（**v4.7.47 released**） |
 | [v4.7.49-p6o-update-estimate-post-release-review.md](v4.7.49-p6o-update-estimate-post-release-review.md) | P-6o update_estimate post-release review（**v4.7.49 released** — documentation-only） |
+| [v4.9.2-desktop-read-service-facade.md](v4.9.2-desktop-read-service-facade.md) | Desktop readiness service facade（**v4.9.2 released**） |
 | [v4.9.1-trip-optional-metadata-db-implementation.md](v4.9.1-trip-optional-metadata-db-implementation.md) | Trip optional metadata DB implementation（**v4.9.1 released**） |
 | [v4.9.0-desktop-transition-and-trip-metadata-foundation.md](v4.9.0-desktop-transition-and-trip-metadata-foundation.md) | Desktop transition and Trip metadata foundation（**v4.9.0 released** — documentation-only） |
 | [v4.8.17-currency-hardening-follow-up-review.md](v4.8.17-currency-hardening-follow-up-review.md) | Currency hardening follow-up review（**v4.8.17 released** — documentation-only） |

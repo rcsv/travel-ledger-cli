@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.9.1](docs/releases/v4.9.1-notes.md)** — Trip optional metadata DB implementation
+**[v4.9.2](docs/releases/v4.9.2-notes.md)** — Desktop readiness service facade
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)

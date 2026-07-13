@@ -63,6 +63,7 @@ pub(crate) struct TripCliJson {
     pub updated_at: String,
 }
 
+#[allow(dead_code)] // unit tests in trip.rs
 pub(crate) fn trip_to_cli_json(trip: &Trip) -> TripCliJson {
     TripCliJson {
         id: trip.id,
@@ -76,6 +77,84 @@ pub(crate) fn trip_to_cli_json(trip: &Trip) -> TripCliJson {
         created_at: trip.created_at.clone(),
         updated_at: trip.updated_at.clone(),
     }
+}
+
+pub(crate) fn trip_summary_to_cli_json(summary: &crate::services::TripSummary) -> TripCliJson {
+    TripCliJson {
+        id: summary.id,
+        name: summary.name.clone(),
+        start_date: summary.start_date.clone(),
+        end_date: summary.end_date.clone(),
+        summary: summary.summary.clone(),
+        main_destination: summary.main_destination.clone(),
+        main_destination_country_code: summary.main_destination_country_code.clone(),
+        default_currency: summary.default_currency.clone(),
+        created_at: summary.created_at.clone(),
+        updated_at: summary.updated_at.clone(),
+    }
+}
+
+pub(crate) fn trip_detail_to_cli_json(detail: &crate::services::TripDetail) -> TripCliJson {
+    TripCliJson {
+        id: detail.id,
+        name: detail.name.clone(),
+        start_date: detail.start_date.clone(),
+        end_date: detail.end_date.clone(),
+        summary: detail.summary.clone(),
+        main_destination: detail.main_destination.clone(),
+        main_destination_country_code: detail.main_destination_country_code.clone(),
+        default_currency: detail.default_currency.clone(),
+        created_at: detail.created_at.clone(),
+        updated_at: detail.updated_at.clone(),
+    }
+}
+
+pub(crate) fn print_trip_list_from_summaries(summaries: &[crate::services::TripSummary]) {
+    if summaries.is_empty() {
+        println!("旅行はまだ登録されていません。");
+        return;
+    }
+
+    println!(
+        "{:<6} {:<20} {:<12} {:<12}",
+        "ID", "名前", "開始日", "終了日"
+    );
+    println!("{}", "-".repeat(52));
+    for summary in summaries {
+        println!(
+            "{:<6} {:<20} {:<12} {:<12}",
+            summary.id,
+            summary.name,
+            fmt_date(&summary.start_date),
+            fmt_date(&summary.end_date),
+        );
+    }
+    println!();
+    println!("合計: {} 件", summaries.len());
+}
+
+pub(crate) fn print_trip_detail_from_detail(detail: &crate::services::TripDetail) {
+    println!("ID        : {}", detail.id);
+    println!("名前      : {}", detail.name);
+    println!("開始日    : {}", fmt_date(&detail.start_date));
+    println!("終了日    : {}", fmt_date(&detail.end_date));
+    if let Some(summary) = &detail.summary {
+        println!("概要      :");
+        for line in summary.lines() {
+            println!("            {line}");
+        }
+    }
+    if let Some(main_destination) = &detail.main_destination {
+        println!("代表目的地: {main_destination}");
+    }
+    if let Some(country_code) = &detail.main_destination_country_code {
+        println!("旅行先国  : {country_code}");
+    }
+    if let Some(default_currency) = &detail.default_currency {
+        println!("既定通貨  : {default_currency}");
+    }
+    println!("作成日時  : {}", detail.created_at);
+    println!("更新日時  : {}", detail.updated_at);
 }
 
 fn resolve_trip_metadata_for_add(
@@ -1778,7 +1857,8 @@ pub(crate) fn fmt_date(date: &Option<String>) -> &str {
     date.as_deref().unwrap_or("-")
 }
 
-/// 旅行一覧を表形式で表示する
+/// 旅行一覧を表形式で表示する（legacy — prefer `print_trip_list_from_summaries`）
+#[allow(dead_code)]
 pub(crate) fn print_trip_list(trips: &[Trip]) {
     if trips.is_empty() {
         println!("旅行はまだ登録されていません。");

@@ -158,55 +158,50 @@ struct DayShowJson {
     itineraries: Vec<ItineraryItem>,
 }
 
-/// Day 一覧を JSON 出力する（CLI layer）
-pub(crate) fn print_day_list_json(trip: &Trip, trip_id: i64, days: &[Day]) -> Result<()> {
-    let entries = days
+/// Day 一覧を TripDetail DTO から JSON 出力する（read facade adapter）
+pub(crate) fn print_day_list_json_from_detail(detail: &crate::services::TripDetail) -> Result<()> {
+    let entries = detail
+        .days
         .iter()
-        .map(|day| {
-            Ok(DayListEntryJson {
-                id: day.id,
-                day_number: day.day_number,
-                date: day_date_for_trip(trip, day.day_number)?,
-                title: day.title.clone(),
-                summary: day.summary.clone(),
-            })
+        .map(|day| DayListEntryJson {
+            id: day.id,
+            day_number: day.day_number,
+            date: day.date.clone(),
+            title: day.title.clone(),
+            summary: day.summary.clone(),
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect();
     crate::output::json::print_json(&DayListJson {
-        trip_id,
-        trip_name: trip.name.clone(),
+        trip_id: detail.id,
+        trip_name: detail.name.clone(),
         days: entries,
     })
 }
 
-/// Day 一覧を人間向けに表示する（CLI layer）
-pub(crate) fn print_day_list_display(trip: &Trip, days: &[Day]) -> Result<()> {
-    println!("Trip: {}", trip.name);
+/// Day 一覧を TripDetail DTO から人間向けに表示する（read facade adapter）
+pub(crate) fn print_day_list_display_from_detail(detail: &crate::services::TripDetail) {
+    println!("Trip: {}", detail.name);
     println!();
-    for day in days {
-        let date = day_date_for_trip(trip, day.day_number)?;
-        println!("Day {}  {}", day.day_number, date);
+    for day in &detail.days {
+        println!("Day {}  {}", day.day_number, day.date);
     }
-    Ok(())
 }
 
-/// Day 詳細を JSON 出力する（CLI layer）
-pub(crate) fn print_day_show_json(
-    trip_id: i64,
-    trip: &Trip,
-    day_number: i64,
-    date: &str,
-    day: &Day,
-    items: &[ItineraryItem],
-) -> Result<()> {
+/// Day 詳細を DayDetail DTO から JSON 出力する（read facade adapter）
+pub(crate) fn print_day_show_json_from_detail(detail: &crate::services::DayDetail) -> Result<()> {
+    let itineraries = detail
+        .itineraries
+        .iter()
+        .map(crate::services::dto::itinerary_detail_to_domain)
+        .collect();
     crate::output::json::print_json(&DayShowJson {
-        trip_id,
-        trip_name: trip.name.clone(),
-        day_number,
-        date: date.to_string(),
-        day_id: day.id,
-        summary: day.summary.clone(),
-        itineraries: items.to_vec(),
+        trip_id: detail.trip_id,
+        trip_name: detail.trip_name.clone(),
+        day_number: detail.day_number,
+        date: detail.date.clone(),
+        day_id: detail.day_id,
+        summary: detail.summary.clone(),
+        itineraries,
     })
 }
 
@@ -219,6 +214,37 @@ pub(crate) fn print_day_show_display(
     items: &[ItineraryItem],
 ) {
     print_day_show(trip, day, day_number, date, items);
+}
+
+/// Day 詳細を DayDetail DTO から人間向けに表示する（read facade adapter）
+pub(crate) fn print_day_show_display_from_detail(detail: &crate::services::DayDetail) {
+    let day = Day {
+        id: detail.day_id,
+        trip_id: detail.trip_id,
+        day_number: detail.day_number,
+        title: detail.title.clone(),
+        summary: detail.summary.clone(),
+        created_at: String::new(),
+        updated_at: String::new(),
+    };
+    let trip = Trip {
+        id: detail.trip_id,
+        name: detail.trip_name.clone(),
+        start_date: None,
+        end_date: None,
+        summary: None,
+        main_destination: None,
+        main_destination_country_code: None,
+        default_currency: None,
+        created_at: String::new(),
+        updated_at: String::new(),
+    };
+    let items: Vec<ItineraryItem> = detail
+        .itineraries
+        .iter()
+        .map(crate::services::dto::itinerary_detail_to_domain)
+        .collect();
+    print_day_show(&trip, &day, detail.day_number, &detail.date, &items);
 }
 
 /// Day の summary を DB に設定する（import 用）
@@ -552,7 +578,7 @@ mod tests {
     fn test_run_day_show_rejects_invalid_day_number() {
         let conn = test_db();
         let trip_id = add_trip(&conn, "Range Trip", "2026-04-26", "2026-04-29", None).unwrap();
-        assert!(crate::services::day_show::show_day(&conn, trip_id, 99).is_err());
+        assert!(crate::services::get_day_timeline(&conn, trip_id, 99).is_err());
     }
 
     fn set_day_metadata(

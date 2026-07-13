@@ -1,9 +1,16 @@
 //! Application service layer — use case orchestration with structured results (no terminal I/O).
 
+pub mod dto;
+pub mod read_errors;
+mod read_facade;
+
+#[allow(unused_imports)] // re-exported at crate root for Desktop consumers
+pub use dto::{DayDetail, DaySummary, ItineraryDetail, TripDetail, TripSummary};
+pub use read_errors::{ReadServiceErrorCode, ServiceError};
+pub use read_facade::{get_day_timeline, get_trip_detail, list_trip_summaries};
+
 pub mod checklist_list;
 pub mod checklist_show;
-pub mod day_list;
-pub mod day_show;
 pub mod expense_add;
 pub mod expense_delete;
 pub mod expense_list;
@@ -22,6 +29,4 @@ pub mod reservation_delete;
 pub mod reservation_list;
 pub mod reservation_show;
 pub mod reservation_update;
-pub mod trip_list;
-pub mod trip_show;
 pub mod trip_stats;

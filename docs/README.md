@@ -28,6 +28,7 @@ Caglla.Travel CLI のドキュメント索引です。GitHub トップの [READM
 |---|---|
 | [long-term-version-strategy.md](long-term-version-strategy.md) | Caglla.Travel メジャーバージョン戦略（v1 Planning Foundation 〜 v9 Platform）— 設計判断用参考 |
 | [future-roadmap-planning-memo.md](future-roadmap-planning-memo.md) | v4.6.x 完了後の将来方向性（Travel Data Ledger / Proposal / Calendar / 避けたい方向）— **現行 v4.6.x 作業とは別軸** |
+| [specifications/v4.9.2-desktop-read-service-facade.md](specifications/v4.9.2-desktop-read-service-facade.md) | Desktop readiness service facade（v4.9.2 released） |
 | [specifications/v4.9.1-trip-optional-metadata-db-implementation.md](specifications/v4.9.1-trip-optional-metadata-db-implementation.md) | Trip optional metadata DB implementation（v4.9.1 released） |
 | [specifications/v4.9.0-desktop-transition-and-trip-metadata-foundation.md](specifications/v4.9.0-desktop-transition-and-trip-metadata-foundation.md) | Desktop transition and Trip metadata foundation（v4.9.0 released — documentation-only） |
 | [specifications/v4.8.18-validate-export-receipt-currency-warnings.md](specifications/v4.8.18-validate-export-receipt-currency-warnings.md) | validate-export Receipt currency warnings（v4.8.18 released） |
