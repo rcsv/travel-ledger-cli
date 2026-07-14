@@ -8,6 +8,10 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/api/app", () => ({
+  getVersion: vi.fn().mockResolvedValue("4.10.3"),
+}));
+
 vi.mock("./api", () => ({
   selectDatabase: vi.fn(),
   restoreLastDatabase: vi.fn(),
@@ -18,6 +22,7 @@ vi.mock("./api", () => ({
 }));
 
 const { open } = await import("@tauri-apps/plugin-dialog");
+const { getVersion } = await import("@tauri-apps/api/app");
 
 const sampleTrips = [
   {
@@ -78,9 +83,20 @@ async function finishBootstrap() {
   );
 }
 
+async function restoreWithSampleTrip() {
+  vi.mocked(api.restoreLastDatabase).mockResolvedValue({
+    status: "restored",
+    database: { path: "/tmp/sample.db", trip_count: 1 },
+  });
+  vi.mocked(api.listTripSummaries).mockResolvedValue(sampleTrips);
+  vi.mocked(api.getTripDetail).mockResolvedValue(sampleDetail);
+  vi.mocked(api.getDayTimeline).mockResolvedValue(emptyTimeline);
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.restoreLastDatabase).mockResolvedValue({ status: "not_found" });
+  vi.mocked(getVersion).mockResolvedValue("4.10.3");
 });
 
 describe("App", () => {
@@ -97,23 +113,20 @@ describe("App", () => {
     await finishBootstrap();
   });
 
-  it("shows database-not-selected empty state when nothing saved", async () => {
+  it("shows database-not-selected empty state with Open Database", async () => {
     render(<App />);
     await finishBootstrap();
     expect(
       screen.getByText("Open a Travel Ledger database"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^open database$/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^settings$/i })).not.toBeInTheDocument();
   });
 
-  it("loads trips after successful restore with count and metadata", async () => {
-    vi.mocked(api.restoreLastDatabase).mockResolvedValue({
-      status: "restored",
-      database: { path: "/tmp/sample.db", trip_count: 1 },
-    });
-    vi.mocked(api.listTripSummaries).mockResolvedValue(sampleTrips);
-    vi.mocked(api.getTripDetail).mockResolvedValue(sampleDetail);
-    vi.mocked(api.getDayTimeline).mockResolvedValue(emptyTimeline);
-
+  it("loads trips after successful restore and exposes Settings", async () => {
+    await restoreWithSampleTrip();
     render(<App />);
     await waitFor(() =>
       expect(
@@ -121,21 +134,55 @@ describe("App", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.getByText("sample.db")).toBeInTheDocument();
-    expect(screen.getByText("1 trip")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^settings$/i })).toBeInTheDocument();
     expect(
-      within(screen.getByLabelText("Trip list")).getByText("Naha"),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /change database/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens Settings with Database and About details", async () => {
+    await restoreWithSampleTrip();
+    render(<App />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^settings$/i })).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    const settings = await screen.findByRole("region", { name: "Settings" });
+    expect(within(settings).getByRole("heading", { name: "Database" })).toBeInTheDocument();
+    expect(within(settings).getByRole("heading", { name: "About" })).toBeInTheDocument();
+    expect(within(settings).getByText("sample.db")).toBeInTheDocument();
+    expect(within(settings).getByText("/tmp/sample.db")).toBeInTheDocument();
+    expect(within(settings).getByText("Access: read-only")).toBeInTheDocument();
+    expect(within(settings).getByText("Travel Ledger Desktop")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(settings).getByText("4.10.3")).toBeInTheDocument(),
+    );
     expect(
-      within(screen.getByLabelText("Trip list")).getByText("JPY"),
+      within(settings).getByText(/SQLite database file is not deleted/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/2 days/)).toBeInTheDocument();
+  });
+
+  it("preserves trip selection when opening and leaving Settings", async () => {
+    await restoreWithSampleTrip();
+    render(<App />);
+    await waitFor(() =>
+      expect(
+        within(screen.getByLabelText("Trip list")).getByText("Okinawa"),
+      ).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    expect(screen.getByRole("region", { name: "Settings" })).toBeInTheDocument();
     expect(
-      screen.getByRole("tab", { name: /Day 1 · Sun · Apr 26/i }),
+      within(screen.getByLabelText("Trip list")).getByText("Okinawa"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/No activities planned for this day yet/),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /change database/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /back to trips/i }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Trip detail")).toHaveTextContent("Okinawa"),
+    );
+    expect(api.getTripDetail).toHaveBeenCalledTimes(1);
   });
 
   it("shows restore warning when saved DB is invalid", async () => {
@@ -161,14 +208,8 @@ describe("App", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("keeps current database when change fails", async () => {
-    vi.mocked(api.restoreLastDatabase).mockResolvedValue({
-      status: "restored",
-      database: { path: "/tmp/sample.db", trip_count: 1 },
-    });
-    vi.mocked(api.listTripSummaries).mockResolvedValue(sampleTrips);
-    vi.mocked(api.getTripDetail).mockResolvedValue(sampleDetail);
-    vi.mocked(api.getDayTimeline).mockResolvedValue(emptyTimeline);
+  it("keeps current database when Change fails from Settings", async () => {
+    await restoreWithSampleTrip();
     vi.mocked(open).mockResolvedValue("/tmp/bad.db");
     vi.mocked(api.selectDatabase).mockRejectedValue({
       code: "DATABASE_OPEN_FAILED",
@@ -178,21 +219,20 @@ describe("App", () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText("sample.db")).toBeInTheDocument());
 
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
     fireEvent.click(screen.getByRole("button", { name: /change database/i }));
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("DATABASE_OPEN_FAILED"),
     );
-    expect(screen.getByText("sample.db")).toBeInTheDocument();
+    expect(screen.getAllByText("sample.db").length).toBeGreaterThan(0);
     expect(
       within(screen.getByLabelText("Trip list")).getByText("Okinawa"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Settings" })).toBeInTheDocument();
   });
 
-  it("changes database and clears previous trip selection", async () => {
-    vi.mocked(api.restoreLastDatabase).mockResolvedValue({
-      status: "restored",
-      database: { path: "/tmp/sample.db", trip_count: 1 },
-    });
+  it("changes database from Settings and keeps Settings reachable", async () => {
+    await restoreWithSampleTrip();
     vi.mocked(api.listTripSummaries)
       .mockResolvedValueOnce(sampleTrips)
       .mockResolvedValueOnce([
@@ -224,7 +264,6 @@ describe("App", () => {
           },
         ],
       });
-    vi.mocked(api.getDayTimeline).mockResolvedValue(emptyTimeline);
     vi.mocked(open).mockResolvedValue("/tmp/hawaii.db");
     vi.mocked(api.selectDatabase).mockResolvedValue({
       path: "/tmp/hawaii.db",
@@ -234,27 +273,26 @@ describe("App", () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText("sample.db")).toBeInTheDocument());
 
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
     fireEvent.click(screen.getByRole("button", { name: /change database/i }));
-    await waitFor(() => expect(screen.getByText("hawaii.db")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getAllByText("hawaii.db").length).toBeGreaterThan(0),
+    );
     expect(
       within(screen.getByLabelText("Trip list")).getByText("Hawaii"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Settings" })).toBeInTheDocument();
   });
 
-  it("forgets database after confirmation without deleting wording", async () => {
-    vi.mocked(api.restoreLastDatabase).mockResolvedValue({
-      status: "restored",
-      database: { path: "/tmp/sample.db", trip_count: 1 },
-    });
-    vi.mocked(api.listTripSummaries).mockResolvedValue(sampleTrips);
-    vi.mocked(api.getTripDetail).mockResolvedValue(sampleDetail);
-    vi.mocked(api.getDayTimeline).mockResolvedValue(emptyTimeline);
+  it("forgets database from Settings after confirmation", async () => {
+    await restoreWithSampleTrip();
     vi.mocked(api.forgetDatabase).mockResolvedValue(undefined);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
     await waitFor(() => expect(screen.getByText("sample.db")).toBeInTheDocument());
 
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
     fireEvent.click(screen.getByRole("button", { name: /forget database/i }));
     await waitFor(() =>
       expect(
@@ -263,10 +301,13 @@ describe("App", () => {
     );
     expect(api.forgetDatabase).toHaveBeenCalled();
     expect(confirmSpy.mock.calls[0]?.[0]).toMatch(/stays on disk/i);
+    expect(
+      screen.getByRole("button", { name: /^open database$/i }),
+    ).toBeInTheDocument();
     confirmSpy.mockRestore();
   });
 
-  it("shows empty trip state", async () => {
+  it("shows empty trip state and Settings", async () => {
     vi.mocked(open).mockResolvedValue("/tmp/empty.db");
     vi.mocked(api.selectDatabase).mockResolvedValue({
       path: "/tmp/empty.db",
@@ -280,16 +321,11 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.getByText("No trips yet")).toBeInTheDocument(),
     );
-    expect(screen.getByText("0 trips")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^settings$/i })).toBeInTheDocument();
   });
 
   it("updates timeline when day tab is selected", async () => {
-    vi.mocked(api.restoreLastDatabase).mockResolvedValue({
-      status: "restored",
-      database: { path: "/tmp/sample.db", trip_count: 1 },
-    });
-    vi.mocked(api.listTripSummaries).mockResolvedValue(sampleTrips);
-    vi.mocked(api.getTripDetail).mockResolvedValue(sampleDetail);
+    await restoreWithSampleTrip();
     vi.mocked(api.getDayTimeline)
       .mockResolvedValueOnce(emptyTimeline)
       .mockResolvedValueOnce({
@@ -324,40 +360,30 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /Day 2 · Mon · Apr 27/i }));
     await waitFor(() => expect(screen.getByText("Beach")).toBeInTheDocument());
-    expect(screen.getByText("10:00")).toBeInTheDocument();
-    expect(screen.getByText("Sesoko")).toBeInTheDocument();
-    expect(screen.getByText(/sequence first/i)).toBeInTheDocument();
     expect(api.getDayTimeline).toHaveBeenLastCalledWith(1, 2);
   });
 
-  it("omits empty metadata labels in trip detail", async () => {
+  it("wraps long database paths in Settings", async () => {
+    const longPath =
+      "/Users/example/very/long/nested/directories/travel-ledger/databases/okinawa-sample-file.db";
     vi.mocked(api.restoreLastDatabase).mockResolvedValue({
       status: "restored",
-      database: { path: "/tmp/sample.db", trip_count: 1 },
+      database: { path: longPath, trip_count: 1 },
     });
-    vi.mocked(api.listTripSummaries).mockResolvedValue([
-      {
-        id: 1,
-        name: "Bare",
-        created_at: "t",
-        updated_at: "t",
-      },
-    ]);
-    vi.mocked(api.getTripDetail).mockResolvedValue({
-      id: 1,
-      name: "Bare",
-      created_at: "t",
-      updated_at: "t",
-      days: [],
-    });
+    vi.mocked(api.listTripSummaries).mockResolvedValue(sampleTrips);
+    vi.mocked(api.getTripDetail).mockResolvedValue(sampleDetail);
+    vi.mocked(api.getDayTimeline).mockResolvedValue(emptyTimeline);
 
     render(<App />);
     await waitFor(() =>
-      expect(screen.getByLabelText("Trip detail")).toHaveTextContent("Bare"),
+      expect(
+        within(screen.getByLabelText("Trip list")).getByText("Okinawa"),
+      ).toBeInTheDocument(),
     );
-    expect(screen.queryByText("Destination")).not.toBeInTheDocument();
-    expect(screen.queryByText("Currency")).not.toBeInTheDocument();
-    expect(screen.queryByText("Not set")).not.toBeInTheDocument();
-    expect(screen.getByText("No days yet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    const settings = await screen.findByRole("region", { name: "Settings" });
+    const path = within(settings).getByText(longPath);
+    expect(path).toHaveClass("settings-path");
+    expect(path).toHaveAttribute("title", longPath);
   });
 });

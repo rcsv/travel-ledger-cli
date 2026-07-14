@@ -123,8 +123,46 @@ body {
 .sidebar {
   background: #ffffff;
   border-right: 1px solid #d9e2ec;
-  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
+  padding: 1rem 1rem 0.5rem;
+}
+
+.sidebar-footer {
+  flex: 0 0 auto;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid #d9e2ec;
+  background: #ffffff;
+}
+
+.nav-settings {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d9e2ec;
+  background: #f9fafb;
+  color: #243b53;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.nav-settings:hover {
+  background: #f0f4f8;
+}
+
+.nav-settings.selected {
+  border-color: #243b53;
+  background: #243b53;
+  color: #ffffff;
 }
 
 .sidebar-header {
@@ -361,6 +399,76 @@ body {
   color: #627d98;
 }
 
+.settings-panel {
+  max-width: 40rem;
+}
+
+.settings-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.settings-header h2 {
+  margin: 0;
+}
+
+.settings-lede {
+  margin: 0.25rem 0 0;
+  color: #627d98;
+  font-size: 0.9rem;
+}
+
+.settings-section {
+  margin: 0 0 1.5rem;
+  padding: 1rem;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  background: #ffffff;
+}
+
+.settings-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.settings-status {
+  margin: 0 0 0.75rem;
+  color: #627d98;
+  font-size: 0.875rem;
+}
+
+.settings-meta {
+  margin: 0;
+}
+
+.settings-path-row dd {
+  min-width: 0;
+}
+
+.settings-path {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.settings-note {
+  margin: 0.75rem 0 0;
+  color: #829ab1;
+  font-size: 0.8rem;
+}
+
 @media (max-width: 800px) {
   .app-body {
     grid-template-columns: 1fr;
@@ -369,5 +477,6 @@ body {
   .sidebar {
     border-right: none;
     border-bottom: 1px solid #d9e2ec;
+    max-height: 40vh;
   }
 }

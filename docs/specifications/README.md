@@ -83,6 +83,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 | [v4.7.46-p6o-update-estimate-planning.md](v4.7.46-p6o-update-estimate-planning.md) | P-6o update_estimate planning（documentation-only） |
 | [v4.7.47-p6o-update-estimate-dry-run.md](v4.7.47-p6o-update-estimate-dry-run.md) | P-6o update_estimate dry-run（**v4.7.47 released**） |
 | [v4.7.49-p6o-update-estimate-post-release-review.md](v4.7.49-p6o-update-estimate-post-release-review.md) | P-6o update_estimate post-release review（**v4.7.49 released** — documentation-only） |
+| [v4.10.3-desktop-settings-navigation-polish.md](v4.10.3-desktop-settings-navigation-polish.md) | Desktop settings navigation polish（**v4.10.3 released**） |
 | [v4.10.2-desktop-read-only-usability-polish.md](v4.10.2-desktop-read-only-usability-polish.md) | Desktop read-only usability polish（**v4.10.2 released**） |
 | [v4.10.1-desktop-database-reopening-and-usability-polish.md](v4.10.1-desktop-database-reopening-and-usability-polish.md) | Desktop database reopening and usability polish（**v4.10.1 released**） |
 | [v4.10.0-read-only-desktop-vertical-slice.md](v4.10.0-read-only-desktop-vertical-slice.md) | Read-only desktop vertical slice（**v4.10.0 released**） |

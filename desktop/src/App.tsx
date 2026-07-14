@@ -5,6 +5,7 @@ import * as api from "./api";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { EmptyState } from "./components/EmptyState";
 import { ItineraryTimeline } from "./components/ItineraryTimeline";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { TripDetailPanel } from "./components/TripDetailPanel";
 import { TripList } from "./components/TripList";
 import { formatDayLabel } from "./display";
@@ -16,6 +17,8 @@ import type {
 } from "./types";
 import { databaseFileName, isDesktopError } from "./types";
 import "./App.css";
+
+type MainView = "trips" | "settings";
 
 function toDesktopError(error: unknown): DesktopErrorPayload {
   if (isDesktopError(error)) {
@@ -29,6 +32,7 @@ function toDesktopError(error: unknown): DesktopErrorPayload {
 
 export default function App() {
   const [bootstrapping, setBootstrapping] = useState(true);
+  const [mainView, setMainView] = useState<MainView>("trips");
   const [databasePath, setDatabasePath] = useState<string | null>(null);
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -55,6 +59,7 @@ export default function App() {
     setDatabasePath(null);
     setTrips([]);
     clearTripSelection();
+    setMainView("trips");
   }, [clearTripSelection]);
 
   const loadTimeline = useCallback(async (tripId: number, dayNumber: number) => {
@@ -252,6 +257,9 @@ export default function App() {
       setTrips([]);
       setDatabasePath(info.path);
       await loadTrips();
+      if (!hadDatabase) {
+        setMainView("trips");
+      }
     } catch (err) {
       setError(toDesktopError(err));
       if (!hadDatabase) {
@@ -287,6 +295,7 @@ export default function App() {
 
   const handleSelectTrip = useCallback(
     async (tripId: number) => {
+      setMainView("trips");
       if (tripId === selectedTripId) {
         return;
       }
@@ -315,6 +324,7 @@ export default function App() {
     null;
   const tripCountLabel =
     trips.length === 1 ? "1 trip" : `${trips.length} trips`;
+  const settingsOpen = mainView === "settings";
 
   if (bootstrapping) {
     return (
@@ -345,26 +355,8 @@ export default function App() {
             </p>
           ) : null}
         </div>
-        <div className="header-actions">
-          {databasePath ? (
-            <>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleOpenOrChangeDatabase}
-              >
-                Change Database
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleForgetDatabase}
-                title="Clears the remembered path only. Does not delete the database file."
-              >
-                Forget Database
-              </button>
-            </>
-          ) : (
+        {!databasePath ? (
+          <div className="header-actions">
             <button
               type="button"
               className="primary-button"
@@ -372,8 +364,8 @@ export default function App() {
             >
               Open Database
             </button>
-          )}
-        </div>
+          </div>
+        ) : null}
       </header>
 
       {restoreWarning ? (
@@ -394,39 +386,64 @@ export default function App() {
       ) : (
         <div className="app-body">
           <aside className="sidebar" aria-label="Trip list sidebar">
-            <div className="sidebar-header">
-              <h2>Trips</h2>
-              {!loadingTrips ? (
-                <p className="trip-count" aria-live="polite">
-                  {tripCountLabel}
-                </p>
-              ) : null}
+            <div className="sidebar-scroll">
+              <div className="sidebar-header">
+                <h2>Trips</h2>
+                {!loadingTrips ? (
+                  <p className="trip-count" aria-live="polite">
+                    {tripCountLabel}
+                  </p>
+                ) : null}
+              </div>
+              <TripList
+                trips={trips}
+                selectedTripId={selectedTripId}
+                loading={loadingTrips}
+                onSelect={handleSelectTrip}
+              />
             </div>
-            <TripList
-              trips={trips}
-              selectedTripId={selectedTripId}
-              loading={loadingTrips}
-              onSelect={handleSelectTrip}
-            />
+            <div className="sidebar-footer">
+              <button
+                type="button"
+                className={
+                  settingsOpen ? "nav-settings selected" : "nav-settings"
+                }
+                aria-current={settingsOpen ? "page" : undefined}
+                onClick={() => setMainView("settings")}
+              >
+                Settings
+              </button>
+            </div>
           </aside>
 
           <main className="detail-pane">
-            <TripDetailPanel
-              trip={tripDetail}
-              selectedDayNumber={selectedDayNumber}
-              loading={loadingDetail}
-              onSelectDay={handleSelectDay}
-            />
-            <ItineraryTimeline
-              items={dayTimeline?.itineraries ?? []}
-              loading={loadingTimeline}
-              dayNumber={selectedDayNumber}
-              dayLabel={
-                selectedDayMeta
-                  ? formatDayLabel(selectedDayMeta.date)
-                  : null
-              }
-            />
+            {settingsOpen && databasePath ? (
+              <SettingsPanel
+                databasePath={databasePath}
+                onChangeDatabase={handleOpenOrChangeDatabase}
+                onForgetDatabase={handleForgetDatabase}
+                onBackToTrips={() => setMainView("trips")}
+              />
+            ) : (
+              <>
+                <TripDetailPanel
+                  trip={tripDetail}
+                  selectedDayNumber={selectedDayNumber}
+                  loading={loadingDetail}
+                  onSelectDay={handleSelectDay}
+                />
+                <ItineraryTimeline
+                  items={dayTimeline?.itineraries ?? []}
+                  loading={loadingTimeline}
+                  dayNumber={selectedDayNumber}
+                  dayLabel={
+                    selectedDayMeta
+                      ? formatDayLabel(selectedDayMeta.date)
+                      : null
+                  }
+                />
+              </>
+            )}
           </main>
         </div>
       )}
