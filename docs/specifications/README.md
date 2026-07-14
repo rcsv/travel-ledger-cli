@@ -4,6 +4,7 @@ Caglla CLI の内部モデル・設計仕様（実装前の設計メモを含む
 
 | ドキュメント | 状態 |
 |---|---|
+| [desktop-gui-north-star.md](desktop-gui-north-star.md) | Desktop GUI North Star（最終製品像・優先順位判断基準 — documentation-only、実装許可ではない） |
 | [planning-design-principles.md](planning-design-principles.md) | Planning 設計原則（Itinerary / Checklist / Note / Reservation / Expense の役割分担 — v2.0.1 後） |
 | [day-model.md](day-model.md) | Day モデル（v1.0.9–v1.2.0 反映済み） |
 | [itinerary-model.md](itinerary-model.md) | Itinerary モデル（v1.8.0：行動単位、not a venue） |
