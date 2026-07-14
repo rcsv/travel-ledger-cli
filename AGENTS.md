@@ -272,8 +272,8 @@ For every release bump, check at least:
 - Cargo.lock
 - README.md (Latest Release one-liner only — not a full history table)
 - docs/current-work.md
-- docs/release/index.md
-- docs/specification/index.md
+- docs/release/README.md
+- docs/specification/README.md
 - release notes
 - markdown golden files
 - generated fixture outputs
