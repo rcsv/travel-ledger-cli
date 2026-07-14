@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import * as api from "./api";
@@ -13,7 +13,7 @@ import type {
   TripDetail,
   TripSummary,
 } from "./types";
-import { isDesktopError } from "./types";
+import { databaseFileName, isDesktopError } from "./types";
 import "./App.css";
 
 function toDesktopError(error: unknown): DesktopErrorPayload {
@@ -27,6 +27,7 @@ function toDesktopError(error: unknown): DesktopErrorPayload {
 }
 
 export default function App() {
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [databasePath, setDatabasePath] = useState<string | null>(null);
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -39,6 +40,8 @@ export default function App() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
   const [error, setError] = useState<DesktopErrorPayload | null>(null);
+  const [restoreWarning, setRestoreWarning] =
+    useState<DesktopErrorPayload | null>(null);
 
   const clearTripSelection = useCallback(() => {
     setSelectedTripId(null);
@@ -46,6 +49,12 @@ export default function App() {
     setSelectedDayNumber(null);
     setDayTimeline(null);
   }, []);
+
+  const clearAllData = useCallback(() => {
+    setDatabasePath(null);
+    setTrips([]);
+    clearTripSelection();
+  }, [clearTripSelection]);
 
   const loadTimeline = useCallback(async (tripId: number, dayNumber: number) => {
     setLoadingTimeline(true);
@@ -104,8 +113,112 @@ export default function App() {
     }
   }, [clearTripSelection, loadTripDetail]);
 
-  const handleOpenDatabase = useCallback(async () => {
-    setError(null);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrap() {
+      setBootstrapping(true);
+      setRestoreWarning(null);
+      try {
+        const result = await api.restoreLastDatabase();
+        if (cancelled) {
+          return;
+        }
+        if (result.status === "restored") {
+          setDatabasePath(result.database.path);
+          setLoadingTrips(true);
+          try {
+            const summaries = await api.listTripSummaries();
+            if (cancelled) {
+              return;
+            }
+            setTrips(summaries);
+            if (summaries.length > 0) {
+              const firstId = summaries[0].id;
+              setSelectedTripId(firstId);
+              setLoadingDetail(true);
+              setTripDetail(null);
+              setSelectedDayNumber(null);
+              setDayTimeline(null);
+              try {
+                const detail = await api.getTripDetail(firstId);
+                if (cancelled) {
+                  return;
+                }
+                setTripDetail(detail);
+                if (detail.days.length > 0) {
+                  const firstDay = detail.days[0].day_number;
+                  setSelectedDayNumber(firstDay);
+                  setLoadingTimeline(true);
+                  try {
+                    const timeline = await api.getDayTimeline(firstId, firstDay);
+                    if (!cancelled) {
+                      setDayTimeline(timeline);
+                    }
+                  } catch (err) {
+                    if (!cancelled) {
+                      setError(toDesktopError(err));
+                      setDayTimeline(null);
+                    }
+                  } finally {
+                    if (!cancelled) {
+                      setLoadingTimeline(false);
+                    }
+                  }
+                }
+              } catch (err) {
+                if (!cancelled) {
+                  setError(toDesktopError(err));
+                }
+              } finally {
+                if (!cancelled) {
+                  setLoadingDetail(false);
+                }
+              }
+            } else {
+              clearTripSelection();
+            }
+          } catch (err) {
+            if (!cancelled) {
+              setError(toDesktopError(err));
+              clearTripSelection();
+              setTrips([]);
+            }
+          } finally {
+            if (!cancelled) {
+              setLoadingTrips(false);
+            }
+          }
+        } else if (result.status === "invalid_cleared") {
+          setRestoreWarning({
+            code: result.code,
+            message: result.message,
+          });
+          clearAllData();
+        } else {
+          clearAllData();
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(toDesktopError(err));
+          clearAllData();
+        }
+      } finally {
+        if (!cancelled) {
+          setBootstrapping(false);
+        }
+      }
+    }
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
+    // Bootstrap once on mount; later Change/Forget use explicit handlers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pickDatabasePath = useCallback(async (): Promise<string | null> => {
     const selected = await open({
       multiple: false,
       directory: false,
@@ -116,29 +229,60 @@ export default function App() {
         },
       ],
     });
-
     if (selected === null) {
+      return null;
+    }
+    return Array.isArray(selected) ? selected[0] : selected;
+  }, []);
+
+  const handleOpenOrChangeDatabase = useCallback(async () => {
+    setError(null);
+    setRestoreWarning(null);
+    const hadDatabase = databasePath !== null;
+    const path = await pickDatabasePath();
+    if (path === null) {
       return;
     }
 
-    const path = Array.isArray(selected) ? selected[0] : selected;
     setLoadingTrips(true);
-    clearTripSelection();
-    setTrips([]);
-
     try {
       const info = await api.selectDatabase(path);
+      clearTripSelection();
+      setTrips([]);
       setDatabasePath(info.path);
       await loadTrips();
     } catch (err) {
       setError(toDesktopError(err));
-      setDatabasePath(null);
-      clearTripSelection();
-      setTrips([]);
+      if (!hadDatabase) {
+        clearAllData();
+      }
     } finally {
       setLoadingTrips(false);
     }
-  }, [clearTripSelection, loadTrips]);
+  }, [
+    clearAllData,
+    clearTripSelection,
+    databasePath,
+    loadTrips,
+    pickDatabasePath,
+  ]);
+
+  const handleForgetDatabase = useCallback(async () => {
+    const confirmed = window.confirm(
+      "Forget this database in Travel Ledger Desktop?\n\nThis only clears the remembered path. Your SQLite database file will not be deleted.",
+    );
+    if (!confirmed) {
+      return;
+    }
+    setError(null);
+    setRestoreWarning(null);
+    try {
+      await api.forgetDatabase();
+      clearAllData();
+    } catch (err) {
+      setError(toDesktopError(err));
+    }
+  }, [clearAllData]);
 
   const handleSelectTrip = useCallback(
     async (tripId: number) => {
@@ -165,33 +309,85 @@ export default function App() {
     [loadTimeline, selectedDayNumber, selectedTripId],
   );
 
+  if (bootstrapping) {
+    return (
+      <div className="app-shell">
+        <header className="app-header">
+          <div>
+            <h1>Travel Ledger Desktop</h1>
+            <p className="app-subtitle">Developer preview · read-only</p>
+          </div>
+        </header>
+        <EmptyState
+          title="Starting…"
+          message="Checking for a previously selected Travel Ledger database."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
         <div>
           <h1>Travel Ledger Desktop</h1>
           <p className="app-subtitle">Developer preview · read-only</p>
+          {databasePath ? (
+            <p className="selected-db" title={databasePath}>
+              Database: <strong>{databaseFileName(databasePath)}</strong>
+            </p>
+          ) : null}
         </div>
-        <button type="button" className="primary-button" onClick={handleOpenDatabase}>
-          Open Travel Ledger Database
-        </button>
+        <div className="header-actions">
+          {databasePath ? (
+            <>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleOpenOrChangeDatabase}
+              >
+                Change Database
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleForgetDatabase}
+              >
+                Forget Database
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleOpenOrChangeDatabase}
+            >
+              Open Travel Ledger Database
+            </button>
+          )}
+        </div>
       </header>
 
+      {restoreWarning ? (
+        <ErrorBanner
+          error={{
+            code: restoreWarning.code,
+            message: `${restoreWarning.message} Choose a database to continue.`,
+          }}
+        />
+      ) : null}
       {error ? <ErrorBanner error={error} /> : null}
 
       {!databasePath ? (
         <EmptyState
           title="Open a Travel Ledger database"
-          message="Use the button above to choose an existing SQLite database (.db, .sqlite, .sqlite3)."
+          message="Use Open Travel Ledger Database to choose an existing SQLite file (.db, .sqlite, .sqlite3). Your choice can be remembered for the next launch."
         />
       ) : (
         <div className="app-body">
           <aside className="sidebar" aria-label="Trip list sidebar">
             <div className="sidebar-header">
               <h2>Trips</h2>
-              <p className="db-path" title={databasePath}>
-                {databasePath}
-              </p>
             </div>
             <TripList
               trips={trips}

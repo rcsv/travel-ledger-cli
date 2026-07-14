@@ -8,6 +8,11 @@ export interface DatabaseInfo {
   trip_count: number;
 }
 
+export type RestoreLastDatabaseResult =
+  | { status: "restored"; database: DatabaseInfo }
+  | { status: "not_found" }
+  | { status: "invalid_cleared"; code: string; message: string };
+
 export interface TripSummary {
   id: number;
   name: string;
@@ -96,4 +101,10 @@ export function formatDateRange(
     return end;
   }
   return "Dates not set";
+}
+
+export function databaseFileName(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || path;
 }

@@ -1,15 +1,45 @@
 use std::path::PathBuf;
 
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
+use crate::config::settings_file_path;
 use crate::error::DesktopError;
-use crate::service::{self, DatabaseInfo};
+use crate::service::{self, DatabaseInfo, RestoreLastDatabaseResult};
 use crate::state::DesktopState;
 use travel_ledger_cli::{DayDetail, TripDetail, TripSummary};
 
+pub fn init_desktop_state(app: &AppHandle) -> Result<DesktopState, DesktopError> {
+    let config_dir = app.path().app_config_dir().map_err(|err| {
+        DesktopError::database_config_write_failed(format!(
+            "Failed to resolve app config directory: {err}"
+        ))
+    })?;
+    std::fs::create_dir_all(&config_dir).map_err(|err| {
+        DesktopError::database_config_write_failed(format!(
+            "Failed to create app config directory: {err}"
+        ))
+    })?;
+    Ok(DesktopState::new(settings_file_path(&config_dir)))
+}
+
 #[tauri::command]
-pub fn select_database(path: String, state: State<DesktopState>) -> Result<DatabaseInfo, DesktopError> {
+pub fn select_database(
+    path: String,
+    state: State<DesktopState>,
+) -> Result<DatabaseInfo, DesktopError> {
     service::select_database(&state, PathBuf::from(path))
+}
+
+#[tauri::command]
+pub fn restore_last_database(
+    state: State<DesktopState>,
+) -> Result<RestoreLastDatabaseResult, DesktopError> {
+    service::restore_last_database(&state)
+}
+
+#[tauri::command]
+pub fn forget_database(state: State<DesktopState>) -> Result<(), DesktopError> {
+    service::forget_database(&state)
 }
 
 #[tauri::command]

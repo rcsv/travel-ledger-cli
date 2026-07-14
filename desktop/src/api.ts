@@ -3,12 +3,21 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   DatabaseInfo,
   DayDetail,
+  RestoreLastDatabaseResult,
   TripDetail,
   TripSummary,
 } from "./types";
 
 export async function selectDatabase(path: string): Promise<DatabaseInfo> {
   return invoke<DatabaseInfo>("select_database", { path });
+}
+
+export async function restoreLastDatabase(): Promise<RestoreLastDatabaseResult> {
+  return invoke<RestoreLastDatabaseResult>("restore_last_database");
+}
+
+export async function forgetDatabase(): Promise<void> {
+  return invoke("forget_database");
 }
 
 export async function listTripSummaries(): Promise<TripSummary[]> {

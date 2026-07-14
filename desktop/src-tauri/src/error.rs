@@ -30,6 +30,14 @@ impl DesktopError {
     pub fn database_open_failed(message: impl Into<String>) -> Self {
         Self::new("DATABASE_OPEN_FAILED", message)
     }
+
+    pub fn database_config_read_failed(message: impl Into<String>) -> Self {
+        Self::new("DATABASE_CONFIG_READ_FAILED", message)
+    }
+
+    pub fn database_config_write_failed(message: impl Into<String>) -> Self {
+        Self::new("DATABASE_CONFIG_WRITE_FAILED", message)
+    }
 }
 
 impl From<ServiceError> for DesktopError {

@@ -2,39 +2,31 @@
 
 ## Current phase
 
-v4.10.x Desktop vertical slice — **v4.10.0 read-only desktop vertical slice released**
+v4.10.x Desktop — **v4.10.1 released**; next candidates deferred
 
 ## Latest completed
 
+- v4.10.1 Desktop database reopening and usability polish — **released**
 - v4.10.0 Read-only desktop vertical slice — **released**
 - v4.9.2 Desktop readiness service facade — **released**
-- v4.9.1 Trip optional metadata DB implementation — **released**
 
 ## Repository state
 
-- Cargo version: `4.10.0`
-- Latest formal release: **v4.10.0** — [v4.10.0-notes.md](releases/v4.10.0-notes.md)
-- Spec: [v4.10.0-read-only-desktop-vertical-slice.md](specifications/v4.10.0-read-only-desktop-vertical-slice.md)
+- Cargo version: `4.10.1`
+- Latest formal release: **v4.10.1** — [v4.10.1-notes.md](releases/v4.10.1-notes.md)
+- Spec: [v4.10.1-desktop-database-reopening-and-usability-polish.md](specifications/v4.10.1-desktop-database-reopening-and-usability-polish.md)
 
-## v4.10.0 shipped
+## Next candidates
 
-- **desktop/** Tauri + React read-only UI (developer preview / source-only)
-- **Commands:** `select_database`, `list_trip_summaries`, `get_trip_detail`, `get_day_timeline`
-- **Library:** `travel-ledger-cli` path dependency（root workspace 化なし）
-- **Identity:** Travel Ledger Desktop / `com.rcsv.traveledger.desktop`（provisional）
-- Itinerary completion state **なし**; Checklist `is_done` は別責務
-
-## Next action
-
-1. write use cases / edit UI（defer until needed）
-2. DB path persistence / trip-wide timeline（defer）
-3. desktop bundle 配布（deferred — `bundle.active = false`）
+1. write use cases / edit UI（defer）
+2. recent DB 複数件（defer）
+3. desktop bundle 配布（defer）
 
 ## Defer
 
 - Trip / Itinerary 編集 UI
-- desktop bundle 配布 / code signing
-- root workspace 化（現状不要）
-- itinerary done / undone
+- recent DB 複数件
+- desktop bundle 配布
+- root workspace 化
 
 Canonical defer list: [long-term-version-strategy.md](long-term-version-strategy.md)

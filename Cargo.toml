@@ -1,6 +1,6 @@
 [package]
 name = "travel-ledger-cli"
-version = "4.10.0"
+version = "4.10.1"
 edition = "2021"
 description = "A local SQLite-based travel planning CLI."
 authors = ["Tomohiro Awane"]

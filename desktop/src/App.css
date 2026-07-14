@@ -59,6 +59,33 @@ body {
   background: #102a43;
 }
 
+.secondary-button {
+  border: 1px solid #9fb3c8;
+  background: #ffffff;
+  color: #243b53;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  background: #f0f4f8;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.selected-db {
+  margin: 0.35rem 0 0;
+  color: #486581;
+  font-size: 0.875rem;
+}
+
 .error-banner {
   margin: 0.75rem 1.25rem 0;
   padding: 0.75rem 1rem;

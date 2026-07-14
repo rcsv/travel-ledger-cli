@@ -3,10 +3,10 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use travel_ledger_cli::{
     get_day_timeline as facade_get_day_timeline, get_trip_detail as facade_get_trip_detail,
-    list_trip_summaries as facade_list_trip_summaries, open_db, DayDetail, TripDetail,
-    TripSummary,
+    list_trip_summaries as facade_list_trip_summaries, open_db, DayDetail, TripDetail, TripSummary,
 };
 
+use crate::config::{self, LoadSavedPath};
 use crate::error::DesktopError;
 use crate::state::DesktopState;
 
@@ -14,6 +14,15 @@ use crate::state::DesktopState;
 pub struct DatabaseInfo {
     pub path: String,
     pub trip_count: usize,
+}
+
+/// Tagged restore outcome — frontend discriminates on `status` without string parsing.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum RestoreLastDatabaseResult {
+    Restored { database: DatabaseInfo },
+    NotFound,
+    InvalidCleared { code: String, message: String },
 }
 
 pub fn validate_db_path(path: &Path) -> Result<(), DesktopError> {
@@ -35,18 +44,61 @@ pub fn probe_database(path: &Path) -> Result<DatabaseInfo, DesktopError> {
     let conn = open_connection(path)?;
     let summaries = facade_list_trip_summaries(&conn).map_err(DesktopError::from)?;
     Ok(DatabaseInfo {
-        path: path.display().to_string(),
+        path: path_to_info_string(path),
         trip_count: summaries.len(),
     })
 }
 
 pub fn select_database(state: &DesktopState, path: PathBuf) -> Result<DatabaseInfo, DesktopError> {
     let info = probe_database(&path)?;
-    let mut guard = state.selected_db_path.lock().map_err(|_| {
-        DesktopError::database_open_failed("Application state lock poisoned")
-    })?;
-    *guard = Some(path);
+    config::write_last_database_path(&state.settings_path, &path)?;
+    {
+        let mut guard = state
+            .selected_db_path
+            .lock()
+            .map_err(|_| DesktopError::database_open_failed("Application state lock poisoned"))?;
+        *guard = Some(path);
+    }
     Ok(info)
+}
+
+pub fn restore_last_database(
+    state: &DesktopState,
+) -> Result<RestoreLastDatabaseResult, DesktopError> {
+    let loaded = config::load_saved_database_path(&state.settings_path)?;
+    match loaded {
+        LoadSavedPath::Absent => Ok(RestoreLastDatabaseResult::NotFound),
+        LoadSavedPath::Corrupt => {
+            let _ = config::clear_settings(&state.settings_path);
+            Ok(RestoreLastDatabaseResult::InvalidCleared {
+                code: "DATABASE_CONFIG_READ_FAILED".to_string(),
+                message: "Saved desktop settings were invalid and have been cleared.".to_string(),
+            })
+        }
+        LoadSavedPath::Present(path) => match probe_database(&path) {
+            Ok(info) => {
+                let mut guard = state.selected_db_path.lock().map_err(|_| {
+                    DesktopError::database_open_failed("Application state lock poisoned")
+                })?;
+                *guard = Some(path);
+                Ok(RestoreLastDatabaseResult::Restored { database: info })
+            }
+            Err(err) => {
+                clear_selection(state)?;
+                config::clear_settings(&state.settings_path)?;
+                Ok(RestoreLastDatabaseResult::InvalidCleared {
+                    code: err.code,
+                    message: err.message,
+                })
+            }
+        },
+    }
+}
+
+pub fn forget_database(state: &DesktopState) -> Result<(), DesktopError> {
+    clear_selection(state)?;
+    config::clear_settings(&state.settings_path)?;
+    Ok(())
 }
 
 pub fn selected_db_path(state: &DesktopState) -> Result<PathBuf, DesktopError> {
@@ -54,7 +106,9 @@ pub fn selected_db_path(state: &DesktopState) -> Result<PathBuf, DesktopError> {
         .selected_db_path
         .lock()
         .map_err(|_| DesktopError::database_open_failed("Application state lock poisoned"))?;
-    guard.clone().ok_or_else(DesktopError::database_not_selected)
+    guard
+        .clone()
+        .ok_or_else(DesktopError::database_not_selected)
 }
 
 pub fn list_trip_summaries(state: &DesktopState) -> Result<Vec<TripSummary>, DesktopError> {
@@ -79,28 +133,50 @@ pub fn get_day_timeline(
     facade_get_day_timeline(&conn, trip_id, day_number).map_err(DesktopError::from)
 }
 
+fn clear_selection(state: &DesktopState) -> Result<(), DesktopError> {
+    let mut guard = state
+        .selected_db_path
+        .lock()
+        .map_err(|_| DesktopError::database_open_failed("Application state lock poisoned"))?;
+    *guard = None;
+    Ok(())
+}
+
+fn path_to_info_string(path: &Path) -> String {
+    path.to_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| path.to_string_lossy().into_owned())
+}
+
 fn open_connection(path: &Path) -> Result<rusqlite::Connection, DesktopError> {
-    open_db(&path.to_string_lossy())
-        .map_err(|err| DesktopError::database_open_failed(err.to_string()))
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| DesktopError::database_path_invalid("Database path is not valid UTF-8"))?;
+    open_db(path_str).map_err(|err| DesktopError::database_open_failed(err.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{self, settings_file_path};
     use crate::state::DesktopState;
+    use std::fs;
     use std::path::{Path, PathBuf};
     use std::process::Command;
     use travel_ledger_cli::ReadServiceErrorCode;
 
-    fn temp_db() -> (tempfile::TempDir, PathBuf) {
+    fn temp_state() -> (tempfile::TempDir, DesktopState) {
         let dir = tempfile::tempdir().expect("tempdir");
-        let path = dir.path().join("test.db");
-        (dir, path)
+        let settings = settings_file_path(dir.path());
+        (dir, DesktopState::new(settings))
+    }
+
+    fn temp_db(dir: &Path) -> PathBuf {
+        dir.join("test.db")
     }
 
     fn cli_binary() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../target/debug/travel-ledger-cli")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/debug/travel-ledger-cli")
     }
 
     fn seed_trip_with_cli(db_path: &Path, name: &str, start: &str, end: &str) {
@@ -113,7 +189,7 @@ mod tests {
         let status = Command::new(cli)
             .args([
                 "--db",
-                &db_path.to_string_lossy(),
+                db_path.to_str().expect("utf8 path"),
                 "trip",
                 "add",
                 name,
@@ -124,7 +200,11 @@ mod tests {
             ])
             .status()
             .expect("spawn travel-ledger-cli");
-        assert!(status.success(), "trip add failed for {}", db_path.display());
+        assert!(
+            status.success(),
+            "trip add failed for {}",
+            db_path.display()
+        );
     }
 
     #[test]
@@ -141,29 +221,165 @@ mod tests {
     }
 
     #[test]
-    fn probe_and_select_valid_db() {
-        let (_dir, path) = temp_db();
+    fn select_persists_path() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
         seed_trip_with_cli(&path, "Desktop Trip", "2026-06-01", "2026-06-02");
 
-        let state = DesktopState::default();
         let info = select_database(&state, path.clone()).unwrap();
         assert_eq!(info.trip_count, 1);
         assert_eq!(selected_db_path(&state).unwrap(), path);
+        match config::load_saved_database_path(&state.settings_path).unwrap() {
+            LoadSavedPath::Present(saved) => assert_eq!(saved, path),
+            other => panic!("expected Present, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn invalid_select_leaves_state_and_settings() {
+        let (_dir, state) = temp_state();
+        let err = select_database(&state, PathBuf::from("/missing.db")).unwrap_err();
+        assert_eq!(err.code, "DATABASE_PATH_INVALID");
+        assert!(selected_db_path(&state).is_err());
+        assert!(!state.settings_path.exists());
+    }
+
+    #[test]
+    fn invalid_select_does_not_overwrite_existing_settings() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        seed_trip_with_cli(&path, "Keep Me", "2026-06-01", "2026-06-02");
+        select_database(&state, path.clone()).unwrap();
+
+        let err = select_database(&state, PathBuf::from("/still-missing.db")).unwrap_err();
+        assert_eq!(err.code, "DATABASE_PATH_INVALID");
+        assert_eq!(selected_db_path(&state).unwrap(), path);
+        match config::load_saved_database_path(&state.settings_path).unwrap() {
+            LoadSavedPath::Present(saved) => assert_eq!(saved, path),
+            other => panic!("expected Present, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn restore_without_settings_is_not_found() {
+        let (_dir, state) = temp_state();
+        let result = restore_last_database(&state).unwrap();
+        assert_eq!(result, RestoreLastDatabaseResult::NotFound);
+        assert!(selected_db_path(&state).is_err());
+    }
+
+    #[test]
+    fn restore_valid_saved_database() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        seed_trip_with_cli(&path, "Restore Trip", "2026-04-26", "2026-04-29");
+        select_database(&state, path.clone()).unwrap();
+
+        let restored_state = DesktopState::new(state.settings_path.clone());
+        match restore_last_database(&restored_state).unwrap() {
+            RestoreLastDatabaseResult::Restored { database } => {
+                assert_eq!(database.trip_count, 1);
+                assert_eq!(selected_db_path(&restored_state).unwrap(), path);
+            }
+            other => panic!("expected Restored, got {other:?}"),
+        }
+
+        let summaries = list_trip_summaries(&restored_state).unwrap();
+        let detail = get_trip_detail(&restored_state, summaries[0].id).unwrap();
+        let day = get_day_timeline(&restored_state, summaries[0].id, 1).unwrap();
+        assert_eq!(detail.days.len(), 4);
+        assert_eq!(day.day_number, 1);
+    }
+
+    #[test]
+    fn restore_missing_path_clears_without_creating_db() {
+        let (dir, state) = temp_state();
+        let missing = dir.path().join("gone.db");
+        config::write_last_database_path(&state.settings_path, &missing).unwrap();
+        assert!(!missing.exists());
+
+        match restore_last_database(&state).unwrap() {
+            RestoreLastDatabaseResult::InvalidCleared { code, .. } => {
+                assert_eq!(code, "DATABASE_PATH_INVALID");
+            }
+            other => panic!("expected InvalidCleared, got {other:?}"),
+        }
+        assert!(!missing.exists());
+        assert!(!state.settings_path.exists());
+        assert!(selected_db_path(&state).is_err());
+    }
+
+    #[test]
+    fn restore_directory_path_rejects() {
+        let (dir, state) = temp_state();
+        config::write_last_database_path(&state.settings_path, dir.path()).unwrap();
+        match restore_last_database(&state).unwrap() {
+            RestoreLastDatabaseResult::InvalidCleared { code, .. } => {
+                assert_eq!(code, "DATABASE_PATH_INVALID");
+            }
+            other => panic!("expected InvalidCleared, got {other:?}"),
+        }
+        assert!(selected_db_path(&state).is_err());
+    }
+
+    #[test]
+    fn restore_corrupt_sqlite_file_rejects() {
+        let (dir, state) = temp_state();
+        let junk = dir.path().join("junk.db");
+        fs::write(&junk, b"not a sqlite database").unwrap();
+        config::write_last_database_path(&state.settings_path, &junk).unwrap();
+
+        match restore_last_database(&state).unwrap() {
+            RestoreLastDatabaseResult::InvalidCleared { code, .. } => {
+                assert_eq!(code, "DATABASE_OPEN_FAILED");
+            }
+            other => panic!("expected InvalidCleared, got {other:?}"),
+        }
+        assert!(junk.exists());
+        assert!(!state.settings_path.exists());
+    }
+
+    #[test]
+    fn restore_corrupt_settings_clears_and_stays_unselected() {
+        let (_dir, state) = temp_state();
+        fs::write(&state.settings_path, "{broken").unwrap();
+        match restore_last_database(&state).unwrap() {
+            RestoreLastDatabaseResult::InvalidCleared { code, .. } => {
+                assert_eq!(code, "DATABASE_CONFIG_READ_FAILED");
+            }
+            other => panic!("expected InvalidCleared, got {other:?}"),
+        }
+        assert!(selected_db_path(&state).is_err());
+        assert!(!state.settings_path.exists());
+    }
+
+    #[test]
+    fn forget_clears_state_and_settings_but_keeps_db_file() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        seed_trip_with_cli(&path, "Forget Me Not", "2026-06-01", "2026-06-02");
+        select_database(&state, path.clone()).unwrap();
+        assert!(state.settings_path.exists());
+
+        forget_database(&state).unwrap();
+        assert!(selected_db_path(&state).is_err());
+        assert!(!state.settings_path.exists());
+        assert!(path.exists());
     }
 
     #[test]
     fn database_not_selected_before_open() {
-        let state = DesktopState::default();
+        let (_dir, state) = temp_state();
         let err = list_trip_summaries(&state).unwrap_err();
         assert_eq!(err.code, "DATABASE_NOT_SELECTED");
     }
 
     #[test]
     fn list_and_detail_use_facade() {
-        let (_dir, path) = temp_db();
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
         seed_trip_with_cli(&path, "Okinawa", "2026-04-26", "2026-04-29");
 
-        let state = DesktopState::default();
         select_database(&state, path).unwrap();
         let summaries = list_trip_summaries(&state).unwrap();
         assert_eq!(summaries.len(), 1);
@@ -179,9 +395,9 @@ mod tests {
 
     #[test]
     fn maps_trip_not_found() {
-        let (_dir, path) = temp_db();
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
         open_db(path.to_str().unwrap()).unwrap();
-        let state = DesktopState::default();
         select_database(&state, path).unwrap();
         let err = get_trip_detail(&state, 9999).unwrap_err();
         assert_eq!(err.code, "TRIP_NOT_FOUND");
@@ -189,10 +405,10 @@ mod tests {
 
     #[test]
     fn maps_day_not_found() {
-        let (_dir, path) = temp_db();
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
         seed_trip_with_cli(&path, "Trip", "2026-06-01", "2026-06-03");
-        let state = DesktopState::default();
-        select_database(&state, path.clone()).unwrap();
+        select_database(&state, path).unwrap();
         let summaries = list_trip_summaries(&state).unwrap();
         let trip_id = summaries[0].id;
         let err = get_day_timeline(&state, trip_id, 99).unwrap_err();
@@ -200,48 +416,36 @@ mod tests {
     }
 
     #[test]
-    fn state_only_set_after_successful_validation() {
-        let state = DesktopState::default();
-        let err = select_database(&state, PathBuf::from("/missing.db")).unwrap_err();
-        assert_eq!(err.code, "DATABASE_PATH_INVALID");
-        assert!(selected_db_path(&state).is_err());
-    }
-
-    #[test]
     fn service_error_mapping_uses_core_codes() {
-        let err: DesktopError = travel_ledger_cli::ServiceError::new(
-            ReadServiceErrorCode::StorageFailure,
-            "db locked",
-        )
-        .into();
+        let err: DesktopError =
+            travel_ledger_cli::ServiceError::new(ReadServiceErrorCode::StorageFailure, "db locked")
+                .into();
         assert_eq!(err.code, "STORAGE_FAILURE");
     }
 
     #[test]
     #[ignore = "manual smoke: run with SMOKE_DB=/path/to/okinawa.db"]
     fn smoke_populated_sample_database() {
-        let path = std::env::var("SMOKE_DB").expect("set SMOKE_DB to a populated Travel Ledger database");
-        let state = DesktopState::default();
+        let path =
+            std::env::var("SMOKE_DB").expect("set SMOKE_DB to a populated Travel Ledger database");
+        let settings_dir = tempfile::tempdir().unwrap();
+        let state = DesktopState::new(settings_file_path(settings_dir.path()));
         let info = select_database(&state, PathBuf::from(&path)).unwrap();
-        assert!(info.trip_count >= 1, "expected at least one trip");
+        assert!(info.trip_count >= 1);
 
-        let summaries = list_trip_summaries(&state).unwrap();
-        assert!(!summaries.is_empty());
-        let first_trip = summaries[0].id;
-        let second_trip = summaries.get(1).map(|trip| trip.id);
-
-        let detail = get_trip_detail(&state, first_trip).unwrap();
-        assert!(!detail.days.is_empty());
-        let first_day = detail.days[0].day_number;
-        let day_timeline = get_day_timeline(&state, first_trip, first_day).unwrap();
-        assert!(
-            !day_timeline.itineraries.is_empty(),
-            "expected populated itinerary timeline"
-        );
-
-        if let Some(second_id) = second_trip {
-            let other = get_trip_detail(&state, second_id).unwrap();
-            assert_ne!(other.id, detail.id);
+        let restored = DesktopState::new(state.settings_path.clone());
+        match restore_last_database(&restored).unwrap() {
+            RestoreLastDatabaseResult::Restored { database } => {
+                assert_eq!(database.trip_count, info.trip_count);
+            }
+            other => panic!("expected Restored, got {other:?}"),
         }
+
+        let summaries = list_trip_summaries(&restored).unwrap();
+        let first_trip = summaries[0].id;
+        let detail = get_trip_detail(&restored, first_trip).unwrap();
+        let day_timeline =
+            get_day_timeline(&restored, first_trip, detail.days[0].day_number).unwrap();
+        assert!(!day_timeline.itineraries.is_empty());
     }
 }
