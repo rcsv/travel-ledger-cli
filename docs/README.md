@@ -28,6 +28,7 @@ Caglla.Travel CLI のドキュメント索引です。GitHub トップの [READM
 |---|---|
 | [long-term-version-strategy.md](long-term-version-strategy.md) | Caglla.Travel メジャーバージョン戦略（v1 Planning Foundation 〜 v9 Platform）— 設計判断用参考 |
 | [future-roadmap-planning-memo.md](future-roadmap-planning-memo.md) | v4.6.x 完了後の将来方向性（Travel Data Ledger / Proposal / Calendar / 避けたい方向）— **現行 v4.6.x 作業とは別軸** |
+| [specifications/v4.10.2-desktop-read-only-usability-polish.md](specifications/v4.10.2-desktop-read-only-usability-polish.md) | Desktop read-only usability polish（v4.10.2 released） |
 | [specifications/v4.10.1-desktop-database-reopening-and-usability-polish.md](specifications/v4.10.1-desktop-database-reopening-and-usability-polish.md) | Desktop database reopening and usability polish（v4.10.1 released） |
 | [specifications/v4.10.0-read-only-desktop-vertical-slice.md](specifications/v4.10.0-read-only-desktop-vertical-slice.md) | Read-only desktop vertical slice（v4.10.0 released） |
 | [specifications/v4.9.2-desktop-read-service-facade.md](specifications/v4.9.2-desktop-read-service-facade.md) | Desktop readiness service facade（v4.9.2 released） |

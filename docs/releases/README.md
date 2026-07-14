@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.10.2 | Desktop read-only usability polish | [v4.10.2-notes.md](v4.10.2-notes.md) |
 | v4.10.1 | Desktop database reopening and usability polish | [v4.10.1-notes.md](v4.10.1-notes.md) |
 | v4.10.0 | Read-only desktop vertical slice | [v4.10.0-notes.md](v4.10.0-notes.md) |
 | v4.9.2 | Desktop readiness service facade | [v4.9.2-notes.md](v4.9.2-notes.md) |

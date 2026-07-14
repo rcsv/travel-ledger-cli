@@ -1,5 +1,5 @@
 import type { TripSummary } from "../types";
-import { formatDateRange } from "../types";
+import { formatDateRange, nonEmpty } from "../display";
 
 interface TripListProps {
   trips: TripSummary[];
@@ -21,8 +21,11 @@ export function TripList({
   if (trips.length === 0) {
     return (
       <div className="empty-state compact">
-        <h3>No trips</h3>
-        <p>This database has no trips yet.</p>
+        <h3>No trips yet</h3>
+        <p>
+          This database does not contain any trips. Open another database, or
+          add trips with the CLI.
+        </p>
       </div>
     );
   }
@@ -31,20 +34,25 @@ export function TripList({
     <ul className="trip-list" aria-label="Trip list">
       {trips.map((trip) => {
         const selected = trip.id === selectedTripId;
+        const dates = formatDateRange(trip.start_date, trip.end_date);
+        const destination = nonEmpty(trip.main_destination);
+        const currency = nonEmpty(trip.default_currency);
         return (
           <li key={trip.id}>
             <button
               type="button"
               className={selected ? "trip-item selected" : "trip-item"}
+              aria-current={selected ? "true" : undefined}
               aria-pressed={selected}
               onClick={() => onSelect(trip.id)}
             >
               <span className="trip-name">{trip.name}</span>
-              <span className="trip-meta">
-                {formatDateRange(trip.start_date, trip.end_date)}
-              </span>
-              {trip.main_destination ? (
-                <span className="trip-meta">{trip.main_destination}</span>
+              {dates ? <span className="trip-meta">{dates}</span> : null}
+              {destination ? (
+                <span className="trip-meta">{destination}</span>
+              ) : null}
+              {currency ? (
+                <span className="trip-meta trip-currency">{currency}</span>
               ) : null}
             </button>
           </li>

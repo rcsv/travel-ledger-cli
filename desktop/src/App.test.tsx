@@ -25,6 +25,8 @@ const sampleTrips = [
     name: "Okinawa",
     start_date: "2026-04-26",
     end_date: "2026-04-29",
+    main_destination: "Naha",
+    default_currency: "JPY",
     created_at: "t",
     updated_at: "t",
   },
@@ -35,6 +37,8 @@ const sampleDetail = {
   name: "Okinawa",
   start_date: "2026-04-26",
   end_date: "2026-04-29",
+  main_destination: "Naha",
+  default_currency: "JPY",
   created_at: "t",
   updated_at: "t",
   days: [
@@ -101,7 +105,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("loads trips after successful restore", async () => {
+  it("loads trips after successful restore with count and metadata", async () => {
     vi.mocked(api.restoreLastDatabase).mockResolvedValue({
       status: "restored",
       database: { path: "/tmp/sample.db", trip_count: 1 },
@@ -117,6 +121,20 @@ describe("App", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.getByText("sample.db")).toBeInTheDocument();
+    expect(screen.getByText("1 trip")).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("Trip list")).getByText("Naha"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("Trip list")).getByText("JPY"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/2 days/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: /Day 1 · Sun · Apr 26/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No activities planned for this day yet/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /change database/i })).toBeInTheDocument();
   });
 
@@ -138,9 +156,7 @@ describe("App", () => {
     vi.mocked(open).mockResolvedValue(null);
     render(<App />);
     await finishBootstrap();
-    fireEvent.click(
-      screen.getByRole("button", { name: /open travel ledger database/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /^open database$/i }));
     await waitFor(() => expect(open).toHaveBeenCalled());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -195,6 +211,8 @@ describe("App", () => {
         ...sampleDetail,
         id: 2,
         name: "Hawaii",
+        main_destination: null,
+        default_currency: null,
         days: [
           {
             id: 20,
@@ -223,7 +241,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("forgets database after confirmation", async () => {
+  it("forgets database after confirmation without deleting wording", async () => {
     vi.mocked(api.restoreLastDatabase).mockResolvedValue({
       status: "restored",
       database: { path: "/tmp/sample.db", trip_count: 1 },
@@ -244,7 +262,7 @@ describe("App", () => {
       ).toBeInTheDocument(),
     );
     expect(api.forgetDatabase).toHaveBeenCalled();
-    expect(confirmSpy).toHaveBeenCalled();
+    expect(confirmSpy.mock.calls[0]?.[0]).toMatch(/stays on disk/i);
     confirmSpy.mockRestore();
   });
 
@@ -258,10 +276,11 @@ describe("App", () => {
 
     render(<App />);
     await finishBootstrap();
-    fireEvent.click(
-      screen.getByRole("button", { name: /open travel ledger database/i }),
+    fireEvent.click(screen.getByRole("button", { name: /^open database$/i }));
+    await waitFor(() =>
+      expect(screen.getByText("No trips yet")).toBeInTheDocument(),
     );
-    await waitFor(() => expect(screen.getByText("No trips")).toBeInTheDocument());
+    expect(screen.getByText("0 trips")).toBeInTheDocument();
   });
 
   it("updates timeline when day tab is selected", async () => {
@@ -287,7 +306,9 @@ describe("App", () => {
             trip_id: 1,
             day_number: 2,
             title: "Beach",
+            start_time: "10:00",
             sort_order: 1,
+            location: "Sesoko",
             created_at: "t",
             updated_at: "t",
           },
@@ -301,8 +322,42 @@ describe("App", () => {
       ).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Day 2" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Day 2 · Mon · Apr 27/i }));
     await waitFor(() => expect(screen.getByText("Beach")).toBeInTheDocument());
+    expect(screen.getByText("10:00")).toBeInTheDocument();
+    expect(screen.getByText("Sesoko")).toBeInTheDocument();
+    expect(screen.getByText(/sequence first/i)).toBeInTheDocument();
     expect(api.getDayTimeline).toHaveBeenLastCalledWith(1, 2);
+  });
+
+  it("omits empty metadata labels in trip detail", async () => {
+    vi.mocked(api.restoreLastDatabase).mockResolvedValue({
+      status: "restored",
+      database: { path: "/tmp/sample.db", trip_count: 1 },
+    });
+    vi.mocked(api.listTripSummaries).mockResolvedValue([
+      {
+        id: 1,
+        name: "Bare",
+        created_at: "t",
+        updated_at: "t",
+      },
+    ]);
+    vi.mocked(api.getTripDetail).mockResolvedValue({
+      id: 1,
+      name: "Bare",
+      created_at: "t",
+      updated_at: "t",
+      days: [],
+    });
+
+    render(<App />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Trip detail")).toHaveTextContent("Bare"),
+    );
+    expect(screen.queryByText("Destination")).not.toBeInTheDocument();
+    expect(screen.queryByText("Currency")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not set")).not.toBeInTheDocument();
+    expect(screen.getByText("No days yet")).toBeInTheDocument();
   });
 });

@@ -127,9 +127,23 @@ body {
   overflow: auto;
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
 .sidebar-header h2 {
   margin: 0;
   font-size: 1rem;
+}
+
+.trip-count {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #627d98;
 }
 
 .db-path {
@@ -152,15 +166,22 @@ body {
   width: 100%;
   text-align: left;
   border: 1px solid #d9e2ec;
+  border-left: 3px solid transparent;
   background: #f9fafb;
   border-radius: 0.5rem;
   padding: 0.65rem 0.75rem;
   cursor: pointer;
 }
 
+.trip-item:hover {
+  background: #f0f4f8;
+}
+
 .trip-item.selected {
   border-color: #243b53;
+  border-left-color: #243b53;
   background: #e0e8f9;
+  box-shadow: inset 0 0 0 1px #243b53;
 }
 
 .trip-name {
@@ -172,6 +193,11 @@ body {
   display: block;
   font-size: 0.8rem;
   color: #627d98;
+}
+
+.trip-currency {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .detail-pane {
@@ -186,6 +212,15 @@ body {
 .trip-dates {
   margin: 0.25rem 0 0.75rem;
   color: #627d98;
+}
+
+.section-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #486581;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .trip-meta-grid {
@@ -219,9 +254,10 @@ body {
 .day-tab {
   border: 1px solid #d9e2ec;
   background: #ffffff;
-  border-radius: 999px;
-  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.75rem;
   cursor: pointer;
+  font-size: 0.85rem;
 }
 
 .day-tab.selected {
@@ -240,6 +276,11 @@ body {
   border-top: 1px solid #d9e2ec;
 }
 
+.timeline h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
 .timeline-list {
   list-style: none;
   margin: 0;
@@ -252,25 +293,68 @@ body {
 .timeline-item {
   border: 1px solid #d9e2ec;
   border-radius: 0.5rem;
-  padding: 0.75rem;
+  padding: 0.75rem 0.85rem;
   background: #ffffff;
 }
 
 .timeline-head {
   display: flex;
-  gap: 0.5rem;
-  align-items: baseline;
+  gap: 0.75rem;
+  align-items: flex-start;
 }
 
 .timeline-order {
+  flex: 0 0 1.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #f0f4f8;
+  color: #486581;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-title-block {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.timeline-title {
+  font-weight: 600;
+}
+
+.timeline-time {
   color: #627d98;
   font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .timeline-fields {
-  margin: 0.5rem 0 0;
-  padding-left: 1.1rem;
+  list-style: none;
+  margin: 0.45rem 0 0 2.25rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
   color: #486581;
+  font-size: 0.85rem;
+}
+
+.timeline-note {
+  flex: 1 1 100%;
+  color: #627d98;
+}
+
+.timeline-footnote {
+  margin: 0.85rem 0 0;
+  font-size: 0.75rem;
+  color: #829ab1;
 }
 
 .status-text {

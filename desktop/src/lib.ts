@@ -25,4 +25,10 @@ export type {
   TripSummary,
 };
 
-export { isDesktopError, formatDateRange } from "./types";
+export { isDesktopError } from "./types";
+export {
+  formatDateRange,
+  formatDayLabel,
+  formatMinutes,
+  nonEmpty,
+} from "./display";

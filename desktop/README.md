@@ -1,7 +1,25 @@
-# Tauri + React + Typescript
+# Travel Ledger Desktop
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Developer preview of a **read-only** Tauri shell for Travel Ledger SQLite databases.
 
-## Recommended IDE Setup
+## Status
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- Source-only (`bundle.active = false`) — not distributed with GitHub Release assets
+- Latest polish: **v4.10.2** — Trip list / detail / timeline readability
+- Persistence: last successfully opened DB path only (v4.10.1)
+
+## Run from source
+
+```sh
+cd desktop
+npm install
+npm run tauri dev
+```
+
+Or: `tools/desktop/dev.sh`
+
+## Notes
+
+- Open an existing `.db` / `.sqlite` / `.sqlite3` Travel Ledger database
+- Forget Database clears the remembered path only — it does **not** delete the file
+- Write UI, Checklist, and itinerary completion are out of scope

@@ -7,6 +7,7 @@ import { EmptyState } from "./components/EmptyState";
 import { ItineraryTimeline } from "./components/ItineraryTimeline";
 import { TripDetailPanel } from "./components/TripDetailPanel";
 import { TripList } from "./components/TripList";
+import { formatDayLabel } from "./display";
 import type {
   DayDetail,
   DesktopErrorPayload,
@@ -269,7 +270,7 @@ export default function App() {
 
   const handleForgetDatabase = useCallback(async () => {
     const confirmed = window.confirm(
-      "Forget this database in Travel Ledger Desktop?\n\nThis only clears the remembered path. Your SQLite database file will not be deleted.",
+      "Stop remembering this database?\n\nOnly the saved path is cleared. Your SQLite database file stays on disk.",
     );
     if (!confirmed) {
       return;
@@ -309,6 +310,12 @@ export default function App() {
     [loadTimeline, selectedDayNumber, selectedTripId],
   );
 
+  const selectedDayMeta =
+    tripDetail?.days.find((day) => day.day_number === selectedDayNumber) ??
+    null;
+  const tripCountLabel =
+    trips.length === 1 ? "1 trip" : `${trips.length} trips`;
+
   if (bootstrapping) {
     return (
       <div className="app-shell">
@@ -320,7 +327,7 @@ export default function App() {
         </header>
         <EmptyState
           title="Starting…"
-          message="Checking for a previously selected Travel Ledger database."
+          message="Looking for the database you opened last time."
         />
       </div>
     );
@@ -352,6 +359,7 @@ export default function App() {
                 type="button"
                 className="secondary-button"
                 onClick={handleForgetDatabase}
+                title="Clears the remembered path only. Does not delete the database file."
               >
                 Forget Database
               </button>
@@ -362,7 +370,7 @@ export default function App() {
               className="primary-button"
               onClick={handleOpenOrChangeDatabase}
             >
-              Open Travel Ledger Database
+              Open Database
             </button>
           )}
         </div>
@@ -372,7 +380,7 @@ export default function App() {
         <ErrorBanner
           error={{
             code: restoreWarning.code,
-            message: `${restoreWarning.message} Choose a database to continue.`,
+            message: `${restoreWarning.message} Open a database to continue.`,
           }}
         />
       ) : null}
@@ -381,13 +389,18 @@ export default function App() {
       {!databasePath ? (
         <EmptyState
           title="Open a Travel Ledger database"
-          message="Use Open Travel Ledger Database to choose an existing SQLite file (.db, .sqlite, .sqlite3). Your choice can be remembered for the next launch."
+          message="Choose an existing SQLite file (.db, .sqlite, or .sqlite3). After a successful open, the path can be remembered for next time. Nothing is created or deleted here."
         />
       ) : (
         <div className="app-body">
           <aside className="sidebar" aria-label="Trip list sidebar">
             <div className="sidebar-header">
               <h2>Trips</h2>
+              {!loadingTrips ? (
+                <p className="trip-count" aria-live="polite">
+                  {tripCountLabel}
+                </p>
+              ) : null}
             </div>
             <TripList
               trips={trips}
@@ -408,6 +421,11 @@ export default function App() {
               items={dayTimeline?.itineraries ?? []}
               loading={loadingTimeline}
               dayNumber={selectedDayNumber}
+              dayLabel={
+                selectedDayMeta
+                  ? formatDayLabel(selectedDayMeta.date)
+                  : null
+              }
             />
           </main>
         </div>

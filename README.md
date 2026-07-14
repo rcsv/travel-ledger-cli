@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.10.1](docs/releases/v4.10.1-notes.md)** — Desktop database reopening and usability polish
+**[v4.10.2](docs/releases/v4.10.2-notes.md)** — Desktop read-only usability polish
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)

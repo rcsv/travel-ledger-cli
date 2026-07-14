@@ -1,5 +1,5 @@
 import type { DaySummary, TripDetail } from "../types";
-import { formatDateRange } from "../types";
+import { formatDateRange, formatDayLabel, nonEmpty } from "../display";
 import { EmptyState } from "./EmptyState";
 
 interface TripDetailPanelProps {
@@ -10,13 +10,14 @@ interface TripDetailPanelProps {
 }
 
 function MetaRow({ label, value }: { label: string; value?: string | null }) {
-  if (!value) {
+  const text = nonEmpty(value);
+  if (!text) {
     return null;
   }
   return (
     <div className="meta-row">
       <dt>{label}</dt>
-      <dd>{value}</dd>
+      <dd>{text}</dd>
     </div>
   );
 }
@@ -33,8 +34,8 @@ function DayTabs({
   if (days.length === 0) {
     return (
       <div className="empty-state compact">
-        <h3>No days</h3>
-        <p>This trip has no day rows.</p>
+        <h3>No days yet</h3>
+        <p>This trip has no day rows to browse.</p>
       </div>
     );
   }
@@ -43,6 +44,7 @@ function DayTabs({
     <div className="day-tabs" role="tablist" aria-label="Days">
       {days.map((day) => {
         const selected = day.day_number === selectedDayNumber;
+        const label = `Day ${day.day_number} · ${formatDayLabel(day.date)}`;
         return (
           <button
             key={day.id}
@@ -52,7 +54,7 @@ function DayTabs({
             className={selected ? "day-tab selected" : "day-tab"}
             onClick={() => onSelectDay(day.day_number)}
           >
-            Day {day.day_number}
+            {label}
           </button>
         );
       })}
@@ -67,26 +69,33 @@ export function TripDetailPanel({
   onSelectDay,
 }: TripDetailPanelProps) {
   if (loading) {
-    return <p className="status-text">Loading trip detail…</p>;
+    return <p className="status-text">Loading trip…</p>;
   }
 
   if (!trip) {
     return (
       <EmptyState
-        title="Select a trip"
-        message="Choose a trip from the list to view details and itinerary."
+        title="Pick a trip"
+        message="Choose a trip on the left to see its days and itinerary."
       />
     );
   }
 
-  const selectedDay = trip.days.find((day) => day.day_number === selectedDayNumber);
+  const selectedDay = trip.days.find(
+    (day) => day.day_number === selectedDayNumber,
+  );
+  const dates = formatDateRange(trip.start_date, trip.end_date);
+  const daysLabel =
+    trip.days.length === 1 ? "1 day" : `${trip.days.length} days`;
 
   return (
     <section className="trip-detail" aria-label="Trip detail">
       <header className="trip-detail-header">
         <h2>{trip.name}</h2>
         <p className="trip-dates">
-          {formatDateRange(trip.start_date, trip.end_date)}
+          {dates ? dates : null}
+          {dates ? " · " : null}
+          {daysLabel}
         </p>
       </header>
 
@@ -94,9 +103,10 @@ export function TripDetailPanel({
         <MetaRow label="Summary" value={trip.summary} />
         <MetaRow label="Destination" value={trip.main_destination} />
         <MetaRow label="Country" value={trip.main_destination_country_code} />
-        <MetaRow label="Default currency" value={trip.default_currency} />
+        <MetaRow label="Currency" value={trip.default_currency} />
       </dl>
 
+      <h3 className="section-label">Days</h3>
       <DayTabs
         days={trip.days}
         selectedDayNumber={selectedDayNumber}
@@ -106,10 +116,10 @@ export function TripDetailPanel({
       {selectedDay ? (
         <div className="day-summary">
           <h3>
-            Day {selectedDay.day_number} · {selectedDay.date}
+            Day {selectedDay.day_number} · {formatDayLabel(selectedDay.date)}
           </h3>
-          {selectedDay.title ? <p>{selectedDay.title}</p> : null}
-          {selectedDay.summary ? <p>{selectedDay.summary}</p> : null}
+          {nonEmpty(selectedDay.title) ? <p>{selectedDay.title}</p> : null}
+          {nonEmpty(selectedDay.summary) ? <p>{selectedDay.summary}</p> : null}
         </div>
       ) : null}
     </section>

@@ -1,6 +1,6 @@
 [package]
 name = "travel-ledger-desktop"
-version = "4.10.1"
+version = "4.10.2"
 description = "Travel Ledger Desktop — developer preview read-only shell"
 authors = ["Tomohiro Awane"]
 edition = "2021"

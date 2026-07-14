@@ -87,22 +87,6 @@ export function isDesktopError(value: unknown): value is DesktopErrorPayload {
   );
 }
 
-export function formatDateRange(
-  start?: string | null,
-  end?: string | null,
-): string {
-  if (start && end) {
-    return `${start} — ${end}`;
-  }
-  if (start) {
-    return start;
-  }
-  if (end) {
-    return end;
-  }
-  return "Dates not set";
-}
-
 export function databaseFileName(path: string): string {
   const normalized = path.replace(/\\/g, "/");
   const parts = normalized.split("/");
