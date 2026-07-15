@@ -2,34 +2,29 @@ import type { ItineraryDetail } from "../types";
 import { formatMinutes, nonEmpty } from "../display";
 
 interface ItineraryTimelineProps {
-  items: ItineraryDetail[];
+  items: ItineraryDetail[] | null;
   loading: boolean;
-  dayNumber: number | null;
-  dayLabel?: string | null;
 }
 
 export function ItineraryTimeline({
   items,
   loading,
-  dayNumber,
-  dayLabel,
 }: ItineraryTimelineProps) {
-  if (dayNumber === null) {
-    return null;
+  if (loading) {
+    return (
+      <p className="status-text timeline-status" role="status">
+        Loading activities…
+      </p>
+    );
   }
 
-  const heading = dayLabel
-    ? `Day ${dayNumber} activities · ${dayLabel}`
-    : `Day ${dayNumber} activities`;
-
-  if (loading) {
-    return <p className="status-text">Loading activities…</p>;
+  if (items === null) {
+    return null;
   }
 
   if (items.length === 0) {
     return (
-      <section className="timeline" aria-label="Day activities">
-        <h3>{heading}</h3>
+      <section className="timeline" aria-label="Itinerary timeline">
         <div className="empty-state compact">
           <p>No activities planned for this day yet.</p>
         </div>
@@ -38,8 +33,7 @@ export function ItineraryTimeline({
   }
 
   return (
-    <section className="timeline" aria-label="Day activities">
-      <h3>{heading}</h3>
+    <section className="timeline" aria-label="Itinerary timeline">
       <ol className="timeline-list">
         {items.map((item, index) => {
           const startTime = nonEmpty(item.start_time);

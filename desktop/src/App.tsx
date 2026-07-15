@@ -8,7 +8,6 @@ import { ItineraryTimeline } from "./components/ItineraryTimeline";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { TripDetailPanel } from "./components/TripDetailPanel";
 import { TripList } from "./components/TripList";
-import { formatDayLabel } from "./display";
 import type {
   DayDetail,
   DesktopErrorPayload,
@@ -319,9 +318,6 @@ export default function App() {
     [loadTimeline, selectedDayNumber, selectedTripId],
   );
 
-  const selectedDayMeta =
-    tripDetail?.days.find((day) => day.day_number === selectedDayNumber) ??
-    null;
   const tripCountLabel =
     trips.length === 1 ? "1 trip" : `${trips.length} trips`;
   const settingsOpen = mainView === "settings";
@@ -383,6 +379,15 @@ export default function App() {
           title="Open a Travel Ledger database"
           message="Choose an existing SQLite file (.db, .sqlite, or .sqlite3). After a successful open, the path can be remembered for next time. Nothing is created or deleted here."
         />
+      ) : settingsOpen ? (
+        <main className="settings-view">
+          <SettingsPanel
+            databasePath={databasePath}
+            onChangeDatabase={handleOpenOrChangeDatabase}
+            onForgetDatabase={handleForgetDatabase}
+            onBackToTrips={() => setMainView("trips")}
+          />
+        </main>
       ) : (
         <div className="app-body">
           <aside className="sidebar" aria-label="Trip list sidebar">
@@ -405,10 +410,7 @@ export default function App() {
             <div className="sidebar-footer">
               <button
                 type="button"
-                className={
-                  settingsOpen ? "nav-settings selected" : "nav-settings"
-                }
-                aria-current={settingsOpen ? "page" : undefined}
+                className="nav-settings"
                 onClick={() => setMainView("settings")}
               >
                 Settings
@@ -417,33 +419,17 @@ export default function App() {
           </aside>
 
           <main className="detail-pane">
-            {settingsOpen && databasePath ? (
-              <SettingsPanel
-                databasePath={databasePath}
-                onChangeDatabase={handleOpenOrChangeDatabase}
-                onForgetDatabase={handleForgetDatabase}
-                onBackToTrips={() => setMainView("trips")}
+            <TripDetailPanel
+              trip={tripDetail}
+              selectedDayNumber={selectedDayNumber}
+              loading={loadingDetail}
+              onSelectDay={handleSelectDay}
+            >
+              <ItineraryTimeline
+                items={dayTimeline?.itineraries ?? null}
+                loading={loadingTimeline}
               />
-            ) : (
-              <>
-                <TripDetailPanel
-                  trip={tripDetail}
-                  selectedDayNumber={selectedDayNumber}
-                  loading={loadingDetail}
-                  onSelectDay={handleSelectDay}
-                />
-                <ItineraryTimeline
-                  items={dayTimeline?.itineraries ?? []}
-                  loading={loadingTimeline}
-                  dayNumber={selectedDayNumber}
-                  dayLabel={
-                    selectedDayMeta
-                      ? formatDayLabel(selectedDayMeta.date)
-                      : null
-                  }
-                />
-              </>
-            )}
+            </TripDetailPanel>
           </main>
         </div>
       )}

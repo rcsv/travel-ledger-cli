@@ -115,7 +115,7 @@ body {
 .app-body {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(220px, 280px) 1fr;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 0;
   min-height: 0;
 }
@@ -157,12 +157,6 @@ body {
 
 .nav-settings:hover {
   background: #f0f4f8;
-}
-
-.nav-settings.selected {
-  border-color: #243b53;
-  background: #243b53;
-  color: #ffffff;
 }
 
 .sidebar-header {
@@ -225,12 +219,14 @@ body {
 .trip-name {
   display: block;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .trip-meta {
   display: block;
   font-size: 0.8rem;
   color: #627d98;
+  overflow-wrap: anywhere;
 }
 
 .trip-currency {
@@ -241,30 +237,71 @@ body {
 .detail-pane {
   padding: 1rem 1.25rem;
   overflow: auto;
+  min-width: 0;
 }
 
-.trip-detail-header h2 {
+.settings-view {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  overflow: auto;
+}
+
+.settings-view .settings-panel {
+  max-width: none;
+}
+
+.trip-workspace,
+.trip-context-header,
+.plan-section,
+.selected-day-plan {
+  min-width: 0;
+}
+
+.trip-context-header {
+  padding: 0.25rem 0 1.25rem;
+  border-bottom: 1px solid #d9e2ec;
+}
+
+.trip-context-header h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.trip-context-dates {
+  margin: 0.25rem 0 0;
+  color: #627d98;
+  overflow-wrap: anywhere;
+}
+
+.trip-context-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0.85rem 0 0;
+}
+
+.trip-context-fact {
+  display: flex;
+  gap: 0.35rem;
+  min-width: 0;
+  color: #486581;
+  font-size: 0.875rem;
+}
+
+.trip-context-fact dt {
+  color: #829ab1;
+}
+
+.trip-context-fact dt,
+.trip-context-fact dd {
   margin: 0;
 }
 
-.trip-dates {
-  margin: 0.25rem 0 0.75rem;
-  color: #627d98;
-}
-
-.section-label {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #486581;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.trip-meta-grid {
-  display: grid;
-  gap: 0.35rem 1rem;
-  margin: 0 0 1rem;
+.trip-context-fact dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .meta-row {
@@ -282,41 +319,90 @@ body {
   margin: 0;
 }
 
-.day-tabs {
+.trip-context-summary {
+  max-width: 52rem;
+  margin: 0.85rem 0 0;
+  color: #334e68;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.plan-section {
+  padding-top: 1.25rem;
+}
+
+.plan-section > h3 {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+}
+
+.day-selector {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  max-width: 100%;
+  margin-bottom: 1rem;
 }
 
-.day-tab {
+.day-button {
+  max-width: 100%;
   border: 1px solid #d9e2ec;
   background: #ffffff;
   border-radius: 0.5rem;
   padding: 0.4rem 0.75rem;
   cursor: pointer;
   font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }
 
-.day-tab.selected {
+.day-button:hover {
+  background: #f0f4f8;
+}
+
+.day-button.selected {
   border-color: #243b53;
   background: #243b53;
   color: #ffffff;
 }
 
-.day-summary h3 {
+.plan-empty-state h4 {
   margin: 0 0 0.35rem;
 }
 
+.selected-day-header {
+  margin-bottom: 0.85rem;
+}
+
+.selected-day-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.selected-day-title {
+  margin: 0.35rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.selected-day-summary {
+  max-width: 52rem;
+  margin: 0.35rem 0 0;
+  color: #627d98;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .timeline {
-  margin-top: 1.25rem;
+  margin-top: 0.85rem;
   padding-top: 1rem;
   border-top: 1px solid #d9e2ec;
 }
 
-.timeline h3 {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
+.timeline-status {
+  margin: 0.85rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid #d9e2ec;
 }
 
 .timeline-list {
@@ -329,6 +415,7 @@ body {
 }
 
 .timeline-item {
+  min-width: 0;
   border: 1px solid #d9e2ec;
   border-radius: 0.5rem;
   padding: 0.75rem 0.85rem;
@@ -365,6 +452,7 @@ body {
 
 .timeline-title {
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .timeline-time {
@@ -382,6 +470,11 @@ body {
   gap: 0.35rem 0.75rem;
   color: #486581;
   font-size: 0.85rem;
+}
+
+.timeline-fields li {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .timeline-note {
@@ -478,5 +571,21 @@ body {
     border-right: none;
     border-bottom: 1px solid #d9e2ec;
     max-height: 40vh;
+  }
+
+  .detail-pane {
+    padding: 0.85rem 1rem;
+  }
+
+  .settings-view {
+    padding: 0.85rem 1rem;
+  }
+
+  .trip-context-facts {
+    gap: 0.35rem 0.75rem;
+  }
+
+  .day-button {
+    flex: 1 1 auto;
   }
 }
