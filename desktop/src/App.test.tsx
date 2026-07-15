@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/api/app", () => ({
 }));
 
 vi.mock("./api", () => ({
+  createTrip: vi.fn(),
   selectDatabase: vi.fn(),
   restoreLastDatabase: vi.fn(),
   forgetDatabase: vi.fn(),
@@ -98,6 +99,7 @@ async function restoreWithSampleTrip() {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.restoreLastDatabase).mockResolvedValue({ status: "not_found" });
+  vi.mocked(api.createTrip).mockResolvedValue({ trip_id: 2 });
   vi.mocked(getVersion).mockResolvedValue("4.10.3");
 });
 
@@ -241,7 +243,9 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(within(settings).getByText("sample.db")).toBeInTheDocument();
     expect(within(settings).getByText("/tmp/sample.db")).toBeInTheDocument();
-    expect(within(settings).getByText("Access: read-only")).toBeInTheDocument();
+    expect(
+      within(settings).getByText("Access: local Trip creation"),
+    ).toBeInTheDocument();
     expect(within(settings).getByText("Travel Ledger Desktop")).toBeInTheDocument();
     await waitFor(() =>
       expect(within(settings).getByText("4.10.3")).toBeInTheDocument(),
@@ -501,6 +505,372 @@ describe("App", () => {
       expect(screen.getByText("No trips yet")).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: /^settings$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new trip/i })).toBeInTheDocument();
+  });
+
+  it("shows New Trip only when a database is selected", async () => {
+    render(<App />);
+    await finishBootstrap();
+    expect(
+      screen.queryByRole("button", { name: /new trip/i }),
+    ).not.toBeInTheDocument();
+
+    await restoreWithSampleTrip();
+  });
+
+  it("opens the Trip creation form with all fields", async () => {
+    await restoreWithSampleTrip();
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+
+    const newTrip = screen.getByRole("button", { name: /new trip/i });
+    fireEvent.click(newTrip);
+    expect(newTrip).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("region", { name: "Create a new trip" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Trip name")).toBeRequired();
+    expect(screen.getByLabelText("Start date")).toHaveAttribute("type", "date");
+    expect(screen.getByLabelText("End date")).toHaveAttribute("type", "date");
+    expect(screen.getByLabelText("Summary")).toBeInTheDocument();
+    expect(screen.getByLabelText("Main destination")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Main destination country code"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Default currency")).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("Trip list")).getByRole("button", {
+        name: /Okinawa/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("cancels creation without refetching the preserved Trip and Day", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(emptyTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        day_id: 11,
+        day_number: 2,
+        date: "2026-04-27",
+      });
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.change(screen.getByLabelText("Trip name"), {
+      target: { value: "Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(screen.getByRole("region", { name: "Okinawa" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(api.listTripSummaries).toHaveBeenCalledTimes(1);
+    expect(api.getTripDetail).toHaveBeenCalledTimes(1);
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves creation for an existing Trip or Settings without extra reads", async () => {
+    await restoreWithSampleTrip();
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.click(
+      within(screen.getByLabelText("Trip list")).getByRole("button", {
+        name: /Okinawa/i,
+      }),
+    );
+    expect(screen.getByRole("region", { name: "Okinawa" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    expect(screen.getByRole("region", { name: "Settings" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /back to trips/i }));
+    expect(screen.getByRole("region", { name: "Okinawa" })).toBeInTheDocument();
+    expect(api.listTripSummaries).toHaveBeenCalledTimes(1);
+    expect(api.getTripDetail).toHaveBeenCalledTimes(1);
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a Trip, refreshes from the database, and selects Day 1", async () => {
+    await restoreWithSampleTrip();
+    const createdSummary = {
+      id: 2,
+      name: "Kyoto",
+      start_date: "2026-08-01",
+      end_date: "2026-08-03",
+      main_destination: "Kyoto",
+      main_destination_country_code: "JP",
+      default_currency: "JPY",
+      created_at: "t2",
+      updated_at: "t2",
+    };
+    const createdDetail = {
+      ...createdSummary,
+      summary: "Temples",
+      days: [
+        {
+          id: 20,
+          trip_id: 2,
+          day_number: 1,
+          date: "2026-08-01",
+          title: "",
+          summary: null,
+        },
+      ],
+    };
+    vi.mocked(api.listTripSummaries)
+      .mockResolvedValueOnce(sampleTrips)
+      .mockResolvedValueOnce([sampleTrips[0], createdSummary]);
+    vi.mocked(api.getTripDetail)
+      .mockResolvedValueOnce(sampleDetail)
+      .mockResolvedValueOnce(createdDetail);
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(emptyTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        trip_id: 2,
+        trip_name: "Kyoto",
+        day_id: 20,
+        date: "2026-08-01",
+      });
+
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.change(screen.getByLabelText("Trip name"), {
+      target: { value: "Kyoto" },
+    });
+    fireEvent.change(screen.getByLabelText("Start date"), {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.change(screen.getByLabelText("End date"), {
+      target: { value: "2026-08-03" },
+    });
+    fireEvent.change(screen.getByLabelText("Summary"), {
+      target: { value: "Temples" },
+    });
+    fireEvent.change(screen.getByLabelText("Main destination"), {
+      target: { value: "Kyoto" },
+    });
+    fireEvent.change(screen.getByLabelText("Main destination country code"), {
+      target: { value: "jp" },
+    });
+    fireEvent.change(screen.getByLabelText("Default currency"), {
+      target: { value: "jpy" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create trip/i }));
+
+    expect(await screen.findByRole("region", { name: "Kyoto" })).toBeInTheDocument();
+    expect(api.createTrip).toHaveBeenCalledWith({
+      name: "Kyoto",
+      start_date: "2026-08-01",
+      end_date: "2026-08-03",
+      summary: "Temples",
+      main_destination: "Kyoto",
+      main_destination_country_code: "jp",
+      default_currency: "jpy",
+    });
+    expect(api.listTripSummaries).toHaveBeenCalledTimes(2);
+    expect(api.getTripDetail).toHaveBeenLastCalledWith(2);
+    expect(api.getDayTimeline).toHaveBeenLastCalledWith(2, 1);
+    expect(
+      screen.getByRole("button", { name: /Day 1 · Sat · Aug 1/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(screen.getByLabelText("Trip list")).getByRole("button", {
+        name: /Kyoto/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("prevents duplicate submit while creation is pending", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.createTrip).mockReturnValue(new Promise(() => {}));
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.change(screen.getByLabelText("Trip name"), {
+      target: { value: "Pending" },
+    });
+    fireEvent.change(screen.getByLabelText("Start date"), {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.change(screen.getByLabelText("End date"), {
+      target: { value: "2026-08-01" },
+    });
+    const form = screen.getByLabelText("Trip name").closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+    fireEvent.submit(form!);
+    expect(api.createTrip).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /creating/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeDisabled();
+  });
+
+  it("blocks a reversed date range before calling the write API", async () => {
+    await restoreWithSampleTrip();
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.change(screen.getByLabelText("Trip name"), {
+      target: { value: "Bad Range" },
+    });
+    fireEvent.change(screen.getByLabelText("Start date"), {
+      target: { value: "2026-08-03" },
+    });
+    fireEvent.change(screen.getByLabelText("End date"), {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create trip/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "End date must be on or after start date.",
+    );
+    expect(api.createTrip).not.toHaveBeenCalled();
+  });
+
+  it("creates the first Trip in an empty database", async () => {
+    vi.mocked(api.restoreLastDatabase).mockResolvedValue({
+      status: "restored",
+      database: { path: "/tmp/empty.db", trip_count: 0 },
+    });
+    const createdSummary = {
+      id: 1,
+      name: "First Trip",
+      start_date: "2026-09-01",
+      end_date: "2026-09-01",
+      created_at: "t",
+      updated_at: "t",
+    };
+    vi.mocked(api.listTripSummaries)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([createdSummary]);
+    vi.mocked(api.createTrip).mockResolvedValue({ trip_id: 1 });
+    vi.mocked(api.getTripDetail).mockResolvedValue({
+      ...createdSummary,
+      days: [
+        {
+          id: 10,
+          trip_id: 1,
+          day_number: 1,
+          date: "2026-09-01",
+          title: "",
+          summary: null,
+        },
+      ],
+    });
+    vi.mocked(api.getDayTimeline).mockResolvedValue({
+      ...emptyTimeline,
+      trip_name: "First Trip",
+      date: "2026-09-01",
+    });
+
+    render(<App />);
+    await screen.findByText("No trips yet");
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.change(screen.getByLabelText("Trip name"), {
+      target: { value: "First Trip" },
+    });
+    fireEvent.change(screen.getByLabelText("Start date"), {
+      target: { value: "2026-09-01" },
+    });
+    fireEvent.change(screen.getByLabelText("End date"), {
+      target: { value: "2026-09-01" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create trip/i }));
+
+    expect(
+      await screen.findByRole("region", { name: "First Trip" }),
+    ).toBeInTheDocument();
+    expect(api.createTrip).toHaveBeenCalledWith({
+      name: "First Trip",
+      start_date: "2026-09-01",
+      end_date: "2026-09-01",
+      summary: null,
+      main_destination: null,
+      main_destination_country_code: null,
+      default_currency: null,
+    });
+    expect(api.getTripDetail).toHaveBeenCalledWith(1);
+    expect(api.getDayTimeline).toHaveBeenCalledWith(1, 1);
+  });
+
+  it("keeps form input after write failure", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.createTrip).mockRejectedValue({
+      code: "TRIP_VALIDATION_FAILED",
+      message: "invalid country code",
+    });
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.change(screen.getByLabelText("Trip name"), {
+      target: { value: "Keep this input" },
+    });
+    fireEvent.change(screen.getByLabelText("Start date"), {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.change(screen.getByLabelText("End date"), {
+      target: { value: "2026-08-02" },
+    });
+    fireEvent.change(screen.getByLabelText("Main destination country code"), {
+      target: { value: "XX" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create trip/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "invalid country code",
+    );
+    expect(screen.getByLabelText("Trip name")).toHaveValue("Keep this input");
+    expect(screen.getByLabelText("Main destination country code")).toHaveValue(
+      "XX",
+    );
+    expect(api.listTripSummaries).toHaveBeenCalledTimes(1);
+    expect(api.getTripDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the form after committed write even if refresh fails", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.listTripSummaries)
+      .mockResolvedValueOnce(sampleTrips)
+      .mockRejectedValueOnce({
+        code: "STORAGE_FAILURE",
+        message: "refresh failed after commit",
+      });
+    render(<App />);
+    await screen.findByRole("region", { name: "Okinawa" });
+    fireEvent.click(screen.getByRole("button", { name: /new trip/i }));
+    fireEvent.change(screen.getByLabelText("Trip name"), {
+      target: { value: "Committed" },
+    });
+    fireEvent.change(screen.getByLabelText("Start date"), {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.change(screen.getByLabelText("End date"), {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create trip/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "refresh failed after commit",
+    );
+    expect(
+      screen.queryByRole("region", { name: "Create a new trip" }),
+    ).not.toBeInTheDocument();
+    expect(api.createTrip).toHaveBeenCalledTimes(1);
   });
 
   it("shows a Plan empty state when a Trip has no Days", async () => {

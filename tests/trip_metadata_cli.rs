@@ -215,6 +215,32 @@ fn cli_trip_add_rejects_invalid_country_and_currency() {
 }
 
 #[test]
+fn cli_trip_add_rejects_whitespace_only_name() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    assert!(common::run_cli_in(&dir, &["db", "reset"]).status.success());
+
+    let output = common::run_cli_in(
+        &dir,
+        &[
+            "trip",
+            "add",
+            "   ",
+            "--start",
+            "2026-06-01",
+            "--end",
+            "2026-06-03",
+        ],
+    );
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("trip name must not be empty"));
+
+    let list_json = common::run_cli_in(&dir, &["trip", "list", "--json"]);
+    let trips: serde_json::Value = serde_json::from_slice(&list_json.stdout).unwrap();
+    assert!(trips.as_array().unwrap().is_empty());
+}
+
+#[test]
 fn cli_legacy_db_migration_leaves_metadata_null() {
     let workspace = common::TestWorkspace::new();
     let dir = workspace.path();

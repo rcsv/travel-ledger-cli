@@ -3,11 +3,15 @@
 pub mod dto;
 pub mod read_errors;
 mod read_facade;
+mod trip_create;
 
 #[allow(unused_imports)] // re-exported at crate root for Desktop consumers
 pub use dto::{DayDetail, DaySummary, ItineraryDetail, TripDetail, TripSummary};
 pub use read_errors::{ReadServiceErrorCode, ServiceError};
 pub use read_facade::{get_day_timeline, get_trip_detail, list_trip_summaries};
+pub use trip_create::{
+    create_trip, CreateTripParams, CreateTripResult, TripCreateError, TripCreateErrorCode,
+};
 
 pub mod checklist_list;
 pub mod checklist_show;

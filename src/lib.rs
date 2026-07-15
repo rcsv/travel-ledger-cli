@@ -30,8 +30,9 @@ mod trip;
 mod trip_metadata;
 
 pub use services::{
-    get_day_timeline, get_trip_detail, list_trip_summaries, DayDetail, DaySummary, ItineraryDetail,
-    ReadServiceErrorCode, ServiceError, TripDetail, TripSummary,
+    create_trip, get_day_timeline, get_trip_detail, list_trip_summaries, CreateTripParams,
+    CreateTripResult, DayDetail, DaySummary, ItineraryDetail, ReadServiceErrorCode, ServiceError,
+    TripCreateError, TripCreateErrorCode, TripDetail, TripSummary,
 };
 
 /// Opens a SQLite database at `path` and ensures schema/migrations are applied.

@@ -22,10 +22,7 @@ export function TripList({
     return (
       <div className="empty-state compact">
         <h3>No trips yet</h3>
-        <p>
-          This database does not contain any trips. Open another database, or
-          add trips with the CLI.
-        </p>
+        <p>This database does not contain any trips. Create your first trip.</p>
       </div>
     );
   }

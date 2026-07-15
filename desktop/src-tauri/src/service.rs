@@ -2,8 +2,10 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use travel_ledger_cli::{
+    create_trip as core_create_trip,
     get_day_timeline as facade_get_day_timeline, get_trip_detail as facade_get_trip_detail,
     list_trip_summaries as facade_list_trip_summaries, open_db, DayDetail, TripDetail, TripSummary,
+    CreateTripParams, CreateTripResult,
 };
 
 use crate::config::{self, LoadSavedPath};
@@ -131,6 +133,15 @@ pub fn get_day_timeline(
     let path = selected_db_path(state)?;
     let conn = open_connection(&path)?;
     facade_get_day_timeline(&conn, trip_id, day_number).map_err(DesktopError::from)
+}
+
+pub fn create_trip(
+    state: &DesktopState,
+    params: CreateTripParams,
+) -> Result<CreateTripResult, DesktopError> {
+    let path = selected_db_path(state)?;
+    let mut conn = open_connection(&path)?;
+    core_create_trip(&mut conn, params).map_err(DesktopError::from)
 }
 
 fn clear_selection(state: &DesktopState) -> Result<(), DesktopError> {
@@ -421,6 +432,112 @@ mod tests {
             travel_ledger_cli::ServiceError::new(ReadServiceErrorCode::StorageFailure, "db locked")
                 .into();
         assert_eq!(err.code, "STORAGE_FAILURE");
+    }
+
+    fn create_params(name: &str) -> CreateTripParams {
+        CreateTripParams {
+            name: name.to_string(),
+            start_date: "2026-08-01".to_string(),
+            end_date: "2026-08-03".to_string(),
+            summary: None,
+            main_destination: None,
+            main_destination_country_code: None,
+            default_currency: None,
+        }
+    }
+
+    #[test]
+    fn create_requires_selected_database() {
+        let (_dir, state) = temp_state();
+        let err = create_trip(&state, create_params("Desktop Trip")).unwrap_err();
+        assert_eq!(err.code, "DATABASE_NOT_SELECTED");
+    }
+
+    #[test]
+    fn creates_normalized_trip_readable_through_facade() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+
+        let result = create_trip(
+            &state,
+            CreateTripParams {
+                name: "  Desktop Trip  ".to_string(),
+                summary: Some("  Created in Tauri  ".to_string()),
+                main_destination: Some("  Kyoto  ".to_string()),
+                main_destination_country_code: Some("jp".to_string()),
+                default_currency: Some("jpy".to_string()),
+                ..create_params("ignored")
+            },
+        )
+        .unwrap();
+
+        let summaries = list_trip_summaries(&state).unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].id, result.trip_id);
+        assert_eq!(summaries[0].name, "Desktop Trip");
+        let detail = get_trip_detail(&state, result.trip_id).unwrap();
+        assert_eq!(detail.summary.as_deref(), Some("Created in Tauri"));
+        assert_eq!(detail.main_destination.as_deref(), Some("Kyoto"));
+        assert_eq!(detail.main_destination_country_code.as_deref(), Some("JP"));
+        assert_eq!(detail.default_currency.as_deref(), Some("JPY"));
+        assert_eq!(detail.days.len(), 3);
+        assert_eq!(get_day_timeline(&state, result.trip_id, 1).unwrap().day_number, 1);
+    }
+
+    #[test]
+    fn created_trip_survives_database_restore() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path.clone()).unwrap();
+        let result = create_trip(&state, create_params("Persistent Trip")).unwrap();
+
+        let restored_state = DesktopState::new(state.settings_path.clone());
+        match restore_last_database(&restored_state).unwrap() {
+            RestoreLastDatabaseResult::Restored { database } => {
+                assert_eq!(database.path, path.to_string_lossy());
+                assert_eq!(database.trip_count, 1);
+            }
+            other => panic!("expected Restored, got {other:?}"),
+        }
+        let detail = get_trip_detail(&restored_state, result.trip_id).unwrap();
+        assert_eq!(detail.name, "Persistent Trip");
+        assert_eq!(detail.days.len(), 3);
+    }
+
+    #[test]
+    fn maps_validation_failure_and_preserves_database() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+
+        let err = create_trip(&state, create_params("   ")).unwrap_err();
+        assert_eq!(err.code, "TRIP_VALIDATION_FAILED");
+        assert!(list_trip_summaries(&state).unwrap().is_empty());
+    }
+
+    #[test]
+    fn maps_storage_failure_and_rolls_back_trip() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        let conn = open_db(path.to_str().unwrap()).unwrap();
+        conn.execute_batch(
+            "CREATE TRIGGER fail_desktop_day_insert
+             BEFORE INSERT ON days
+             BEGIN
+               SELECT RAISE(ABORT, 'forced desktop day failure');
+             END;",
+        )
+        .unwrap();
+        drop(conn);
+        select_database(&state, path).unwrap();
+
+        let err = create_trip(&state, create_params("Atomic Desktop Trip")).unwrap_err();
+        assert_eq!(err.code, "STORAGE_FAILURE");
+        assert!(list_trip_summaries(&state).unwrap().is_empty());
     }
 
     #[test]

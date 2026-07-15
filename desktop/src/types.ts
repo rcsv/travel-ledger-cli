@@ -8,6 +8,20 @@ export interface DatabaseInfo {
   trip_count: number;
 }
 
+export interface CreateTripInput {
+  name: string;
+  start_date: string;
+  end_date: string;
+  summary: string | null;
+  main_destination: string | null;
+  main_destination_country_code: string | null;
+  default_currency: string | null;
+}
+
+export interface CreateTripResult {
+  trip_id: number;
+}
+
 export type RestoreLastDatabaseResult =
   | { status: "restored"; database: DatabaseInfo }
   | { status: "not_found" }

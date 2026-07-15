@@ -105,7 +105,7 @@ pub fn run() -> Result<()> {
     }
 
     let db_path = resolved.path.to_string_lossy().into_owned();
-    let conn = crate::open_db(&db_path)?;
+    let mut conn = crate::open_db(&db_path)?;
 
     match command {
         Command::Db { action } => crate::commands::db::run_after_open(&conn, action, &resolved)?,
@@ -1081,18 +1081,19 @@ pub fn run() -> Result<()> {
                 main_destination_country_code,
                 default_currency,
             } => {
-                let id = crate::trip::add_trip_with_metadata(
-                    &conn,
-                    &name,
-                    &start,
-                    &end,
-                    summary.as_deref(),
-                    crate::trip::TripMetadataWrite {
-                        main_destination: main_destination.as_deref(),
-                        main_destination_country_code: main_destination_country_code.as_deref(),
-                        default_currency: default_currency.as_deref(),
+                let result = crate::services::create_trip(
+                    &mut conn,
+                    crate::services::CreateTripParams {
+                        name: name.clone(),
+                        start_date: start.clone(),
+                        end_date: end.clone(),
+                        summary: summary.clone(),
+                        main_destination: main_destination.clone(),
+                        main_destination_country_code: main_destination_country_code.clone(),
+                        default_currency: default_currency.clone(),
                     },
                 )?;
+                let id = result.trip_id;
                 println!("旅行を追加しました (ID: {id})");
                 println!("  名前   : {name}");
                 println!("  開始日 : {start}");

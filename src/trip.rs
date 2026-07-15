@@ -169,6 +169,67 @@ fn resolve_trip_metadata_for_add(
     ))
 }
 
+pub(crate) struct ValidatedTripCreate {
+    name: String,
+    start_date: String,
+    end_date: String,
+    summary: Option<String>,
+    main_destination: Option<String>,
+    main_destination_country_code: Option<String>,
+    default_currency: Option<String>,
+    day_count: i64,
+}
+
+pub(crate) fn validate_trip_create(
+    name: &str,
+    start: &str,
+    end: &str,
+    summary: Option<&str>,
+    metadata: TripMetadataWrite<'_>,
+) -> Result<ValidatedTripCreate> {
+    let name = name.trim();
+    if name.is_empty() {
+        anyhow::bail!("trip name must not be empty");
+    }
+    let day_count = crate::day::validate_trip_date_range(start, end)?;
+    let summary = crate::summary::normalize_trip_summary(summary)?;
+    let (main_destination, main_destination_country_code, default_currency) =
+        resolve_trip_metadata_for_add(metadata)?;
+    Ok(ValidatedTripCreate {
+        name: name.to_string(),
+        start_date: start.to_string(),
+        end_date: end.to_string(),
+        summary,
+        main_destination,
+        main_destination_country_code,
+        default_currency,
+        day_count,
+    })
+}
+
+pub(crate) fn insert_validated_trip(conn: &Connection, trip: &ValidatedTripCreate) -> Result<i64> {
+    let now = now_string();
+    conn.execute(
+        "INSERT INTO trips (name, start_date, end_date, summary, main_destination, main_destination_country_code, default_currency, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            &trip.name,
+            &trip.start_date,
+            &trip.end_date,
+            &trip.summary,
+            &trip.main_destination,
+            &trip.main_destination_country_code,
+            &trip.default_currency,
+            &now,
+            &now,
+        ],
+    )
+    .context("旅行の追加に失敗しました")?;
+    let trip_id = conn.last_insert_rowid();
+    crate::day::create_days_for_trip(conn, trip_id, trip.day_count)?;
+    Ok(trip_id)
+}
+
 fn validate_update_metadata_conflicts(metadata: UpdateTripMetadataWrite<'_>) -> Result<()> {
     if metadata.clear_main_destination && metadata.main_destination.is_some() {
         anyhow::bail!("cannot combine --clear-main-destination and --main-destination");
@@ -237,30 +298,8 @@ pub(crate) fn add_trip_with_metadata(
     summary: Option<&str>,
     metadata: TripMetadataWrite<'_>,
 ) -> Result<i64> {
-    let day_count = crate::day::validate_trip_date_range(start, end)?;
-    let summary = crate::summary::normalize_trip_summary(summary)?;
-    let (main_destination, main_destination_country_code, default_currency) =
-        resolve_trip_metadata_for_add(metadata)?;
-    let now = now_string();
-    conn.execute(
-        "INSERT INTO trips (name, start_date, end_date, summary, main_destination, main_destination_country_code, default_currency, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![
-            name,
-            start,
-            end,
-            summary,
-            main_destination,
-            main_destination_country_code,
-            default_currency,
-            &now,
-            &now,
-        ],
-    )
-    .context("旅行の追加に失敗しました")?;
-    let trip_id = conn.last_insert_rowid();
-    crate::day::create_days_for_trip(conn, trip_id, day_count)?;
-    Ok(trip_id)
+    let trip = validate_trip_create(name, start, end, summary, metadata)?;
+    insert_validated_trip(conn, &trip)
 }
 
 #[cfg(test)]

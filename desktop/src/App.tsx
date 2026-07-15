@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import * as api from "./api";
@@ -6,9 +6,11 @@ import { ErrorBanner } from "./components/ErrorBanner";
 import { EmptyState } from "./components/EmptyState";
 import { ItineraryTimeline } from "./components/ItineraryTimeline";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { TripCreateForm } from "./components/TripCreateForm";
 import { TripDetailPanel } from "./components/TripDetailPanel";
 import { TripList } from "./components/TripList";
 import type {
+  CreateTripInput,
   DayDetail,
   DesktopErrorPayload,
   TripDetail,
@@ -18,6 +20,7 @@ import { databaseFileName, isDesktopError } from "./types";
 import "./App.css";
 
 type MainView = "trips" | "settings";
+type WorkspaceMode = "view" | "create";
 
 function toDesktopError(error: unknown): DesktopErrorPayload {
   if (isDesktopError(error)) {
@@ -32,6 +35,8 @@ function toDesktopError(error: unknown): DesktopErrorPayload {
 export default function App() {
   const [bootstrapping, setBootstrapping] = useState(true);
   const [mainView, setMainView] = useState<MainView>("trips");
+  const [workspaceMode, setWorkspaceMode] =
+    useState<WorkspaceMode>("view");
   const [databasePath, setDatabasePath] = useState<string | null>(null);
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -43,6 +48,8 @@ export default function App() {
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
+  const [creatingTrip, setCreatingTrip] = useState(false);
+  const creatingTripRef = useRef(false);
   const [error, setError] = useState<DesktopErrorPayload | null>(null);
   const [restoreWarning, setRestoreWarning] =
     useState<DesktopErrorPayload | null>(null);
@@ -59,6 +66,7 @@ export default function App() {
     setTrips([]);
     clearTripSelection();
     setMainView("trips");
+    setWorkspaceMode("view");
   }, [clearTripSelection]);
 
   const loadTimeline = useCallback(async (tripId: number, dayNumber: number) => {
@@ -97,15 +105,17 @@ export default function App() {
     [loadTimeline],
   );
 
-  const loadTrips = useCallback(async () => {
+  const loadTrips = useCallback(async (preferredTripId?: number) => {
     setLoadingTrips(true);
     try {
       const summaries = await api.listTripSummaries();
       setTrips(summaries);
       if (summaries.length > 0) {
-        const firstId = summaries[0].id;
-        setSelectedTripId(firstId);
-        await loadTripDetail(firstId);
+        const selectedId =
+          summaries.find((trip) => trip.id === preferredTripId)?.id ??
+          summaries[0].id;
+        setSelectedTripId(selectedId);
+        await loadTripDetail(selectedId);
       } else {
         clearTripSelection();
       }
@@ -295,6 +305,7 @@ export default function App() {
   const handleSelectTrip = useCallback(
     async (tripId: number) => {
       setMainView("trips");
+      setWorkspaceMode("view");
       if (tripId === selectedTripId) {
         return;
       }
@@ -303,6 +314,33 @@ export default function App() {
       await loadTripDetail(tripId);
     },
     [loadTripDetail, selectedTripId],
+  );
+
+  const handleCreateTrip = useCallback(
+    async (input: CreateTripInput) => {
+      if (creatingTripRef.current) {
+        return;
+      }
+      creatingTripRef.current = true;
+      setError(null);
+      setCreatingTrip(true);
+      let createdTripId: number;
+      try {
+        const result = await api.createTrip(input);
+        createdTripId = result.trip_id;
+      } catch (err) {
+        setError(toDesktopError(err));
+        creatingTripRef.current = false;
+        setCreatingTrip(false);
+        return;
+      }
+
+      setWorkspaceMode("view");
+      creatingTripRef.current = false;
+      setCreatingTrip(false);
+      await loadTrips(createdTripId);
+    },
+    [loadTrips],
   );
 
   const handleSelectDay = useCallback(
@@ -328,7 +366,7 @@ export default function App() {
         <header className="app-header">
           <div>
             <h1>Travel Ledger Desktop</h1>
-            <p className="app-subtitle">Developer preview · read-only</p>
+            <p className="app-subtitle">Developer preview</p>
           </div>
         </header>
         <main className="standalone-view">
@@ -346,7 +384,7 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1>Travel Ledger Desktop</h1>
-          <p className="app-subtitle">Developer preview · read-only</p>
+          <p className="app-subtitle">Developer preview</p>
           {databasePath ? (
             <p className="selected-db" title={databasePath}>
               Database: <strong>{databaseFileName(databasePath)}</strong>
@@ -401,16 +439,35 @@ export default function App() {
           <aside className="sidebar" aria-label="Trip list sidebar">
             <div className="sidebar-scroll">
               <div className="sidebar-header">
-                <h2>Trips</h2>
-                {!loadingTrips ? (
-                  <p className="trip-count" aria-live="polite">
-                    {tripCountLabel}
-                  </p>
-                ) : null}
+                <div className="sidebar-title-row">
+                  <h2>Trips</h2>
+                  {!loadingTrips ? (
+                    <p className="trip-count" aria-live="polite">
+                      {tripCountLabel}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className={
+                    workspaceMode === "create"
+                      ? "new-trip-button selected"
+                      : "new-trip-button"
+                  }
+                  aria-pressed={workspaceMode === "create"}
+                  onClick={() => {
+                    setError(null);
+                    setWorkspaceMode("create");
+                  }}
+                >
+                  New Trip
+                </button>
               </div>
               <TripList
                 trips={trips}
-                selectedTripId={selectedTripId}
+                selectedTripId={
+                  workspaceMode === "create" ? null : selectedTripId
+                }
                 loading={loadingTrips}
                 onSelect={handleSelectTrip}
               />
@@ -419,7 +476,10 @@ export default function App() {
               <button
                 type="button"
                 className="nav-settings"
-                onClick={() => setMainView("settings")}
+                onClick={() => {
+                  setWorkspaceMode("view");
+                  setMainView("settings");
+                }}
               >
                 Settings
               </button>
@@ -427,17 +487,25 @@ export default function App() {
           </aside>
 
           <main className="detail-pane">
-            <TripDetailPanel
-              trip={tripDetail}
-              selectedDayNumber={selectedDayNumber}
-              loading={loadingDetail}
-              onSelectDay={handleSelectDay}
-            >
-              <ItineraryTimeline
-                items={dayTimeline?.itineraries ?? null}
-                loading={loadingTimeline}
+            {workspaceMode === "create" ? (
+              <TripCreateForm
+                submitting={creatingTrip}
+                onSubmit={handleCreateTrip}
+                onCancel={() => setWorkspaceMode("view")}
               />
-            </TripDetailPanel>
+            ) : (
+              <TripDetailPanel
+                trip={tripDetail}
+                selectedDayNumber={selectedDayNumber}
+                loading={loadingDetail}
+                onSelectDay={handleSelectDay}
+              >
+                <ItineraryTimeline
+                  items={dayTimeline?.itineraries ?? null}
+                  loading={loadingTimeline}
+                />
+              </TripDetailPanel>
+            )}
           </main>
         </div>
       )}

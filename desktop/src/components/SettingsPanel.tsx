@@ -56,7 +56,7 @@ export function SettingsPanel({
 
       <section className="settings-section" aria-labelledby="settings-database">
         <h3 id="settings-database">Database</h3>
-        <p className="settings-status">Access: read-only</p>
+        <p className="settings-status">Access: local Trip creation</p>
         <dl className="settings-meta">
           <div className="meta-row">
             <dt>File</dt>
@@ -101,7 +101,7 @@ export function SettingsPanel({
           </div>
           <div className="meta-row">
             <dt>Status</dt>
-            <dd>Developer preview · read-only</dd>
+            <dd>Developer preview</dd>
           </div>
           <div className="meta-row">
             <dt>Version</dt>

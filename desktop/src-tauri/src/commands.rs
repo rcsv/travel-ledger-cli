@@ -6,7 +6,9 @@ use crate::config::settings_file_path;
 use crate::error::DesktopError;
 use crate::service::{self, DatabaseInfo, RestoreLastDatabaseResult};
 use crate::state::DesktopState;
-use travel_ledger_cli::{DayDetail, TripDetail, TripSummary};
+use travel_ledger_cli::{
+    CreateTripParams, CreateTripResult, DayDetail, TripDetail, TripSummary,
+};
 
 pub fn init_desktop_state(app: &AppHandle) -> Result<DesktopState, DesktopError> {
     let config_dir = app.path().app_config_dir().map_err(|err| {
@@ -62,4 +64,12 @@ pub fn get_day_timeline(
     state: State<DesktopState>,
 ) -> Result<DayDetail, DesktopError> {
     service::get_day_timeline(&state, trip_id, day_number)
+}
+
+#[tauri::command]
+pub fn create_trip(
+    input: CreateTripParams,
+    state: State<DesktopState>,
+) -> Result<CreateTripResult, DesktopError> {
+    service::create_trip(&state, input)
 }
