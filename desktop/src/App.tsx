@@ -331,10 +331,12 @@ export default function App() {
             <p className="app-subtitle">Developer preview · read-only</p>
           </div>
         </header>
-        <EmptyState
-          title="Starting…"
-          message="Looking for the database you opened last time."
-        />
+        <main className="standalone-view">
+          <EmptyState
+            title="Starting…"
+            message="Looking for the database you opened last time."
+          />
+        </main>
       </div>
     );
   }
@@ -364,21 +366,27 @@ export default function App() {
         ) : null}
       </header>
 
-      {restoreWarning ? (
-        <ErrorBanner
-          error={{
-            code: restoreWarning.code,
-            message: `${restoreWarning.message} Open a database to continue.`,
-          }}
-        />
+      {restoreWarning || error ? (
+        <div className="notice-area">
+          {restoreWarning ? (
+            <ErrorBanner
+              error={{
+                code: restoreWarning.code,
+                message: `${restoreWarning.message} Open a database to continue.`,
+              }}
+            />
+          ) : null}
+          {error ? <ErrorBanner error={error} /> : null}
+        </div>
       ) : null}
-      {error ? <ErrorBanner error={error} /> : null}
 
       {!databasePath ? (
-        <EmptyState
-          title="Open a Travel Ledger database"
-          message="Choose an existing SQLite file (.db, .sqlite, or .sqlite3). After a successful open, the path can be remembered for next time. Nothing is created or deleted here."
-        />
+        <main className="standalone-view">
+          <EmptyState
+            title="Open a Travel Ledger database"
+            message="Choose an existing SQLite file (.db, .sqlite, or .sqlite3). After a successful open, the path can be remembered for next time. Nothing is created or deleted here."
+          />
+        </main>
       ) : settingsOpen ? (
         <main className="settings-view">
           <SettingsPanel

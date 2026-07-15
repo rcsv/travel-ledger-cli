@@ -110,7 +110,14 @@ describe("App", () => {
       }),
     );
     render(<App />);
-    expect(screen.getByText("Starting…")).toBeInTheDocument();
+    const starting = screen.getByText("Starting…");
+    expect(starting).toBeInTheDocument();
+    expect(starting.closest("main")).toHaveClass("standalone-view");
+    expect(
+      screen
+        .getByRole("heading", { level: 1, name: "Travel Ledger Desktop" })
+        .closest("header"),
+    ).toHaveClass("app-header");
     resolveRestore({ status: "not_found" });
     await finishBootstrap();
   });
@@ -118,9 +125,9 @@ describe("App", () => {
   it("shows database-not-selected empty state with Open Database", async () => {
     render(<App />);
     await finishBootstrap();
-    expect(
-      screen.getByText("Open a Travel Ledger database"),
-    ).toBeInTheDocument();
+    const emptyState = screen.getByText("Open a Travel Ledger database");
+    expect(emptyState).toBeInTheDocument();
+    expect(emptyState.closest("main")).toHaveClass("standalone-view");
     expect(
       screen.getByRole("button", { name: /^open database$/i }),
     ).toBeInTheDocument();
@@ -136,7 +143,17 @@ describe("App", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.getByText("sample.db")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^settings$/i })).toBeInTheDocument();
+    const navigator = screen.getByLabelText("Trip list sidebar");
+    const settingsEntry = screen.getByRole("button", { name: /^settings$/i });
+    const workspace = await screen.findByRole("region", { name: "Okinawa" });
+    expect(navigator).toBeInTheDocument();
+    expect(settingsEntry.closest(".sidebar-footer")).toBeInTheDocument();
+    expect(workspace.closest("main")).toHaveClass("detail-pane");
+    expect(
+      screen
+        .getByRole("heading", { level: 1, name: "Travel Ledger Desktop" })
+        .closest("header"),
+    ).toHaveClass("app-header");
     expect(
       screen.queryByRole("button", { name: /change database/i }),
     ).not.toBeInTheDocument();
@@ -309,10 +326,11 @@ describe("App", () => {
     });
     render(<App />);
     await finishBootstrap();
-    expect(screen.getByRole("alert")).toHaveTextContent("DATABASE_PATH_INVALID");
-    expect(
-      screen.getByText("Open a Travel Ledger database"),
-    ).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    const emptyState = screen.getByText("Open a Travel Ledger database");
+    expect(alert).toHaveTextContent("DATABASE_PATH_INVALID");
+    expect(alert.closest(".notice-area")).toBeInTheDocument();
+    expect(emptyState.closest("main")).toHaveClass("standalone-view");
   });
 
   it("ignores dialog cancel without showing an error", async () => {
@@ -669,6 +687,7 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("timeline failed"),
     );
+    expect(screen.getByRole("region", { name: "Okinawa" })).toBeInTheDocument();
     expect(screen.queryByText("Old activity")).not.toBeInTheDocument();
     expect(
       screen.queryByText("No activities planned for this day yet."),
