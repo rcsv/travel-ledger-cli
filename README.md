@@ -173,7 +173,7 @@ cargo run -- --db ./okinawa-demo.db trip list
 
 ## Latest Release
 
-**[v4.11.0](docs/releases/v4.11.0-notes.md)** — Desktop trip and activity creation workflows
+**[v4.12.0](docs/releases/v4.12.0-notes.md)** — Desktop activity editing workflow
 
 - [GitHub Releases](https://github.com/rcsv/travel-ledger-cli/releases/latest)
 - 過去のリリースノート: [docs/releases/](docs/releases/)
