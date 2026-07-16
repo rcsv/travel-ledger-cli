@@ -4,11 +4,17 @@ import { formatMinutes, nonEmpty } from "../display";
 interface ItineraryTimelineProps {
   items: ItineraryDetail[] | null;
   loading: boolean;
+  selectedItineraryId: number | null;
+  editingDisabled: boolean;
+  onEdit: (item: ItineraryDetail) => void;
 }
 
 export function ItineraryTimeline({
   items,
   loading,
+  selectedItineraryId,
+  editingDisabled,
+  onEdit,
 }: ItineraryTimelineProps) {
   if (loading) {
     return (
@@ -36,6 +42,7 @@ export function ItineraryTimeline({
     <section className="timeline" aria-label="Itinerary timeline">
       <ol className="timeline-list">
         {items.map((item, index) => {
+          const selected = item.id === selectedItineraryId;
           const startTime = nonEmpty(item.start_time);
           const category = nonEmpty(item.category);
           const location = nonEmpty(item.location);
@@ -43,7 +50,10 @@ export function ItineraryTimeline({
           const travel = formatMinutes(item.travel_minutes);
           const note = nonEmpty(item.note);
           return (
-            <li key={item.id} className="timeline-item">
+            <li
+              key={item.id}
+              className={selected ? "timeline-item selected" : "timeline-item"}
+            >
               <div className="timeline-head">
                 <span className="timeline-order" aria-hidden="true">
                   {index + 1}
@@ -54,6 +64,18 @@ export function ItineraryTimeline({
                     <span className="timeline-time">{startTime}</span>
                   ) : null}
                 </div>
+                <button
+                  id={`activity-edit-${item.id}`}
+                  type="button"
+                  className="timeline-edit-button"
+                  aria-label={`Edit activity: ${item.title}`}
+                  aria-expanded={selected}
+                  aria-controls={selected ? "activity-inspector" : undefined}
+                  disabled={editingDisabled}
+                  onClick={() => onEdit(item)}
+                >
+                  Edit
+                </button>
               </div>
               {(category || location || duration || travel || note) && (
                 <ul className="timeline-fields">

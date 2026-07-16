@@ -79,7 +79,7 @@ pub fn create_itinerary(
     conn: &Connection,
     params: CreateItineraryParams,
 ) -> Result<CreateItineraryResult, ItineraryCreateError> {
-    let validated = crate::itinerary::validate_itinerary_create_fields(
+    let validated = crate::itinerary::validate_itinerary_content_fields(
         &params.title,
         params.note.as_deref(),
         params.start_time.as_deref(),

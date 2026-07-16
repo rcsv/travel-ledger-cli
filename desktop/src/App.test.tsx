@@ -14,6 +14,7 @@ vi.mock("@tauri-apps/api/app", () => ({
 
 vi.mock("./api", () => ({
   createItinerary: vi.fn(),
+  updateItinerary: vi.fn(),
   createTrip: vi.fn(),
   selectDatabase: vi.fn(),
   restoreLastDatabase: vi.fn(),
@@ -81,6 +82,27 @@ const emptyTimeline = {
   itineraries: [],
 };
 
+const sampleActivity = {
+  id: 20,
+  trip_id: 1,
+  day_number: 1,
+  title: "Museum visit",
+  note: "Buy tickets",
+  start_time: "09:30",
+  sort_order: 1000,
+  duration_minutes: 90,
+  travel_minutes: 15,
+  location: "Naha",
+  category: "museum",
+  created_at: "created",
+  updated_at: "updated-1",
+};
+
+const activityTimeline = {
+  ...emptyTimeline,
+  itineraries: [sampleActivity],
+};
+
 async function finishBootstrap() {
   await waitFor(() =>
     expect(screen.queryByText("Starting…")).not.toBeInTheDocument(),
@@ -101,6 +123,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.restoreLastDatabase).mockResolvedValue({ status: "not_found" });
   vi.mocked(api.createItinerary).mockResolvedValue({ itinerary_id: 20 });
+  vi.mocked(api.updateItinerary).mockResolvedValue({ itinerary_id: 20 });
   vi.mocked(api.createTrip).mockResolvedValue({ trip_id: 2 });
   vi.mocked(getVersion).mockResolvedValue("4.10.3");
 });
@@ -937,9 +960,399 @@ describe("App", () => {
     });
     expect(
       within(timeline)
-        .getAllByRole("listitem")
+        .getAllByText(/in plan order$/)
         .map((item) => item.textContent),
-    ).toEqual(["1First in plan order", "2Second in plan order"]);
+    ).toEqual(["First in plan order", "Second in plan order"]);
+  });
+
+  it("opens a contextual activity Inspector with a prefilled editable draft", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(activityTimeline);
+
+    render(<App />);
+    const editButton = await screen.findByRole("button", {
+      name: "Edit activity: Museum visit",
+    });
+    expect(editButton).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(editButton);
+
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    expect(editButton).toHaveAttribute("aria-expanded", "true");
+    expect(editButton).toHaveAttribute("aria-controls", "activity-inspector");
+    expect(editButton.closest("li")).toHaveClass("selected");
+    expect(within(inspector).getByLabelText("Title")).toHaveValue("Museum visit");
+    expect(within(inspector).getByLabelText("Start time")).toHaveValue("09:30");
+    expect(within(inspector).getByLabelText("Location")).toHaveValue("Naha");
+    expect(within(inspector).getByLabelText("Note")).toHaveValue("Buy tickets");
+    expect(within(inspector).getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(within(inspector).getByLabelText("Title")).toHaveFocus();
+
+    fireEvent.click(within(inspector).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(editButton).toHaveFocus());
+    expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument();
+  });
+
+  it("discards the old draft when another activity is selected", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue({
+      ...activityTimeline,
+      itineraries: [
+        sampleActivity,
+        {
+          ...sampleActivity,
+          id: 21,
+          title: "Lunch",
+          start_time: "12:00",
+          location: "Market",
+          note: null,
+          sort_order: 2000,
+        },
+      ],
+    });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    fireEvent.change(
+      within(screen.getByRole("region", { name: "Edit activity" })).getByLabelText(
+        "Title",
+      ),
+      { target: { value: "Discard this draft" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit activity: Lunch" }),
+    );
+
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    expect(within(inspector).getByLabelText("Title")).toHaveValue("Lunch");
+    expect(within(inspector).getByLabelText("Location")).toHaveValue("Market");
+    expect(
+      screen.getByRole("button", { name: "Edit activity: Lunch" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("updates four activity fields and refreshes only the selected Day", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(activityTimeline)
+      .mockResolvedValueOnce({
+        ...activityTimeline,
+        itineraries: [
+          {
+            ...sampleActivity,
+            title: "Morning museum",
+            start_time: null,
+            location: "Shuri",
+            note: null,
+            updated_at: "updated-2",
+          },
+        ],
+      });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "  Morning museum  " },
+    });
+    fireEvent.change(within(inspector).getByLabelText("Start time"), {
+      target: { value: "" },
+    });
+    fireEvent.change(within(inspector).getByLabelText("Location"), {
+      target: { value: "  Shuri  " },
+    });
+    fireEvent.change(within(inspector).getByLabelText("Note"), {
+      target: { value: "   " },
+    });
+    fireEvent.click(within(inspector).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(api.updateItinerary).toHaveBeenCalledWith({
+        trip_id: 1,
+        day_number: 1,
+        itinerary_id: 20,
+        title: "  Morning museum  ",
+        start_time: null,
+        location: "  Shuri  ",
+        note: null,
+      }),
+    );
+    const refreshedInspector = await screen.findByRole("region", {
+      name: "Edit activity",
+    });
+    expect(within(refreshedInspector).getByLabelText("Title")).toHaveValue(
+      "Morning museum",
+    );
+    expect(within(refreshedInspector).getByLabelText("Location")).toHaveValue(
+      "Shuri",
+    );
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+    expect(api.getTripDetail).toHaveBeenCalledTimes(1);
+    expect(api.listTripSummaries).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("button", { name: /Day 1 · Sun · Apr 26/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("closes the Inspector when refreshed data no longer contains the activity", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(activityTimeline)
+      .mockResolvedValueOnce(emptyTimeline);
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "Missing after refresh" },
+    });
+    fireEvent.click(within(inspector).getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText("No activities planned for this day yet."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument();
+    expect(api.updateItinerary).toHaveBeenCalledTimes(1);
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the Inspector draft on write failure and permits a retry", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(activityTimeline);
+    vi.mocked(api.updateItinerary).mockRejectedValueOnce({
+      code: "ITINERARY_VALIDATION_FAILED",
+      message: "Itinerary title must not be empty",
+    });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "   " },
+    });
+    fireEvent.change(within(inspector).getByLabelText("Note"), {
+      target: { value: "Keep this edit" },
+    });
+    fireEvent.click(within(inspector).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Itinerary title must not be empty",
+      ),
+    );
+    expect(within(inspector).getByLabelText("Title")).toHaveValue("   ");
+    expect(within(inspector).getByLabelText("Note")).toHaveValue("Keep this edit");
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(within(inspector).getByRole("button", { name: "Save" })).toBeEnabled(),
+    );
+    fireEvent.click(within(inspector).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.updateItinerary).toHaveBeenCalledTimes(2));
+  });
+
+  it("locks Inspector submission immediately", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(activityTimeline);
+    let resolveUpdate: (value: { itinerary_id: number }) => void = () => {};
+    vi.mocked(api.updateItinerary).mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpdate = resolve;
+      }),
+    );
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "Changed" },
+    });
+    const form = within(inspector).getByRole("button", { name: "Save" }).closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+    fireEvent.submit(form!);
+
+    expect(api.updateItinerary).toHaveBeenCalledTimes(1);
+    expect(within(inspector).getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(within(inspector).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    resolveUpdate({ itinerary_id: 20 });
+    await waitFor(() => expect(api.getDayTimeline).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps quick add and the Inspector mutually exclusive", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(activityTimeline);
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    expect(screen.getByRole("region", { name: "Edit activity" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Add activity" })).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    expect(screen.getByRole("region", { name: "Edit activity" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Add activity" })).not.toBeInTheDocument();
+  });
+
+  it("discards the Inspector draft on Day and Settings navigation", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(activityTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        day_id: 11,
+        day_number: 2,
+        date: "2026-04-27",
+      })
+      .mockResolvedValueOnce(activityTimeline);
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    fireEvent.change(
+      within(screen.getByRole("region", { name: "Edit activity" })).getByLabelText(
+        "Title",
+      ),
+      { target: { value: "Discard me" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 1 · Sun · Apr 26/i }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    expect(screen.getByRole("region", { name: "Settings" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /back to trips/i }));
+    expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument();
+  });
+
+  it("discards the Inspector draft when New Trip replaces the Workspace", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(activityTimeline);
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    fireEvent.change(
+      within(screen.getByRole("region", { name: "Edit activity" })).getByLabelText(
+        "Title",
+      ),
+      { target: { value: "Discard for New Trip" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New Trip" }));
+
+    expect(screen.getByRole("region", { name: "Create a new trip" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument();
+    expect(api.updateItinerary).not.toHaveBeenCalled();
+  });
+
+  it("separates a committed activity update from refresh failure", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(activityTimeline)
+      .mockRejectedValueOnce({
+        code: "STORAGE_FAILURE",
+        message: "update refresh failed",
+      })
+      .mockResolvedValueOnce({
+        ...activityTimeline,
+        itineraries: [
+          { ...sampleActivity, title: "Recovered edit", updated_at: "updated-2" },
+        ],
+      });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "Recovered edit" },
+    });
+    fireEvent.click(within(inspector).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("update refresh failed"),
+    );
+    expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument();
+    expect(api.updateItinerary).toHaveBeenCalledTimes(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 1 · Sun · Apr 26/i }),
+    );
+    expect(await screen.findByText("Recovered edit")).toBeInTheDocument();
+    expect(api.updateItinerary).toHaveBeenCalledTimes(1);
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not refresh a stale activity update after Day navigation", async () => {
+    await restoreWithSampleTrip();
+    let resolveUpdate: (value: { itinerary_id: number }) => void = () => {};
+    vi.mocked(api.updateItinerary).mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpdate = resolve;
+      }),
+    );
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(activityTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        day_id: 11,
+        day_number: 2,
+        date: "2026-04-27",
+        itineraries: [
+          {
+            ...sampleActivity,
+            id: 30,
+            day_number: 2,
+            title: "Day 2 activity",
+          },
+        ],
+      });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "Pending update" },
+    });
+    fireEvent.click(within(inspector).getByRole("button", { name: "Save" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    );
+    expect(await screen.findByText("Day 2 activity")).toBeInTheDocument();
+
+    resolveUpdate({ itinerary_id: 20 });
+    await waitFor(() => expect(api.updateItinerary).toHaveBeenCalledTimes(1));
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Day 2 activity")).toBeInTheDocument();
   });
 
   it("updates timeline when a Day button is selected", async () => {

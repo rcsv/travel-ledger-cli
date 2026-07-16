@@ -12,6 +12,7 @@ interface TripDetailPanelProps {
   onAddActivity: () => void;
   addActivityDisabled: boolean;
   children?: ReactNode;
+  inspector?: ReactNode;
 }
 
 function ContextFact({
@@ -80,6 +81,7 @@ export function TripDetailPanel({
   onAddActivity,
   addActivityDisabled,
   children,
+  inspector,
 }: TripDetailPanelProps) {
   if (loading) {
     return <p className="status-text">Loading trip…</p>;
@@ -167,7 +169,16 @@ export function TripDetailPanel({
                 <p className="selected-day-summary">{selectedDay.summary}</p>
               ) : null}
             </header>
-            {children}
+            <div
+              className={
+                inspector
+                  ? "selected-day-work-area with-inspector"
+                  : "selected-day-work-area"
+              }
+            >
+              <div className="plan-stream">{children}</div>
+              {inspector}
+            </div>
           </section>
         ) : null}
       </section>

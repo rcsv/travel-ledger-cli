@@ -10,7 +10,15 @@ import type {
   RestoreLastDatabaseResult,
   TripDetail,
   TripSummary,
+  UpdateItineraryInput,
+  UpdateItineraryResult,
 } from "./types";
+
+export async function updateItinerary(
+  input: UpdateItineraryInput,
+): Promise<UpdateItineraryResult> {
+  return invoke<UpdateItineraryResult>("update_itinerary", { input });
+}
 
 export async function createItinerary(
   input: CreateItineraryInput,

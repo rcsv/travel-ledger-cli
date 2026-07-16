@@ -35,6 +35,20 @@ export interface CreateItineraryResult {
   itinerary_id: number;
 }
 
+export interface UpdateItineraryInput {
+  trip_id: number;
+  day_number: number;
+  itinerary_id: number;
+  title: string;
+  start_time: string | null;
+  location: string | null;
+  note: string | null;
+}
+
+export interface UpdateItineraryResult {
+  itinerary_id: number;
+}
+
 export type RestoreLastDatabaseResult =
   | { status: "restored"; database: DatabaseInfo }
   | { status: "not_found" }

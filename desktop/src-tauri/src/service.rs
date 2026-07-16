@@ -4,8 +4,10 @@ use serde::Serialize;
 use travel_ledger_cli::{
     create_itinerary as core_create_itinerary, create_trip as core_create_trip,
     get_day_timeline as facade_get_day_timeline, get_trip_detail as facade_get_trip_detail,
-    list_trip_summaries as facade_list_trip_summaries, open_db, DayDetail, TripDetail, TripSummary,
-    CreateItineraryParams, CreateItineraryResult, CreateTripParams, CreateTripResult,
+    list_trip_summaries as facade_list_trip_summaries, open_db,
+    update_itinerary as core_update_itinerary, CreateItineraryParams, CreateItineraryResult,
+    CreateTripParams, CreateTripResult, DayDetail, TripDetail, TripSummary, UpdateItineraryParams,
+    UpdateItineraryResult,
 };
 
 use crate::config::{self, LoadSavedPath};
@@ -151,6 +153,15 @@ pub fn create_itinerary(
     let path = selected_db_path(state)?;
     let conn = open_connection(&path)?;
     core_create_itinerary(&conn, params).map_err(DesktopError::from)
+}
+
+pub fn update_itinerary(
+    state: &DesktopState,
+    params: UpdateItineraryParams,
+) -> Result<UpdateItineraryResult, DesktopError> {
+    let path = selected_db_path(state)?;
+    let conn = open_connection(&path)?;
+    core_update_itinerary(&conn, params).map_err(DesktopError::from)
 }
 
 fn clear_selection(state: &DesktopState) -> Result<(), DesktopError> {
@@ -466,6 +477,22 @@ mod tests {
         }
     }
 
+    fn itinerary_update_params(
+        trip_id: i64,
+        itinerary_id: i64,
+        title: &str,
+    ) -> UpdateItineraryParams {
+        UpdateItineraryParams {
+            trip_id,
+            day_number: 1,
+            itinerary_id,
+            title: title.to_string(),
+            start_time: None,
+            location: None,
+            note: None,
+        }
+    }
+
     #[test]
     fn create_requires_selected_database() {
         let (_dir, state) = temp_state();
@@ -648,6 +675,110 @@ mod tests {
             .unwrap()
             .itineraries
             .is_empty());
+    }
+
+    #[test]
+    fn itinerary_update_requires_selected_database() {
+        let (_dir, state) = temp_state();
+        let err = update_itinerary(&state, itinerary_update_params(1, 1, "Activity"))
+            .unwrap_err();
+        assert_eq!(err.code, "DATABASE_NOT_SELECTED");
+    }
+
+    #[test]
+    fn updates_normalized_itinerary_and_preserves_other_fields() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+        let trip = create_trip(&state, create_params("Inspector Trip")).unwrap();
+        let created = create_itinerary(
+            &state,
+            CreateItineraryParams {
+                start_time: Some("08:00".to_string()),
+                location: Some("Old place".to_string()),
+                note: Some("Old note".to_string()),
+                ..itinerary_params(trip.trip_id, "Original")
+            },
+        )
+        .unwrap();
+
+        let result = update_itinerary(
+            &state,
+            UpdateItineraryParams {
+                start_time: Some("09:30".to_string()),
+                location: Some("  New place  ".to_string()),
+                note: Some("  New note  ".to_string()),
+                ..itinerary_update_params(trip.trip_id, created.itinerary_id, "  Updated  ")
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.itinerary_id, created.itinerary_id);
+        let timeline = get_day_timeline(&state, trip.trip_id, 1).unwrap();
+        let item = &timeline.itineraries[0];
+        assert_eq!(item.title, "Updated");
+        assert_eq!(item.start_time.as_deref(), Some("09:30"));
+        assert_eq!(item.location.as_deref(), Some("New place"));
+        assert_eq!(item.note.as_deref(), Some("New note"));
+        assert_eq!(item.sort_order, 1000);
+    }
+
+    #[test]
+    fn maps_itinerary_update_validation_and_target_failures() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+        let trip = create_trip(&state, create_params("Inspector Trip")).unwrap();
+        let created =
+            create_itinerary(&state, itinerary_params(trip.trip_id, "Original")).unwrap();
+
+        let validation = update_itinerary(
+            &state,
+            itinerary_update_params(trip.trip_id, created.itinerary_id, "   "),
+        )
+        .unwrap_err();
+        assert_eq!(validation.code, "ITINERARY_VALIDATION_FAILED");
+        let target = update_itinerary(
+            &state,
+            itinerary_update_params(trip.trip_id + 1, created.itinerary_id, "Changed"),
+        )
+        .unwrap_err();
+        assert_eq!(target.code, "ITINERARY_TARGET_NOT_FOUND");
+
+        let timeline = get_day_timeline(&state, trip.trip_id, 1).unwrap();
+        assert_eq!(timeline.itineraries[0].title, "Original");
+    }
+
+    #[test]
+    fn maps_itinerary_update_storage_failure_without_changing_item() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path.clone()).unwrap();
+        let trip = create_trip(&state, create_params("Inspector Trip")).unwrap();
+        let created =
+            create_itinerary(&state, itinerary_params(trip.trip_id, "Original")).unwrap();
+        let conn = open_db(path.to_str().unwrap()).unwrap();
+        conn.execute_batch(
+            "CREATE TRIGGER fail_desktop_itinerary_update
+             BEFORE UPDATE ON itinerary_items
+             BEGIN
+               SELECT RAISE(ABORT, 'forced desktop itinerary update failure');
+             END;",
+        )
+        .unwrap();
+        drop(conn);
+
+        let err = update_itinerary(
+            &state,
+            itinerary_update_params(trip.trip_id, created.itinerary_id, "Blocked"),
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "STORAGE_FAILURE");
+        let timeline = get_day_timeline(&state, trip.trip_id, 1).unwrap();
+        assert_eq!(timeline.itineraries[0].title, "Original");
     }
 
     #[test]

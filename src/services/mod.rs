@@ -2,6 +2,7 @@
 
 pub mod dto;
 mod itinerary_create;
+mod itinerary_update;
 pub mod read_errors;
 mod read_facade;
 mod trip_create;
@@ -11,6 +12,10 @@ pub use dto::{DayDetail, DaySummary, ItineraryDetail, TripDetail, TripSummary};
 pub use itinerary_create::{
     create_itinerary, CreateItineraryParams, CreateItineraryResult, ItineraryCreateError,
     ItineraryCreateErrorCode,
+};
+pub use itinerary_update::{
+    update_itinerary, ItineraryUpdateError, ItineraryUpdateErrorCode, UpdateItineraryParams,
+    UpdateItineraryResult,
 };
 pub use read_errors::{ReadServiceErrorCode, ServiceError};
 pub use read_facade::{get_day_timeline, get_trip_detail, list_trip_summaries};

@@ -2,7 +2,8 @@
 
 use travel_ledger_cli::{
     create_itinerary, create_trip, get_day_timeline, get_trip_detail, list_trip_summaries, open_db,
-    CreateItineraryParams, CreateTripParams, ReadServiceErrorCode,
+    update_itinerary, CreateItineraryParams, CreateTripParams, ReadServiceErrorCode,
+    UpdateItineraryParams,
 };
 
 #[test]
@@ -10,6 +11,54 @@ fn lib_open_db_and_list_trip_summaries() {
     let conn = open_db(":memory:").expect("open in-memory db");
     let summaries = list_trip_summaries(&conn).expect("list trips");
     assert!(summaries.is_empty());
+}
+
+#[test]
+fn lib_update_itinerary_is_public_and_readable() {
+    let mut conn = open_db(":memory:").expect("open in-memory db");
+    let trip = create_trip(
+        &mut conn,
+        CreateTripParams {
+            name: "Library Trip".to_string(),
+            start_date: "2026-10-01".to_string(),
+            end_date: "2026-10-01".to_string(),
+            summary: None,
+            main_destination: None,
+            main_destination_country_code: None,
+            default_currency: None,
+        },
+    )
+    .expect("create trip");
+    let created = create_itinerary(
+        &conn,
+        CreateItineraryParams {
+            trip_id: trip.trip_id,
+            day_number: 1,
+            title: "Original".to_string(),
+            start_time: None,
+            location: None,
+            note: None,
+        },
+    )
+    .expect("create itinerary");
+
+    update_itinerary(
+        &conn,
+        UpdateItineraryParams {
+            trip_id: trip.trip_id,
+            day_number: 1,
+            itinerary_id: created.itinerary_id,
+            title: "Updated".to_string(),
+            start_time: Some("09:00".to_string()),
+            location: None,
+            note: None,
+        },
+    )
+    .expect("update itinerary");
+
+    let timeline = get_day_timeline(&conn, trip.trip_id, 1).expect("read updated itinerary");
+    assert_eq!(timeline.itineraries[0].title, "Updated");
+    assert_eq!(timeline.itineraries[0].start_time.as_deref(), Some("09:00"));
 }
 
 #[test]

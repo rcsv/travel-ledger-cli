@@ -1,6 +1,7 @@
 use serde::Serialize;
 use travel_ledger_cli::{
-    ItineraryCreateError, ReadServiceErrorCode, ServiceError, TripCreateError,
+    ItineraryCreateError, ItineraryUpdateError, ReadServiceErrorCode, ServiceError,
+    TripCreateError,
 };
 
 /// Desktop error envelope for the frontend (`{ code, message }`).
@@ -69,6 +70,15 @@ impl From<ItineraryCreateError> for DesktopError {
     }
 }
 
+impl From<ItineraryUpdateError> for DesktopError {
+    fn from(err: ItineraryUpdateError) -> Self {
+        Self {
+            code: err.code.as_str().to_string(),
+            message: err.message,
+        }
+    }
+}
+
 pub fn service_error_code(code: ReadServiceErrorCode) -> &'static str {
     match code {
         ReadServiceErrorCode::TripNotFound => "TRIP_NOT_FOUND",
@@ -106,6 +116,17 @@ mod tests {
     fn maps_itinerary_create_error_codes_without_rename() {
         let err = ItineraryCreateError {
             code: travel_ledger_cli::ItineraryCreateErrorCode::TargetNotFound,
+            message: "missing target".to_string(),
+        };
+        let desktop: DesktopError = err.into();
+        assert_eq!(desktop.code, "ITINERARY_TARGET_NOT_FOUND");
+        assert_eq!(desktop.message, "missing target");
+    }
+
+    #[test]
+    fn maps_itinerary_update_error_codes_without_rename() {
+        let err = ItineraryUpdateError {
+            code: travel_ledger_cli::ItineraryUpdateErrorCode::TargetNotFound,
             message: "missing target".to_string(),
         };
         let desktop: DesktopError = err.into();

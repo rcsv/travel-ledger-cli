@@ -31,10 +31,11 @@ mod trip_metadata;
 
 pub use services::{
     create_itinerary, create_trip, get_day_timeline, get_trip_detail, list_trip_summaries,
-    CreateItineraryParams, CreateItineraryResult, CreateTripParams, CreateTripResult, DayDetail,
-    DaySummary, ItineraryCreateError, ItineraryCreateErrorCode, ItineraryDetail,
-    ReadServiceErrorCode, ServiceError, TripCreateError, TripCreateErrorCode, TripDetail,
-    TripSummary,
+    update_itinerary, CreateItineraryParams, CreateItineraryResult, CreateTripParams,
+    CreateTripResult, DayDetail, DaySummary, ItineraryCreateError, ItineraryCreateErrorCode,
+    ItineraryDetail, ItineraryUpdateError, ItineraryUpdateErrorCode, ReadServiceErrorCode,
+    ServiceError, TripCreateError, TripCreateErrorCode, TripDetail, TripSummary,
+    UpdateItineraryParams, UpdateItineraryResult,
 };
 
 /// Opens a SQLite database at `path` and ensures schema/migrations are applied.

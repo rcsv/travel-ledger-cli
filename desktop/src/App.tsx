@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import * as api from "./api";
+import { ActivityInspectorForm } from "./components/ActivityInspectorForm";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { EmptyState } from "./components/EmptyState";
 import { ItineraryQuickAddForm } from "./components/ItineraryQuickAddForm";
@@ -15,8 +16,10 @@ import type {
   CreateTripInput,
   DayDetail,
   DesktopErrorPayload,
+  ItineraryDetail,
   TripDetail,
   TripSummary,
+  UpdateItineraryInput,
 } from "./types";
 import { databaseFileName, isDesktopError } from "./types";
 import "./App.css";
@@ -24,12 +27,24 @@ import "./App.css";
 type MainView = "trips" | "settings";
 type WorkspaceMode = "view" | "create";
 type ItineraryComposerTarget = { tripId: number; dayNumber: number };
+type ActivityEditorTarget = ItineraryComposerTarget & { itineraryId: number };
 
 function sameComposerTarget(
   left: ItineraryComposerTarget | null,
   right: ItineraryComposerTarget,
 ): boolean {
   return left?.tripId === right.tripId && left.dayNumber === right.dayNumber;
+}
+
+function sameActivityEditorTarget(
+  left: ActivityEditorTarget | null,
+  right: ActivityEditorTarget,
+): boolean {
+  return (
+    left?.tripId === right.tripId &&
+    left.dayNumber === right.dayNumber &&
+    left.itineraryId === right.itineraryId
+  );
 }
 
 function toDesktopError(error: unknown): DesktopErrorPayload {
@@ -70,6 +85,14 @@ export default function App() {
   );
   const [creatingItinerary, setCreatingItinerary] = useState(false);
   const creatingItineraryRef = useRef(false);
+  const [activityEditorTarget, setActivityEditorTarget] =
+    useState<ActivityEditorTarget | null>(null);
+  const activityEditorTargetRef = useRef<ActivityEditorTarget | null>(null);
+  const activityUpdateRefreshTargetRef = useRef<ActivityEditorTarget | null>(
+    null,
+  );
+  const [updatingItinerary, setUpdatingItinerary] = useState(false);
+  const updatingItineraryRef = useRef(false);
   const [error, setError] = useState<DesktopErrorPayload | null>(null);
   const [restoreWarning, setRestoreWarning] =
     useState<DesktopErrorPayload | null>(null);
@@ -79,11 +102,24 @@ export default function App() {
     setItineraryComposerTarget(null);
   }, []);
 
+  const closeActivityInspector = useCallback((restoreFocus = false) => {
+    const itineraryId = activityEditorTargetRef.current?.itineraryId;
+    activityEditorTargetRef.current = null;
+    setActivityEditorTarget(null);
+    if (restoreFocus && itineraryId !== undefined) {
+      window.setTimeout(() => {
+        document.getElementById(`activity-edit-${itineraryId}`)?.focus();
+      }, 0);
+    }
+  }, []);
+
   const leaveItineraryContext = useCallback(() => {
     closeItineraryComposer();
+    closeActivityInspector();
     itineraryRefreshTargetRef.current = null;
+    activityUpdateRefreshTargetRef.current = null;
     setLoadingTimeline(false);
-  }, [closeItineraryComposer]);
+  }, [closeActivityInspector, closeItineraryComposer]);
 
   const clearTripSelection = useCallback(() => {
     leaveItineraryContext();
@@ -411,9 +447,41 @@ export default function App() {
       tripId: selectedTripId,
       dayNumber: selectedDayNumber,
     };
+    closeActivityInspector();
     itineraryComposerTargetRef.current = target;
     setItineraryComposerTarget(target);
-  }, [loadingTimeline, selectedDayNumber, selectedTripId]);
+  }, [
+    closeActivityInspector,
+    loadingTimeline,
+    selectedDayNumber,
+    selectedTripId,
+  ]);
+
+  const handleOpenActivityEditor = useCallback(
+    (item: ItineraryDetail) => {
+      if (
+        loadingTimeline ||
+        item.trip_id !== selectedTripId ||
+        item.day_number !== selectedDayNumber
+      ) {
+        return;
+      }
+      closeItineraryComposer();
+      const target = {
+        tripId: item.trip_id,
+        dayNumber: item.day_number,
+        itineraryId: item.id,
+      };
+      activityEditorTargetRef.current = target;
+      setActivityEditorTarget(target);
+    },
+    [
+      closeItineraryComposer,
+      loadingTimeline,
+      selectedDayNumber,
+      selectedTripId,
+    ],
+  );
 
   const handleCreateItinerary = useCallback(
     async (input: CreateItineraryInput) => {
@@ -477,9 +545,102 @@ export default function App() {
     [closeItineraryComposer],
   );
 
+  const handleUpdateItinerary = useCallback(
+    async (input: UpdateItineraryInput) => {
+      if (updatingItineraryRef.current) {
+        return;
+      }
+      const target = activityEditorTargetRef.current;
+      if (
+        !target ||
+        input.trip_id !== target.tripId ||
+        input.day_number !== target.dayNumber ||
+        input.itinerary_id !== target.itineraryId
+      ) {
+        return;
+      }
+
+      updatingItineraryRef.current = true;
+      setUpdatingItinerary(true);
+      setError(null);
+      try {
+        await api.updateItinerary(input);
+      } catch (err) {
+        if (sameActivityEditorTarget(activityEditorTargetRef.current, target)) {
+          setError(toDesktopError(err));
+        }
+        updatingItineraryRef.current = false;
+        setUpdatingItinerary(false);
+        return;
+      }
+
+      if (!sameActivityEditorTarget(activityEditorTargetRef.current, target)) {
+        updatingItineraryRef.current = false;
+        setUpdatingItinerary(false);
+        return;
+      }
+
+      activityUpdateRefreshTargetRef.current = target;
+      setLoadingTimeline(true);
+      try {
+        const timeline = await api.getDayTimeline(
+          target.tripId,
+          target.dayNumber,
+        );
+        if (
+          sameActivityEditorTarget(
+            activityUpdateRefreshTargetRef.current,
+            target,
+          )
+        ) {
+          setDayTimeline(timeline);
+          if (
+            !timeline.itineraries.some(
+              (item) => item.id === target.itineraryId,
+            )
+          ) {
+            closeActivityInspector();
+          }
+        }
+      } catch (err) {
+        if (
+          sameActivityEditorTarget(
+            activityUpdateRefreshTargetRef.current,
+            target,
+          )
+        ) {
+          setError(toDesktopError(err));
+          setDayTimeline(null);
+          closeActivityInspector();
+        }
+      } finally {
+        if (
+          sameActivityEditorTarget(
+            activityUpdateRefreshTargetRef.current,
+            target,
+          )
+        ) {
+          activityUpdateRefreshTargetRef.current = null;
+          setLoadingTimeline(false);
+        }
+        updatingItineraryRef.current = false;
+        setUpdatingItinerary(false);
+      }
+    },
+    [closeActivityInspector],
+  );
+
   const tripCountLabel =
     trips.length === 1 ? "1 trip" : `${trips.length} trips`;
   const settingsOpen = mainView === "settings";
+  const selectedActivity =
+    activityEditorTarget &&
+    activityEditorTarget.tripId === selectedTripId &&
+    activityEditorTarget.dayNumber === selectedDayNumber
+      ? (dayTimeline?.itineraries.find(
+          (item) => item.id === activityEditorTarget.itineraryId,
+        ) ?? null)
+      : null;
 
   if (bootstrapping) {
     return (
@@ -623,7 +784,20 @@ export default function App() {
                 loading={loadingDetail}
                 onSelectDay={handleSelectDay}
                 onAddActivity={handleOpenItineraryComposer}
-                addActivityDisabled={loadingTimeline || creatingItinerary}
+                addActivityDisabled={
+                  loadingTimeline || creatingItinerary || updatingItinerary
+                }
+                inspector={
+                  selectedActivity ? (
+                    <ActivityInspectorForm
+                      key={`${selectedActivity.id}:${selectedActivity.updated_at}:${selectedActivity.title}:${selectedActivity.start_time ?? ""}:${selectedActivity.location ?? ""}:${selectedActivity.note ?? ""}`}
+                      item={selectedActivity}
+                      submitting={updatingItinerary}
+                      onSubmit={handleUpdateItinerary}
+                      onCancel={() => closeActivityInspector(true)}
+                    />
+                  ) : null
+                }
               >
                 {itineraryComposerTarget &&
                 itineraryComposerTarget.tripId === selectedTripId &&
@@ -639,6 +813,11 @@ export default function App() {
                 <ItineraryTimeline
                   items={dayTimeline?.itineraries ?? null}
                   loading={loadingTimeline}
+                  selectedItineraryId={activityEditorTarget?.itineraryId ?? null}
+                  editingDisabled={
+                    loadingTimeline || creatingItinerary || updatingItinerary
+                  }
+                  onEdit={handleOpenActivityEditor}
                 />
               </TripDetailPanel>
             )}

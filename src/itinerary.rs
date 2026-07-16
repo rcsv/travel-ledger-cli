@@ -16,7 +16,7 @@ pub(crate) const ITINERARY_LIST_ORDER_BY: &str = "ORDER BY d.day_number, i.sort_
 pub(crate) const SORT_ORDER_STEP: i64 = 1000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ValidatedItineraryCreate {
+pub(crate) struct ValidatedItineraryContent {
     pub title: String,
     pub note: Option<String>,
     pub start_time: Option<String>,
@@ -30,12 +30,12 @@ fn normalize_optional_text(value: Option<&str>) -> Option<String> {
     })
 }
 
-pub(crate) fn validate_itinerary_create_fields(
+pub(crate) fn validate_itinerary_content_fields(
     title: &str,
     note: Option<&str>,
     start_time: Option<&str>,
     location: Option<&str>,
-) -> Result<ValidatedItineraryCreate> {
+) -> Result<ValidatedItineraryContent> {
     let title = title.trim();
     if title.is_empty() {
         anyhow::bail!("Itinerary title must not be empty");
@@ -46,7 +46,7 @@ pub(crate) fn validate_itinerary_create_fields(
         parse_time_hhmm(value)?;
     }
 
-    Ok(ValidatedItineraryCreate {
+    Ok(ValidatedItineraryContent {
         title: title.to_string(),
         note: normalize_optional_text(note),
         start_time,
@@ -113,7 +113,7 @@ pub(crate) fn add_itinerary_item_extended(
     before: Option<i64>,
 ) -> Result<i64> {
     validate_itinerary_position_options(sort_order, after, before)?;
-    let validated = validate_itinerary_create_fields(title, note, start_time, location)?;
+    let validated = validate_itinerary_content_fields(title, note, start_time, location)?;
     let day_id = resolve_itinerary_create_target(conn, trip_id, day)?;
     let resolved_sort_order =
         resolve_sort_order_for_add(conn, trip_id, day, sort_order, after, before)?;
@@ -136,7 +136,7 @@ pub(crate) fn insert_validated_itinerary_item(
     trip_id: i64,
     day_id: i64,
     day_number: i64,
-    validated: &ValidatedItineraryCreate,
+    validated: &ValidatedItineraryContent,
     sort_order: i64,
     duration_minutes: Option<i64>,
     travel_minutes: Option<i64>,
@@ -849,6 +849,57 @@ pub(crate) fn get_itinerary_item(conn: &Connection, id: i64) -> Result<Itinerary
         ),
         || anyhow::anyhow!("Itinerary not found: {id}"),
     )
+}
+
+pub(crate) fn resolve_itinerary_update_target(
+    conn: &Connection,
+    itinerary_id: i64,
+    trip_id: i64,
+    day_number: i64,
+) -> Result<()> {
+    let matches_target: bool = conn
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1
+                FROM itinerary_items
+                WHERE id = ?1 AND trip_id = ?2 AND day = ?3
+            )",
+            params![itinerary_id, trip_id, day_number],
+            |row| row.get(0),
+        )
+        .context("Itinerary update target lookup failed")?;
+    if !matches_target {
+        anyhow::bail!(
+            "Itinerary target not found: itinerary {itinerary_id}, trip {trip_id}, day {day_number}"
+        );
+    }
+    Ok(())
+}
+
+pub(crate) fn update_validated_itinerary_content(
+    conn: &Connection,
+    itinerary_id: i64,
+    trip_id: i64,
+    day_number: i64,
+    validated: &ValidatedItineraryContent,
+) -> Result<usize> {
+    let now = crate::storage::db::now_string();
+    conn.execute(
+        "UPDATE itinerary_items
+         SET title = ?1, note = ?2, start_time = ?3, location = ?4, updated_at = ?5
+         WHERE id = ?6 AND trip_id = ?7 AND day = ?8",
+        params![
+            &validated.title,
+            validated.note.as_deref(),
+            validated.start_time.as_deref(),
+            validated.location.as_deref(),
+            &now,
+            itinerary_id,
+            trip_id,
+            day_number
+        ],
+    )
+    .context("Itinerary content update failed")
 }
 
 /// 日程を更新する（指定されたフィールドのみ上書き）
