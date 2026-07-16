@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.11.0 | Desktop trip and activity creation workflows | [v4.11.0-notes.md](v4.11.0-notes.md) |
 | v4.10.3 | Desktop settings navigation polish | [v4.10.3-notes.md](v4.10.3-notes.md) |
 | v4.10.2 | Desktop read-only usability polish | [v4.10.2-notes.md](v4.10.2-notes.md) |
 | v4.10.1 | Desktop database reopening and usability polish | [v4.10.1-notes.md](v4.10.1-notes.md) |

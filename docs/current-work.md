@@ -2,30 +2,27 @@
 
 ## Current phase
 
-v4.10.x Desktop — **v4.10.3 released**; next work guided by North Star（設計検討順）
+v4.11.x Desktop — **v4.11.0 released**; next work guided by North Star（設計検討順）
 
 ## Latest completed
 
-- v4.10.3 Desktop settings navigation polish — **released**
-- v4.10.2 Desktop read-only usability polish — **released**
-- v4.10.1 Desktop database reopening and usability polish — **released**
+- v4.11.0 Desktop trip and activity creation workflows — **released**
+- Trip Workspace information architecture and viewport-constrained app shell
+- Desktop Trip creation and selected-Day activity quick add
 
 ## Repository state
 
-- Cargo version: `4.10.3`
-- Latest formal release: **v4.10.3** — [v4.10.3-notes.md](releases/v4.10.3-notes.md)
-- Spec: [v4.10.3-desktop-settings-navigation-polish.md](specifications/v4.10.3-desktop-settings-navigation-polish.md)
+- Cargo version: `4.11.0`
+- Latest formal release: **v4.11.0** — [v4.11.0-notes.md](releases/v4.11.0-notes.md)
 - Desktop GUI North Star: [desktop-gui-north-star.md](specifications/desktop-gui-north-star.md)（documentation-only）
 
 ## Next candidates
 
 North Star §19 の検討順（実装指示ではない）:
 
-1. Trip Workspace の情報設計
-2. Trip 新規作成 Golden Workflow
-3. Itinerary quick add
-4. Inspector による詳細編集
-5. reorder / move の直接操作
+1. Inspector による詳細編集
+2. reorder / move の直接操作
+3. Overview / Checklist / Travelers / Money の段階的な具体化
 
 ## Defer
 
