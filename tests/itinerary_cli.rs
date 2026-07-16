@@ -42,6 +42,78 @@ fn cli_itinerary_add_appends_to_day_end() {
 }
 
 #[test]
+fn cli_itinerary_add_trims_fields_and_prints_saved_values() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(dir);
+
+    let output = common::run_cli_in(
+        dir,
+        &[
+            "itinerary",
+            "add",
+            "1",
+            "--day",
+            "1",
+            "--time",
+            "09:00",
+            "--location",
+            "  Naha  ",
+            "--note",
+            "  Buy tickets  ",
+            "  Museum  ",
+        ],
+    );
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("タイトル: Museum"));
+    assert!(stdout.contains("場所    : Naha"));
+    assert!(stdout.contains("メモ    : Buy tickets"));
+}
+
+#[test]
+fn cli_itinerary_add_rejects_whitespace_only_title() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(dir);
+
+    let output = common::run_cli_in(dir, &["itinerary", "add", "1", "--day", "1", "   "]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("title must not be empty"));
+
+    let list = common::run_cli_in(dir, &["itinerary", "list", "1", "--json"]);
+    let parsed: serde_json::Value = serde_json::from_slice(&list.stdout).expect("valid json");
+    assert_eq!(parsed.as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn cli_itinerary_add_preserves_duration_and_travel() {
+    let workspace = common::TestWorkspace::new();
+    let dir = workspace.path();
+    setup_trip(dir);
+
+    let output = common::run_cli_in(
+        dir,
+        &[
+            "itinerary",
+            "add",
+            "1",
+            "--day",
+            "1",
+            "--duration",
+            "90",
+            "--travel",
+            "20",
+            "Museum",
+        ],
+    );
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("所要時間: 90分"));
+    assert!(stdout.contains("移動時間: 20分"));
+}
+
+#[test]
 fn cli_itinerary_add_respects_explicit_order() {
     let workspace = common::TestWorkspace::new();
     let dir = workspace.path();

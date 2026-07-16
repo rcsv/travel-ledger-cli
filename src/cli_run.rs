@@ -142,13 +142,16 @@ pub fn run() -> Result<()> {
                 println!("日程を追加しました (ID: {id})");
                 println!("  旅行 ID : {trip_id}");
                 println!("  日目    : {day}");
-                println!("  時刻    : {}", crate::itinerary::fmt_text(&time));
+                println!(
+                    "  時刻    : {}",
+                    crate::itinerary::fmt_text(&item.start_time)
+                );
                 println!("  並び順  : {}", item.sort_order);
                 println!("  所要時間: {}", crate::itinerary::fmt_minutes(duration));
                 println!("  移動時間: {}", crate::itinerary::fmt_minutes(travel));
-                println!("  タイトル: {title}");
-                println!("  場所    : {}", crate::itinerary::fmt_text(&location));
-                println!("  メモ    : {}", crate::itinerary::fmt_text(&note));
+                println!("  タイトル: {}", item.title);
+                println!("  場所    : {}", crate::itinerary::fmt_text(&item.location));
+                println!("  メモ    : {}", crate::itinerary::fmt_text(&item.note));
             }
             ItineraryAction::List { trip_id, json } => {
                 let result = crate::services::itinerary_list::list_itineraries(&conn, trip_id)?;

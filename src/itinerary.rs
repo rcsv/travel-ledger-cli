@@ -15,6 +15,54 @@ pub(crate) const ITINERARY_LIST_ORDER_BY: &str = "ORDER BY d.day_number, i.sort_
 /// Day 内 sort_order の標準間隔（sparse ordering）
 pub(crate) const SORT_ORDER_STEP: i64 = 1000;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ValidatedItineraryCreate {
+    pub title: String,
+    pub note: Option<String>,
+    pub start_time: Option<String>,
+    pub location: Option<String>,
+}
+
+fn normalize_optional_text(value: Option<&str>) -> Option<String> {
+    value.and_then(|raw| {
+        let trimmed = raw.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    })
+}
+
+pub(crate) fn validate_itinerary_create_fields(
+    title: &str,
+    note: Option<&str>,
+    start_time: Option<&str>,
+    location: Option<&str>,
+) -> Result<ValidatedItineraryCreate> {
+    let title = title.trim();
+    if title.is_empty() {
+        anyhow::bail!("Itinerary title must not be empty");
+    }
+
+    let start_time = normalize_optional_text(start_time);
+    if let Some(value) = start_time.as_deref() {
+        parse_time_hhmm(value)?;
+    }
+
+    Ok(ValidatedItineraryCreate {
+        title: title.to_string(),
+        note: normalize_optional_text(note),
+        start_time,
+        location: normalize_optional_text(location),
+    })
+}
+
+pub(crate) fn resolve_itinerary_create_target(
+    conn: &Connection,
+    trip_id: i64,
+    day_number: i64,
+) -> Result<i64> {
+    crate::trip::get_trip(conn, trip_id)?;
+    crate::day::find_day_id_by_trip_and_day_number(conn, trip_id, day_number)
+}
+
 /// 新しい日程を追加する
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn add_itinerary_item(
@@ -65,13 +113,35 @@ pub(crate) fn add_itinerary_item_extended(
     before: Option<i64>,
 ) -> Result<i64> {
     validate_itinerary_position_options(sort_order, after, before)?;
-    crate::trip::get_trip(conn, trip_id)?;
-    if let Some(t) = start_time {
-        parse_time_hhmm(t)?;
-    }
-    let day_id = crate::day::find_day_id_by_trip_and_day_number(conn, trip_id, day)?;
+    let validated = validate_itinerary_create_fields(title, note, start_time, location)?;
+    let day_id = resolve_itinerary_create_target(conn, trip_id, day)?;
     let resolved_sort_order =
         resolve_sort_order_for_add(conn, trip_id, day, sort_order, after, before)?;
+    insert_validated_itinerary_item(
+        conn,
+        trip_id,
+        day_id,
+        day,
+        &validated,
+        resolved_sort_order,
+        duration_minutes,
+        travel_minutes,
+        category,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn insert_validated_itinerary_item(
+    conn: &Connection,
+    trip_id: i64,
+    day_id: i64,
+    day_number: i64,
+    validated: &ValidatedItineraryCreate,
+    sort_order: i64,
+    duration_minutes: Option<i64>,
+    travel_minutes: Option<i64>,
+    category: Option<ItineraryCategory>,
+) -> Result<i64> {
     let now = crate::storage::db::now_string();
     let category = category.map(|c| c.as_str().to_string());
     conn.execute(
@@ -82,14 +152,14 @@ pub(crate) fn add_itinerary_item_extended(
         params![
             trip_id,
             day_id,
-            day,
-            title,
-            note,
-            start_time,
-            resolved_sort_order,
+            day_number,
+            &validated.title,
+            validated.note.as_deref(),
+            validated.start_time.as_deref(),
+            sort_order,
             duration_minutes,
             travel_minutes,
-            location,
+            validated.location.as_deref(),
             category,
             &now,
             &now
@@ -135,7 +205,11 @@ fn validate_reference_itinerary(
     Ok(())
 }
 
-fn max_sort_order_in_day(conn: &Connection, trip_id: i64, day_number: i64) -> Result<i64> {
+pub(crate) fn max_sort_order_in_day(
+    conn: &Connection,
+    trip_id: i64,
+    day_number: i64,
+) -> Result<i64> {
     let max: Option<i64> = conn
         .query_row(
             "SELECT MAX(i.sort_order)

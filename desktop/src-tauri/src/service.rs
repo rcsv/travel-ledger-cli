@@ -2,10 +2,10 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use travel_ledger_cli::{
-    create_trip as core_create_trip,
+    create_itinerary as core_create_itinerary, create_trip as core_create_trip,
     get_day_timeline as facade_get_day_timeline, get_trip_detail as facade_get_trip_detail,
     list_trip_summaries as facade_list_trip_summaries, open_db, DayDetail, TripDetail, TripSummary,
-    CreateTripParams, CreateTripResult,
+    CreateItineraryParams, CreateItineraryResult, CreateTripParams, CreateTripResult,
 };
 
 use crate::config::{self, LoadSavedPath};
@@ -142,6 +142,15 @@ pub fn create_trip(
     let path = selected_db_path(state)?;
     let mut conn = open_connection(&path)?;
     core_create_trip(&mut conn, params).map_err(DesktopError::from)
+}
+
+pub fn create_itinerary(
+    state: &DesktopState,
+    params: CreateItineraryParams,
+) -> Result<CreateItineraryResult, DesktopError> {
+    let path = selected_db_path(state)?;
+    let conn = open_connection(&path)?;
+    core_create_itinerary(&conn, params).map_err(DesktopError::from)
 }
 
 fn clear_selection(state: &DesktopState) -> Result<(), DesktopError> {
@@ -446,6 +455,17 @@ mod tests {
         }
     }
 
+    fn itinerary_params(trip_id: i64, title: &str) -> CreateItineraryParams {
+        CreateItineraryParams {
+            trip_id,
+            day_number: 1,
+            title: title.to_string(),
+            start_time: None,
+            location: None,
+            note: None,
+        }
+    }
+
     #[test]
     fn create_requires_selected_database() {
         let (_dir, state) = temp_state();
@@ -538,6 +558,96 @@ mod tests {
         let err = create_trip(&state, create_params("Atomic Desktop Trip")).unwrap_err();
         assert_eq!(err.code, "STORAGE_FAILURE");
         assert!(list_trip_summaries(&state).unwrap().is_empty());
+    }
+
+    #[test]
+    fn itinerary_create_requires_selected_database() {
+        let (_dir, state) = temp_state();
+        let err = create_itinerary(&state, itinerary_params(1, "Activity")).unwrap_err();
+        assert_eq!(err.code, "DATABASE_NOT_SELECTED");
+    }
+
+    #[test]
+    fn creates_normalized_itinerary_readable_in_append_order() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+        let trip = create_trip(&state, create_params("Itinerary Trip")).unwrap();
+
+        let first = create_itinerary(
+            &state,
+            CreateItineraryParams {
+                title: "  Museum  ".to_string(),
+                start_time: Some("09:30".to_string()),
+                location: Some("  Naha  ".to_string()),
+                note: Some("  Buy tickets  ".to_string()),
+                ..itinerary_params(trip.trip_id, "ignored")
+            },
+        )
+        .unwrap();
+        let second =
+            create_itinerary(&state, itinerary_params(trip.trip_id, "Lunch")).unwrap();
+
+        let timeline = get_day_timeline(&state, trip.trip_id, 1).unwrap();
+        assert_eq!(timeline.itineraries.len(), 2);
+        assert_eq!(timeline.itineraries[0].id, first.itinerary_id);
+        assert_eq!(timeline.itineraries[0].title, "Museum");
+        assert_eq!(timeline.itineraries[0].sort_order, 1000);
+        assert_eq!(timeline.itineraries[0].location.as_deref(), Some("Naha"));
+        assert_eq!(timeline.itineraries[1].id, second.itinerary_id);
+        assert_eq!(timeline.itineraries[1].sort_order, 2000);
+    }
+
+    #[test]
+    fn maps_itinerary_validation_and_target_failures() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+        let trip = create_trip(&state, create_params("Itinerary Trip")).unwrap();
+
+        let validation =
+            create_itinerary(&state, itinerary_params(trip.trip_id, "   ")).unwrap_err();
+        assert_eq!(validation.code, "ITINERARY_VALIDATION_FAILED");
+        let target = create_itinerary(
+            &state,
+            CreateItineraryParams {
+                day_number: 99,
+                ..itinerary_params(trip.trip_id, "Missing day")
+            },
+        )
+        .unwrap_err();
+        assert_eq!(target.code, "ITINERARY_TARGET_NOT_FOUND");
+        assert!(get_day_timeline(&state, trip.trip_id, 1)
+            .unwrap()
+            .itineraries
+            .is_empty());
+    }
+
+    #[test]
+    fn maps_itinerary_storage_failure_without_inserting_item() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        let mut conn = open_db(path.to_str().unwrap()).unwrap();
+        let trip = core_create_trip(&mut conn, create_params("Itinerary Trip")).unwrap();
+        conn.execute_batch(
+            "CREATE TRIGGER fail_desktop_itinerary_insert
+             BEFORE INSERT ON itinerary_items
+             BEGIN
+               SELECT RAISE(ABORT, 'forced desktop itinerary failure');
+             END;",
+        )
+        .unwrap();
+        drop(conn);
+        select_database(&state, path).unwrap();
+
+        let err = create_itinerary(&state, itinerary_params(trip.trip_id, "Blocked")).unwrap_err();
+        assert_eq!(err.code, "STORAGE_FAILURE");
+        assert!(get_day_timeline(&state, trip.trip_id, 1)
+            .unwrap()
+            .itineraries
+            .is_empty());
     }
 
     #[test]

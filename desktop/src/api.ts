@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  CreateItineraryInput,
+  CreateItineraryResult,
   CreateTripInput,
   CreateTripResult,
   DatabaseInfo,
@@ -9,6 +11,12 @@ import type {
   TripDetail,
   TripSummary,
 } from "./types";
+
+export async function createItinerary(
+  input: CreateItineraryInput,
+): Promise<CreateItineraryResult> {
+  return invoke<CreateItineraryResult>("create_itinerary", { input });
+}
 
 export async function createTrip(
   input: CreateTripInput,

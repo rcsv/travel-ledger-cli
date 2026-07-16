@@ -23,6 +23,7 @@ pub fn run() {
             commands::get_trip_detail,
             commands::get_day_timeline,
             commands::create_trip,
+            commands::create_itinerary,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

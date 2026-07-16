@@ -9,6 +9,8 @@ interface TripDetailPanelProps {
   selectedDayNumber: number | null;
   loading: boolean;
   onSelectDay: (dayNumber: number) => void;
+  onAddActivity: () => void;
+  addActivityDisabled: boolean;
   children?: ReactNode;
 }
 
@@ -75,6 +77,8 @@ export function TripDetailPanel({
   selectedDayNumber,
   loading,
   onSelectDay,
+  onAddActivity,
+  addActivityDisabled,
   children,
 }: TripDetailPanelProps) {
   if (loading) {
@@ -143,9 +147,19 @@ export function TripDetailPanel({
             aria-labelledby="selected-day-heading"
           >
             <header className="selected-day-header">
-              <h4 id="selected-day-heading">
-                Day {selectedDay.day_number} · {formatDayLabel(selectedDay.date)}
-              </h4>
+              <div className="selected-day-heading-row">
+                <h4 id="selected-day-heading">
+                  Day {selectedDay.day_number} · {formatDayLabel(selectedDay.date)}
+                </h4>
+                <button
+                  type="button"
+                  className="secondary-button add-activity-button"
+                  disabled={addActivityDisabled}
+                  onClick={onAddActivity}
+                >
+                  Add activity
+                </button>
+              </div>
               {nonEmpty(selectedDay.title) ? (
                 <p className="selected-day-title">{selectedDay.title}</p>
               ) : null}

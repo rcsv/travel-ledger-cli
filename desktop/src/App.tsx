@@ -4,12 +4,14 @@ import { open } from "@tauri-apps/plugin-dialog";
 import * as api from "./api";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { EmptyState } from "./components/EmptyState";
+import { ItineraryQuickAddForm } from "./components/ItineraryQuickAddForm";
 import { ItineraryTimeline } from "./components/ItineraryTimeline";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { TripCreateForm } from "./components/TripCreateForm";
 import { TripDetailPanel } from "./components/TripDetailPanel";
 import { TripList } from "./components/TripList";
 import type {
+  CreateItineraryInput,
   CreateTripInput,
   DayDetail,
   DesktopErrorPayload,
@@ -21,6 +23,14 @@ import "./App.css";
 
 type MainView = "trips" | "settings";
 type WorkspaceMode = "view" | "create";
+type ItineraryComposerTarget = { tripId: number; dayNumber: number };
+
+function sameComposerTarget(
+  left: ItineraryComposerTarget | null,
+  right: ItineraryComposerTarget,
+): boolean {
+  return left?.tripId === right.tripId && left.dayNumber === right.dayNumber;
+}
 
 function toDesktopError(error: unknown): DesktopErrorPayload {
   if (isDesktopError(error)) {
@@ -50,16 +60,38 @@ export default function App() {
   const [loadingTimeline, setLoadingTimeline] = useState(false);
   const [creatingTrip, setCreatingTrip] = useState(false);
   const creatingTripRef = useRef(false);
+  const [itineraryComposerTarget, setItineraryComposerTarget] =
+    useState<ItineraryComposerTarget | null>(null);
+  const itineraryComposerTargetRef = useRef<ItineraryComposerTarget | null>(
+    null,
+  );
+  const itineraryRefreshTargetRef = useRef<ItineraryComposerTarget | null>(
+    null,
+  );
+  const [creatingItinerary, setCreatingItinerary] = useState(false);
+  const creatingItineraryRef = useRef(false);
   const [error, setError] = useState<DesktopErrorPayload | null>(null);
   const [restoreWarning, setRestoreWarning] =
     useState<DesktopErrorPayload | null>(null);
 
+  const closeItineraryComposer = useCallback(() => {
+    itineraryComposerTargetRef.current = null;
+    setItineraryComposerTarget(null);
+  }, []);
+
+  const leaveItineraryContext = useCallback(() => {
+    closeItineraryComposer();
+    itineraryRefreshTargetRef.current = null;
+    setLoadingTimeline(false);
+  }, [closeItineraryComposer]);
+
   const clearTripSelection = useCallback(() => {
+    leaveItineraryContext();
     setSelectedTripId(null);
     setTripDetail(null);
     setSelectedDayNumber(null);
     setDayTimeline(null);
-  }, []);
+  }, [leaveItineraryContext]);
 
   const clearAllData = useCallback(() => {
     setDatabasePath(null);
@@ -251,6 +283,7 @@ export default function App() {
   }, []);
 
   const handleOpenOrChangeDatabase = useCallback(async () => {
+    leaveItineraryContext();
     setError(null);
     setRestoreWarning(null);
     const hadDatabase = databasePath !== null;
@@ -281,6 +314,7 @@ export default function App() {
     clearAllData,
     clearTripSelection,
     databasePath,
+    leaveItineraryContext,
     loadTrips,
     pickDatabasePath,
   ]);
@@ -304,6 +338,7 @@ export default function App() {
 
   const handleSelectTrip = useCallback(
     async (tripId: number) => {
+      leaveItineraryContext();
       setMainView("trips");
       setWorkspaceMode("view");
       if (tripId === selectedTripId) {
@@ -313,7 +348,7 @@ export default function App() {
       setSelectedTripId(tripId);
       await loadTripDetail(tripId);
     },
-    [loadTripDetail, selectedTripId],
+    [leaveItineraryContext, loadTripDetail, selectedTripId],
   );
 
   const handleCreateTrip = useCallback(
@@ -345,15 +380,101 @@ export default function App() {
 
   const handleSelectDay = useCallback(
     async (dayNumber: number) => {
-      if (!selectedTripId || dayNumber === selectedDayNumber) {
+      if (
+        !selectedTripId ||
+        (dayNumber === selectedDayNumber && dayTimeline !== null)
+      ) {
         return;
       }
+      leaveItineraryContext();
       setError(null);
-      setSelectedDayNumber(dayNumber);
+      if (dayNumber !== selectedDayNumber) {
+        setSelectedDayNumber(dayNumber);
+      }
       setDayTimeline(null);
       await loadTimeline(selectedTripId, dayNumber);
     },
-    [loadTimeline, selectedDayNumber, selectedTripId],
+    [
+      dayTimeline,
+      leaveItineraryContext,
+      loadTimeline,
+      selectedDayNumber,
+      selectedTripId,
+    ],
+  );
+
+  const handleOpenItineraryComposer = useCallback(() => {
+    if (!selectedTripId || selectedDayNumber === null || loadingTimeline) {
+      return;
+    }
+    const target = {
+      tripId: selectedTripId,
+      dayNumber: selectedDayNumber,
+    };
+    itineraryComposerTargetRef.current = target;
+    setItineraryComposerTarget(target);
+  }, [loadingTimeline, selectedDayNumber, selectedTripId]);
+
+  const handleCreateItinerary = useCallback(
+    async (input: CreateItineraryInput) => {
+      if (creatingItineraryRef.current) {
+        return;
+      }
+      const target = itineraryComposerTargetRef.current;
+      if (
+        !target ||
+        input.trip_id !== target.tripId ||
+        input.day_number !== target.dayNumber
+      ) {
+        return;
+      }
+
+      creatingItineraryRef.current = true;
+      setCreatingItinerary(true);
+      setError(null);
+      try {
+        await api.createItinerary(input);
+      } catch (err) {
+        setError(toDesktopError(err));
+        creatingItineraryRef.current = false;
+        setCreatingItinerary(false);
+        return;
+      }
+
+      const targetIsCurrent = sameComposerTarget(
+        itineraryComposerTargetRef.current,
+        target,
+      );
+      closeItineraryComposer();
+      creatingItineraryRef.current = false;
+      setCreatingItinerary(false);
+      if (!targetIsCurrent) {
+        return;
+      }
+
+      itineraryRefreshTargetRef.current = target;
+      setLoadingTimeline(true);
+      try {
+        const timeline = await api.getDayTimeline(
+          target.tripId,
+          target.dayNumber,
+        );
+        if (sameComposerTarget(itineraryRefreshTargetRef.current, target)) {
+          setDayTimeline(timeline);
+        }
+      } catch (err) {
+        if (sameComposerTarget(itineraryRefreshTargetRef.current, target)) {
+          setError(toDesktopError(err));
+          setDayTimeline(null);
+        }
+      } finally {
+        if (sameComposerTarget(itineraryRefreshTargetRef.current, target)) {
+          itineraryRefreshTargetRef.current = null;
+          setLoadingTimeline(false);
+        }
+      }
+    },
+    [closeItineraryComposer],
   );
 
   const tripCountLabel =
@@ -456,6 +577,7 @@ export default function App() {
                   }
                   aria-pressed={workspaceMode === "create"}
                   onClick={() => {
+                    leaveItineraryContext();
                     setError(null);
                     setWorkspaceMode("create");
                   }}
@@ -477,6 +599,7 @@ export default function App() {
                 type="button"
                 className="nav-settings"
                 onClick={() => {
+                  leaveItineraryContext();
                   setWorkspaceMode("view");
                   setMainView("settings");
                 }}
@@ -499,7 +622,20 @@ export default function App() {
                 selectedDayNumber={selectedDayNumber}
                 loading={loadingDetail}
                 onSelectDay={handleSelectDay}
+                onAddActivity={handleOpenItineraryComposer}
+                addActivityDisabled={loadingTimeline || creatingItinerary}
               >
+                {itineraryComposerTarget &&
+                itineraryComposerTarget.tripId === selectedTripId &&
+                itineraryComposerTarget.dayNumber === selectedDayNumber ? (
+                  <ItineraryQuickAddForm
+                    tripId={itineraryComposerTarget.tripId}
+                    dayNumber={itineraryComposerTarget.dayNumber}
+                    submitting={creatingItinerary}
+                    onSubmit={handleCreateItinerary}
+                    onCancel={closeItineraryComposer}
+                  />
+                ) : null}
                 <ItineraryTimeline
                   items={dayTimeline?.itineraries ?? null}
                   loading={loadingTimeline}

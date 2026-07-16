@@ -505,6 +505,14 @@ body {
   margin-bottom: 0.85rem;
 }
 
+.selected-day-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
 .selected-day-header h4 {
   margin: 0;
   font-size: 1rem;
@@ -523,6 +531,43 @@ body {
   color: #627d98;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.add-activity-button {
+  flex: 0 0 auto;
+}
+
+.itinerary-quick-add {
+  margin: 0.85rem 0;
+  padding: 1rem;
+  border: 1px solid #bcccdc;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.itinerary-quick-add h5 {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+}
+
+.itinerary-quick-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.itinerary-title-field {
+  max-width: 40rem;
+}
+
+.itinerary-time-field {
+  flex: 0 1 12rem;
+}
+
+.itinerary-quick-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .timeline {

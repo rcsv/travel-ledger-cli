@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/api/app", () => ({
 }));
 
 vi.mock("./api", () => ({
+  createItinerary: vi.fn(),
   createTrip: vi.fn(),
   selectDatabase: vi.fn(),
   restoreLastDatabase: vi.fn(),
@@ -99,6 +100,7 @@ async function restoreWithSampleTrip() {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.restoreLastDatabase).mockResolvedValue({ status: "not_found" });
+  vi.mocked(api.createItinerary).mockResolvedValue({ itinerary_id: 20 });
   vi.mocked(api.createTrip).mockResolvedValue({ trip_id: 2 });
   vi.mocked(getVersion).mockResolvedValue("4.10.3");
 });
@@ -1062,6 +1064,261 @@ describe("App", () => {
     expect(
       screen.queryByText("No activities planned for this day yet."),
     ).not.toBeInTheDocument();
+  });
+
+  it("adds an activity for the selected Day and refreshes only its timeline", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(emptyTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        itineraries: [
+          {
+            id: 20,
+            trip_id: 1,
+            day_number: 1,
+            title: "  Sunset walk  ",
+            start_time: "18:30",
+            location: "  Naha waterfront  ",
+            note: "  Bring a camera  ",
+            sort_order: 1000,
+            created_at: "t",
+            updated_at: "t",
+          },
+        ],
+      });
+
+    render(<App />);
+    await screen.findByRole("region", { name: "Plan" });
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+
+    const form = screen.getByRole("region", { name: "Add activity" });
+    fireEvent.change(within(form).getByLabelText("Title"), {
+      target: { value: "  Sunset walk  " },
+    });
+    fireEvent.change(within(form).getByLabelText("Start time"), {
+      target: { value: "18:30" },
+    });
+    fireEvent.change(within(form).getByLabelText("Location"), {
+      target: { value: "  Naha waterfront  " },
+    });
+    fireEvent.change(within(form).getByLabelText("Note"), {
+      target: { value: "  Bring a camera  " },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Add activity" }));
+
+    await waitFor(() =>
+      expect(api.createItinerary).toHaveBeenCalledWith({
+        trip_id: 1,
+        day_number: 1,
+        title: "  Sunset walk  ",
+        start_time: "18:30",
+        location: "  Naha waterfront  ",
+        note: "  Bring a camera  ",
+      }),
+    );
+    expect(await screen.findByText("Sunset walk", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Add activity" })).not.toBeInTheDocument();
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+    expect(api.getTripDetail).toHaveBeenCalledTimes(1);
+    expect(api.listTripSummaries).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("button", { name: /Day 1 · Sun · Apr 26/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps quick-add input on write failure and does not refresh", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.createItinerary).mockRejectedValue({
+      code: "ITINERARY_VALIDATION_FAILED",
+      message: "Itinerary title must not be empty",
+    });
+
+    render(<App />);
+    await screen.findByRole("region", { name: "Plan" });
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const form = screen.getByRole("region", { name: "Add activity" });
+    fireEvent.change(within(form).getByLabelText("Title"), {
+      target: { value: "   " },
+    });
+    fireEvent.change(within(form).getByLabelText("Note"), {
+      target: { value: "Keep this draft" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Add activity" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Itinerary title must not be empty",
+      ),
+    );
+    expect(within(form).getByLabelText("Title")).toHaveValue("   ");
+    expect(within(form).getByLabelText("Note")).toHaveValue("Keep this draft");
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks quick-add submission immediately", async () => {
+    await restoreWithSampleTrip();
+    let resolveCreate: (value: { itinerary_id: number }) => void = () => {};
+    vi.mocked(api.createItinerary).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+
+    render(<App />);
+    await screen.findByRole("region", { name: "Plan" });
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const composer = screen.getByRole("region", { name: "Add activity" });
+    fireEvent.change(within(composer).getByLabelText("Title"), {
+      target: { value: "Coffee" },
+    });
+    const form = within(composer).getByRole("button", {
+      name: "Add activity",
+    }).closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+    fireEvent.submit(form!);
+
+    expect(api.createItinerary).toHaveBeenCalledTimes(1);
+    expect(within(composer).getByRole("button", { name: "Adding…" })).toBeDisabled();
+    resolveCreate({ itinerary_id: 20 });
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Add activity" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("discards the quick-add draft on Day and Settings navigation", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(emptyTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        day_id: 11,
+        day_number: 2,
+        date: "2026-04-27",
+      });
+
+    render(<App />);
+    await screen.findByRole("region", { name: "Plan" });
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    fireEvent.change(
+      within(screen.getByRole("region", { name: "Add activity" })).getByLabelText(
+        "Title",
+      ),
+      { target: { value: "Discard me" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Add activity" })).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    expect(screen.getByRole("region", { name: "Settings" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /back to trips/i }));
+    expect(screen.queryByRole("region", { name: "Add activity" })).not.toBeInTheDocument();
+  });
+
+  it("does not refresh a stale Day when navigation wins a pending write", async () => {
+    await restoreWithSampleTrip();
+    let resolveCreate: (value: { itinerary_id: number }) => void = () => {};
+    vi.mocked(api.createItinerary).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(emptyTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        day_id: 11,
+        day_number: 2,
+        date: "2026-04-27",
+        itineraries: [
+          {
+            id: 30,
+            trip_id: 1,
+            day_number: 2,
+            title: "Day 2 activity",
+            sort_order: 1000,
+            created_at: "t",
+            updated_at: "t",
+          },
+        ],
+      });
+
+    render(<App />);
+    await screen.findByRole("region", { name: "Plan" });
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const composer = screen.getByRole("region", { name: "Add activity" });
+    fireEvent.change(within(composer).getByLabelText("Title"), {
+      target: { value: "Day 1 pending" },
+    });
+    fireEvent.click(within(composer).getByRole("button", { name: "Add activity" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    );
+    await screen.findByText("Day 2 activity");
+
+    resolveCreate({ itinerary_id: 20 });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Add activity" })).not.toBeDisabled(),
+    );
+    expect(api.createItinerary).toHaveBeenCalledTimes(1);
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Day 2 activity")).toBeInTheDocument();
+  });
+
+  it("separates a successful write from refresh failure and retries the selected Day", async () => {
+    await restoreWithSampleTrip();
+    const refreshedTimeline = {
+      ...emptyTimeline,
+      itineraries: [
+        {
+          id: 20,
+          trip_id: 1,
+          day_number: 1,
+          title: "Recovered activity",
+          sort_order: 1000,
+          created_at: "t",
+          updated_at: "t",
+        },
+      ],
+    };
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(emptyTimeline)
+      .mockRejectedValueOnce({
+        code: "STORAGE_FAILURE",
+        message: "refresh failed",
+      })
+      .mockResolvedValueOnce(refreshedTimeline);
+
+    render(<App />);
+    await screen.findByRole("region", { name: "Plan" });
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const composer = screen.getByRole("region", { name: "Add activity" });
+    fireEvent.change(within(composer).getByLabelText("Title"), {
+      target: { value: "Recovered activity" },
+    });
+    fireEvent.click(within(composer).getByRole("button", { name: "Add activity" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("refresh failed"),
+    );
+    expect(screen.queryByRole("region", { name: "Add activity" })).not.toBeInTheDocument();
+    expect(api.createItinerary).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 1 · Sun · Apr 26/i }),
+    );
+    expect(await screen.findByText("Recovered activity")).toBeInTheDocument();
+    expect(api.createItinerary).toHaveBeenCalledTimes(1);
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(3);
   });
 
   it("wraps long database paths in Settings", async () => {

@@ -1,12 +1,17 @@
 //! Application service layer — use case orchestration with structured results (no terminal I/O).
 
 pub mod dto;
+mod itinerary_create;
 pub mod read_errors;
 mod read_facade;
 mod trip_create;
 
 #[allow(unused_imports)] // re-exported at crate root for Desktop consumers
 pub use dto::{DayDetail, DaySummary, ItineraryDetail, TripDetail, TripSummary};
+pub use itinerary_create::{
+    create_itinerary, CreateItineraryParams, CreateItineraryResult, ItineraryCreateError,
+    ItineraryCreateErrorCode,
+};
 pub use read_errors::{ReadServiceErrorCode, ServiceError};
 pub use read_facade::{get_day_timeline, get_trip_detail, list_trip_summaries};
 pub use trip_create::{

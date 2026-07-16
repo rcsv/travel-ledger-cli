@@ -7,7 +7,8 @@ use crate::error::DesktopError;
 use crate::service::{self, DatabaseInfo, RestoreLastDatabaseResult};
 use crate::state::DesktopState;
 use travel_ledger_cli::{
-    CreateTripParams, CreateTripResult, DayDetail, TripDetail, TripSummary,
+    CreateItineraryParams, CreateItineraryResult, CreateTripParams, CreateTripResult, DayDetail,
+    TripDetail, TripSummary,
 };
 
 pub fn init_desktop_state(app: &AppHandle) -> Result<DesktopState, DesktopError> {
@@ -72,4 +73,12 @@ pub fn create_trip(
     state: State<DesktopState>,
 ) -> Result<CreateTripResult, DesktopError> {
     service::create_trip(&state, input)
+}
+
+#[tauri::command]
+pub fn create_itinerary(
+    input: CreateItineraryParams,
+    state: State<DesktopState>,
+) -> Result<CreateItineraryResult, DesktopError> {
+    service::create_itinerary(&state, input)
 }
