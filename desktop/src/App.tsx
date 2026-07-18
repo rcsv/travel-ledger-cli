@@ -17,6 +17,8 @@ import type {
   DayDetail,
   DesktopErrorPayload,
   ItineraryDetail,
+  ItineraryReorderDirection,
+  ReorderItineraryInput,
   TripDetail,
   TripSummary,
   UpdateItineraryInput,
@@ -28,6 +30,10 @@ type MainView = "trips" | "settings";
 type WorkspaceMode = "view" | "create";
 type ItineraryComposerTarget = { tripId: number; dayNumber: number };
 type ActivityEditorTarget = ItineraryComposerTarget & { itineraryId: number };
+type ActivityReorderTarget = ActivityEditorTarget & {
+  direction: ItineraryReorderDirection;
+  title: string;
+};
 
 function sameComposerTarget(
   left: ItineraryComposerTarget | null,
@@ -45,6 +51,41 @@ function sameActivityEditorTarget(
     left.dayNumber === right.dayNumber &&
     left.itineraryId === right.itineraryId
   );
+}
+
+function sameActivityReorderTarget(
+  left: ActivityReorderTarget | null,
+  right: ActivityReorderTarget,
+): boolean {
+  return (
+    left?.tripId === right.tripId &&
+    left.dayNumber === right.dayNumber &&
+    left.itineraryId === right.itineraryId &&
+    left.direction === right.direction
+  );
+}
+
+function restoreActivityReorderFocus(
+  itineraryId: number,
+  direction: ItineraryReorderDirection,
+) {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      const requested = document.getElementById(
+        `activity-move-${direction}-${itineraryId}`,
+      ) as HTMLButtonElement | null;
+      const oppositeDirection = direction === "up" ? "down" : "up";
+      const opposite = document.getElementById(
+        `activity-move-${oppositeDirection}-${itineraryId}`,
+      ) as HTMLButtonElement | null;
+      const edit = document.getElementById(`activity-edit-${itineraryId}`);
+      const target =
+        (requested && !requested.disabled ? requested : null) ??
+        (opposite && !opposite.disabled ? opposite : null) ??
+        edit;
+      target?.focus();
+    });
+  });
 }
 
 function toDesktopError(error: unknown): DesktopErrorPayload {
@@ -93,6 +134,12 @@ export default function App() {
   );
   const [updatingItinerary, setUpdatingItinerary] = useState(false);
   const updatingItineraryRef = useRef(false);
+  const [activityInspectorRevision, setActivityInspectorRevision] =
+    useState(0);
+  const [reorderingItinerary, setReorderingItinerary] = useState(false);
+  const reorderingItineraryRef = useRef(false);
+  const activityReorderTargetRef = useRef<ActivityReorderTarget | null>(null);
+  const [activityReorderStatus, setActivityReorderStatus] = useState("");
   const [error, setError] = useState<DesktopErrorPayload | null>(null);
   const [restoreWarning, setRestoreWarning] =
     useState<DesktopErrorPayload | null>(null);
@@ -118,6 +165,10 @@ export default function App() {
     closeActivityInspector();
     itineraryRefreshTargetRef.current = null;
     activityUpdateRefreshTargetRef.current = null;
+    activityReorderTargetRef.current = null;
+    reorderingItineraryRef.current = false;
+    setReorderingItinerary(false);
+    setActivityReorderStatus("");
     setLoadingTimeline(false);
   }, [closeActivityInspector, closeItineraryComposer]);
 
@@ -440,7 +491,12 @@ export default function App() {
   );
 
   const handleOpenItineraryComposer = useCallback(() => {
-    if (!selectedTripId || selectedDayNumber === null || loadingTimeline) {
+    if (
+      !selectedTripId ||
+      selectedDayNumber === null ||
+      loadingTimeline ||
+      reorderingItineraryRef.current
+    ) {
       return;
     }
     const target = {
@@ -461,6 +517,7 @@ export default function App() {
     (item: ItineraryDetail) => {
       if (
         loadingTimeline ||
+        reorderingItineraryRef.current ||
         item.trip_id !== selectedTripId ||
         item.day_number !== selectedDayNumber
       ) {
@@ -594,6 +651,7 @@ export default function App() {
           )
         ) {
           setDayTimeline(timeline);
+          setActivityInspectorRevision((revision) => revision + 1);
           if (
             !timeline.itineraries.some(
               (item) => item.id === target.itineraryId,
@@ -628,6 +686,123 @@ export default function App() {
       }
     },
     [closeActivityInspector],
+  );
+
+  const handleReorderItinerary = useCallback(
+    async (
+      item: ItineraryDetail,
+      direction: ItineraryReorderDirection,
+    ) => {
+      if (
+        reorderingItineraryRef.current ||
+        loadingTimeline ||
+        creatingItineraryRef.current ||
+        updatingItineraryRef.current ||
+        itineraryComposerTargetRef.current !== null ||
+        !dayTimeline ||
+        item.trip_id !== selectedTripId ||
+        item.day_number !== selectedDayNumber
+      ) {
+        return;
+      }
+
+      const target: ActivityReorderTarget = {
+        tripId: item.trip_id,
+        dayNumber: item.day_number,
+        itineraryId: item.id,
+        direction,
+        title: item.title,
+      };
+      const input: ReorderItineraryInput = {
+        trip_id: target.tripId,
+        day_number: target.dayNumber,
+        itinerary_id: target.itineraryId,
+        direction,
+        expected_order: dayTimeline.itineraries.map((activity) => activity.id),
+      };
+
+      activityReorderTargetRef.current = target;
+      reorderingItineraryRef.current = true;
+      setReorderingItinerary(true);
+      setActivityReorderStatus("");
+      setError(null);
+
+      let moved: boolean;
+      try {
+        const result = await api.reorderItinerary(input);
+        moved = result.moved;
+      } catch (err) {
+        if (sameActivityReorderTarget(activityReorderTargetRef.current, target)) {
+          setError(toDesktopError(err));
+          activityReorderTargetRef.current = null;
+          reorderingItineraryRef.current = false;
+          setReorderingItinerary(false);
+        }
+        return;
+      }
+
+      if (!sameActivityReorderTarget(activityReorderTargetRef.current, target)) {
+        return;
+      }
+
+      if (!moved) {
+        setActivityReorderStatus(
+          `${target.title} is already at the ${direction === "up" ? "top" : "bottom"} of the plan.`,
+        );
+        activityReorderTargetRef.current = null;
+        reorderingItineraryRef.current = false;
+        setReorderingItinerary(false);
+        restoreActivityReorderFocus(target.itineraryId, direction);
+        return;
+      }
+
+      try {
+        const timeline = await api.getDayTimeline(
+          target.tripId,
+          target.dayNumber,
+        );
+        if (sameActivityReorderTarget(activityReorderTargetRef.current, target)) {
+          setDayTimeline(timeline);
+          const editorTarget = activityEditorTargetRef.current;
+          if (
+            editorTarget &&
+            editorTarget.tripId === target.tripId &&
+            editorTarget.dayNumber === target.dayNumber &&
+            !timeline.itineraries.some(
+              (activity) => activity.id === editorTarget.itineraryId,
+            )
+          ) {
+            closeActivityInspector();
+          }
+          setActivityReorderStatus(
+            `Moved ${target.title} ${target.direction}.`,
+          );
+        }
+      } catch (err) {
+        if (sameActivityReorderTarget(activityReorderTargetRef.current, target)) {
+          setError(toDesktopError(err));
+          setDayTimeline(null);
+          closeActivityInspector();
+        }
+      } finally {
+        if (sameActivityReorderTarget(activityReorderTargetRef.current, target)) {
+          activityReorderTargetRef.current = null;
+          reorderingItineraryRef.current = false;
+          setReorderingItinerary(false);
+          restoreActivityReorderFocus(
+            target.itineraryId,
+            target.direction,
+          );
+        }
+      }
+    },
+    [
+      closeActivityInspector,
+      dayTimeline,
+      loadingTimeline,
+      selectedDayNumber,
+      selectedTripId,
+    ],
   );
 
   const tripCountLabel =
@@ -785,12 +960,15 @@ export default function App() {
                 onSelectDay={handleSelectDay}
                 onAddActivity={handleOpenItineraryComposer}
                 addActivityDisabled={
-                  loadingTimeline || creatingItinerary || updatingItinerary
+                  loadingTimeline ||
+                  creatingItinerary ||
+                  updatingItinerary ||
+                  reorderingItinerary
                 }
                 inspector={
                   selectedActivity ? (
                     <ActivityInspectorForm
-                      key={`${selectedActivity.id}:${selectedActivity.updated_at}:${selectedActivity.title}:${selectedActivity.start_time ?? ""}:${selectedActivity.location ?? ""}:${selectedActivity.note ?? ""}`}
+                      key={`${selectedActivity.id}:${activityInspectorRevision}`}
                       item={selectedActivity}
                       submitting={updatingItinerary}
                       onSubmit={handleUpdateItinerary}
@@ -815,9 +993,22 @@ export default function App() {
                   loading={loadingTimeline}
                   selectedItineraryId={activityEditorTarget?.itineraryId ?? null}
                   editingDisabled={
-                    loadingTimeline || creatingItinerary || updatingItinerary
+                    loadingTimeline ||
+                    creatingItinerary ||
+                    updatingItinerary ||
+                    reorderingItinerary
                   }
+                  reorderDisabled={
+                    loadingTimeline ||
+                    creatingItinerary ||
+                    updatingItinerary ||
+                    reorderingItinerary ||
+                    itineraryComposerTarget !== null
+                  }
+                  reordering={reorderingItinerary}
+                  reorderStatus={activityReorderStatus}
                   onEdit={handleOpenActivityEditor}
+                  onReorder={handleReorderItinerary}
                 />
               </TripDetailPanel>
             )}

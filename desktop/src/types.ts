@@ -49,6 +49,22 @@ export interface UpdateItineraryResult {
   itinerary_id: number;
 }
 
+export type ItineraryReorderDirection = "up" | "down";
+
+export interface ReorderItineraryInput {
+  trip_id: number;
+  day_number: number;
+  itinerary_id: number;
+  direction: ItineraryReorderDirection;
+  expected_order: number[];
+}
+
+export interface ReorderItineraryResult {
+  itinerary_id: number;
+  day_number: number;
+  moved: boolean;
+}
+
 export type RestoreLastDatabaseResult =
   | { status: "restored"; database: DatabaseInfo }
   | { status: "not_found" }

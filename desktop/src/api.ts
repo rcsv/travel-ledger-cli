@@ -8,11 +8,19 @@ import type {
   DatabaseInfo,
   DayDetail,
   RestoreLastDatabaseResult,
+  ReorderItineraryInput,
+  ReorderItineraryResult,
   TripDetail,
   TripSummary,
   UpdateItineraryInput,
   UpdateItineraryResult,
 } from "./types";
+
+export async function reorderItinerary(
+  input: ReorderItineraryInput,
+): Promise<ReorderItineraryResult> {
+  return invoke<ReorderItineraryResult>("reorder_itinerary", { input });
+}
 
 export async function updateItinerary(
   input: UpdateItineraryInput,

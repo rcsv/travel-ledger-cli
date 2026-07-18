@@ -25,6 +25,7 @@ pub fn run() {
             commands::create_trip,
             commands::create_itinerary,
             commands::update_itinerary,
+            commands::reorder_itinerary,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

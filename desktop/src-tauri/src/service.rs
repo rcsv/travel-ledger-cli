@@ -5,8 +5,9 @@ use travel_ledger_cli::{
     create_itinerary as core_create_itinerary, create_trip as core_create_trip,
     get_day_timeline as facade_get_day_timeline, get_trip_detail as facade_get_trip_detail,
     list_trip_summaries as facade_list_trip_summaries, open_db,
-    update_itinerary as core_update_itinerary, CreateItineraryParams, CreateItineraryResult,
-    CreateTripParams, CreateTripResult, DayDetail, TripDetail, TripSummary, UpdateItineraryParams,
+    reorder_itinerary as core_reorder_itinerary, update_itinerary as core_update_itinerary,
+    CreateItineraryParams, CreateItineraryResult, CreateTripParams, CreateTripResult, DayDetail,
+    ReorderItineraryParams, ReorderItineraryResult, TripDetail, TripSummary, UpdateItineraryParams,
     UpdateItineraryResult,
 };
 
@@ -164,6 +165,15 @@ pub fn update_itinerary(
     core_update_itinerary(&conn, params).map_err(DesktopError::from)
 }
 
+pub fn reorder_itinerary(
+    state: &DesktopState,
+    params: ReorderItineraryParams,
+) -> Result<ReorderItineraryResult, DesktopError> {
+    let path = selected_db_path(state)?;
+    let conn = open_connection(&path)?;
+    core_reorder_itinerary(&conn, params).map_err(DesktopError::from)
+}
+
 fn clear_selection(state: &DesktopState) -> Result<(), DesktopError> {
     let mut guard = state
         .selected_db_path
@@ -189,6 +199,7 @@ fn open_connection(path: &Path) -> Result<rusqlite::Connection, DesktopError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use travel_ledger_cli::ItineraryReorderDirection;
     use crate::config::{self, settings_file_path};
     use crate::state::DesktopState;
     use std::fs;
@@ -493,6 +504,20 @@ mod tests {
         }
     }
 
+    fn itinerary_reorder_params(
+        trip_id: i64,
+        itinerary_id: i64,
+        expected_order: Vec<i64>,
+    ) -> ReorderItineraryParams {
+        ReorderItineraryParams {
+            trip_id,
+            day_number: 1,
+            itinerary_id,
+            direction: ItineraryReorderDirection::Up,
+            expected_order,
+        }
+    }
+
     #[test]
     fn create_requires_selected_database() {
         let (_dir, state) = temp_state();
@@ -779,6 +804,123 @@ mod tests {
         assert_eq!(err.code, "STORAGE_FAILURE");
         let timeline = get_day_timeline(&state, trip.trip_id, 1).unwrap();
         assert_eq!(timeline.itineraries[0].title, "Original");
+    }
+
+    #[test]
+    fn itinerary_reorder_requires_selected_database() {
+        let (_dir, state) = temp_state();
+        let err = reorder_itinerary(&state, itinerary_reorder_params(1, 1, vec![1]))
+            .unwrap_err();
+        assert_eq!(err.code, "DATABASE_NOT_SELECTED");
+    }
+
+    #[test]
+    fn reorders_itinerary_and_reads_back_selected_day() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+        let trip = create_trip(&state, create_params("Reorder Trip")).unwrap();
+        let first = create_itinerary(&state, itinerary_params(trip.trip_id, "First")).unwrap();
+        let second = create_itinerary(&state, itinerary_params(trip.trip_id, "Second")).unwrap();
+
+        let result = reorder_itinerary(
+            &state,
+            itinerary_reorder_params(
+                trip.trip_id,
+                second.itinerary_id,
+                vec![first.itinerary_id, second.itinerary_id],
+            ),
+        )
+        .unwrap();
+        assert!(result.moved);
+        let timeline = get_day_timeline(&state, trip.trip_id, 1).unwrap();
+        assert_eq!(timeline.itineraries[0].id, second.itinerary_id);
+        assert_eq!(timeline.itineraries[1].id, first.itinerary_id);
+    }
+
+    #[test]
+    fn maps_reorder_noop_and_structured_failures() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path).unwrap();
+        let trip = create_trip(&state, create_params("Reorder Trip")).unwrap();
+        let first = create_itinerary(&state, itinerary_params(trip.trip_id, "First")).unwrap();
+        let second = create_itinerary(&state, itinerary_params(trip.trip_id, "Second")).unwrap();
+        let order = vec![first.itinerary_id, second.itinerary_id];
+
+        let noop = reorder_itinerary(
+            &state,
+            itinerary_reorder_params(trip.trip_id, first.itinerary_id, order.clone()),
+        )
+        .unwrap();
+        assert!(!noop.moved);
+
+        let invalid = reorder_itinerary(
+            &state,
+            itinerary_reorder_params(trip.trip_id, second.itinerary_id, vec![]),
+        )
+        .unwrap_err();
+        assert_eq!(invalid.code, "ITINERARY_PLACEMENT_INVALID");
+
+        let conflict = reorder_itinerary(
+            &state,
+            itinerary_reorder_params(
+                trip.trip_id,
+                second.itinerary_id,
+                vec![second.itinerary_id, first.itinerary_id],
+            ),
+        )
+        .unwrap_err();
+        assert_eq!(conflict.code, "ITINERARY_PLACEMENT_CONFLICT");
+
+        let target = reorder_itinerary(
+            &state,
+            itinerary_reorder_params(trip.trip_id, 999, vec![999]),
+        )
+        .unwrap_err();
+        assert_eq!(target.code, "ITINERARY_TARGET_NOT_FOUND");
+    }
+
+    #[test]
+    fn maps_reorder_storage_failure_and_rolls_back() {
+        let (dir, state) = temp_state();
+        let path = temp_db(dir.path());
+        open_db(path.to_str().unwrap()).unwrap();
+        select_database(&state, path.clone()).unwrap();
+        let trip = create_trip(&state, create_params("Reorder Trip")).unwrap();
+        let first = create_itinerary(&state, itinerary_params(trip.trip_id, "First")).unwrap();
+        let second = create_itinerary(&state, itinerary_params(trip.trip_id, "Second")).unwrap();
+        let conn = open_db(path.to_str().unwrap()).unwrap();
+        conn.execute_batch(&format!(
+            "CREATE TRIGGER fail_desktop_reorder
+             BEFORE UPDATE OF sort_order ON itinerary_items
+             WHEN OLD.id = {}
+             BEGIN
+               SELECT RAISE(ABORT, 'forced desktop reorder failure');
+             END;",
+            first.itinerary_id
+        ))
+        .unwrap();
+        drop(conn);
+
+        let err = reorder_itinerary(
+            &state,
+            ReorderItineraryParams {
+                direction: ItineraryReorderDirection::Down,
+                ..itinerary_reorder_params(
+                    trip.trip_id,
+                    first.itinerary_id,
+                    vec![first.itinerary_id, second.itinerary_id],
+                )
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "STORAGE_FAILURE");
+        let timeline = get_day_timeline(&state, trip.trip_id, 1).unwrap();
+        assert_eq!(timeline.itineraries[0].id, first.itinerary_id);
+        assert_eq!(timeline.itineraries[1].id, second.itinerary_id);
     }
 
     #[test]

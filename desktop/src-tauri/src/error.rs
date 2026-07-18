@@ -1,7 +1,7 @@
 use serde::Serialize;
 use travel_ledger_cli::{
-    ItineraryCreateError, ItineraryUpdateError, ReadServiceErrorCode, ServiceError,
-    TripCreateError,
+    ItineraryCreateError, ItineraryReorderError, ItineraryUpdateError, ReadServiceErrorCode,
+    ServiceError, TripCreateError,
 };
 
 /// Desktop error envelope for the frontend (`{ code, message }`).
@@ -79,6 +79,15 @@ impl From<ItineraryUpdateError> for DesktopError {
     }
 }
 
+impl From<ItineraryReorderError> for DesktopError {
+    fn from(err: ItineraryReorderError) -> Self {
+        Self {
+            code: err.code.as_str().to_string(),
+            message: err.message,
+        }
+    }
+}
+
 pub fn service_error_code(code: ReadServiceErrorCode) -> &'static str {
     match code {
         ReadServiceErrorCode::TripNotFound => "TRIP_NOT_FOUND",
@@ -132,5 +141,16 @@ mod tests {
         let desktop: DesktopError = err.into();
         assert_eq!(desktop.code, "ITINERARY_TARGET_NOT_FOUND");
         assert_eq!(desktop.message, "missing target");
+    }
+
+    #[test]
+    fn maps_itinerary_reorder_error_codes_without_rename() {
+        let err = ItineraryReorderError {
+            code: travel_ledger_cli::ItineraryReorderErrorCode::PlacementConflict,
+            message: "stale order".to_string(),
+        };
+        let desktop: DesktopError = err.into();
+        assert_eq!(desktop.code, "ITINERARY_PLACEMENT_CONFLICT");
+        assert_eq!(desktop.message, "stale order");
     }
 }

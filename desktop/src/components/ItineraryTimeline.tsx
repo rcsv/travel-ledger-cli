@@ -1,4 +1,7 @@
-import type { ItineraryDetail } from "../types";
+import type {
+  ItineraryDetail,
+  ItineraryReorderDirection,
+} from "../types";
 import { formatMinutes, nonEmpty } from "../display";
 
 interface ItineraryTimelineProps {
@@ -6,7 +9,14 @@ interface ItineraryTimelineProps {
   loading: boolean;
   selectedItineraryId: number | null;
   editingDisabled: boolean;
+  reorderDisabled: boolean;
+  reordering: boolean;
+  reorderStatus: string;
   onEdit: (item: ItineraryDetail) => void;
+  onReorder: (
+    item: ItineraryDetail,
+    direction: ItineraryReorderDirection,
+  ) => void;
 }
 
 export function ItineraryTimeline({
@@ -14,7 +24,11 @@ export function ItineraryTimeline({
   loading,
   selectedItineraryId,
   editingDisabled,
+  reorderDisabled,
+  reordering,
+  reorderStatus,
   onEdit,
+  onReorder,
 }: ItineraryTimelineProps) {
   if (loading) {
     return (
@@ -39,7 +53,14 @@ export function ItineraryTimeline({
   }
 
   return (
-    <section className="timeline" aria-label="Itinerary timeline">
+    <section
+      className="timeline"
+      aria-label="Itinerary timeline"
+      aria-busy={reordering}
+    >
+      <p className="visually-hidden" role="status" aria-live="polite">
+        {reorderStatus}
+      </p>
       <ol className="timeline-list">
         {items.map((item, index) => {
           const selected = item.id === selectedItineraryId;
@@ -64,18 +85,40 @@ export function ItineraryTimeline({
                     <span className="timeline-time">{startTime}</span>
                   ) : null}
                 </div>
-                <button
-                  id={`activity-edit-${item.id}`}
-                  type="button"
-                  className="timeline-edit-button"
-                  aria-label={`Edit activity: ${item.title}`}
-                  aria-expanded={selected}
-                  aria-controls={selected ? "activity-inspector" : undefined}
-                  disabled={editingDisabled}
-                  onClick={() => onEdit(item)}
-                >
-                  Edit
-                </button>
+                <div className="timeline-actions">
+                  <button
+                    id={`activity-move-up-${item.id}`}
+                    type="button"
+                    className="timeline-action-button"
+                    aria-label={`Move activity up: ${item.title}`}
+                    disabled={reorderDisabled || index === 0}
+                    onClick={() => onReorder(item, "up")}
+                  >
+                    Move up
+                  </button>
+                  <button
+                    id={`activity-move-down-${item.id}`}
+                    type="button"
+                    className="timeline-action-button"
+                    aria-label={`Move activity down: ${item.title}`}
+                    disabled={reorderDisabled || index === items.length - 1}
+                    onClick={() => onReorder(item, "down")}
+                  >
+                    Move down
+                  </button>
+                  <button
+                    id={`activity-edit-${item.id}`}
+                    type="button"
+                    className="timeline-action-button"
+                    aria-label={`Edit activity: ${item.title}`}
+                    aria-expanded={selected}
+                    aria-controls={selected ? "activity-inspector" : undefined}
+                    disabled={editingDisabled}
+                    onClick={() => onEdit(item)}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
               {(category || location || duration || travel || note) && (
                 <ul className="timeline-fields">

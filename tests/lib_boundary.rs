@@ -2,8 +2,8 @@
 
 use travel_ledger_cli::{
     create_itinerary, create_trip, get_day_timeline, get_trip_detail, list_trip_summaries, open_db,
-    update_itinerary, CreateItineraryParams, CreateTripParams, ReadServiceErrorCode,
-    UpdateItineraryParams,
+    reorder_itinerary, update_itinerary, CreateItineraryParams, CreateTripParams,
+    ItineraryReorderDirection, ReadServiceErrorCode, ReorderItineraryParams, UpdateItineraryParams,
 };
 
 #[test]
@@ -11,6 +11,64 @@ fn lib_open_db_and_list_trip_summaries() {
     let conn = open_db(":memory:").expect("open in-memory db");
     let summaries = list_trip_summaries(&conn).expect("list trips");
     assert!(summaries.is_empty());
+}
+
+#[test]
+fn lib_reorder_itinerary_is_public_and_readable() {
+    let mut conn = open_db(":memory:").expect("open in-memory db");
+    let trip = create_trip(
+        &mut conn,
+        CreateTripParams {
+            name: "Reorder Library Trip".to_string(),
+            start_date: "2026-10-01".to_string(),
+            end_date: "2026-10-01".to_string(),
+            summary: None,
+            main_destination: None,
+            main_destination_country_code: None,
+            default_currency: None,
+        },
+    )
+    .expect("create trip");
+    let first = create_itinerary(
+        &conn,
+        CreateItineraryParams {
+            trip_id: trip.trip_id,
+            day_number: 1,
+            title: "First".to_string(),
+            start_time: None,
+            location: None,
+            note: None,
+        },
+    )
+    .expect("create first itinerary");
+    let second = create_itinerary(
+        &conn,
+        CreateItineraryParams {
+            trip_id: trip.trip_id,
+            day_number: 1,
+            title: "Second".to_string(),
+            start_time: None,
+            location: None,
+            note: None,
+        },
+    )
+    .expect("create second itinerary");
+
+    reorder_itinerary(
+        &conn,
+        ReorderItineraryParams {
+            trip_id: trip.trip_id,
+            day_number: 1,
+            itinerary_id: second.itinerary_id,
+            direction: ItineraryReorderDirection::Up,
+            expected_order: vec![first.itinerary_id, second.itinerary_id],
+        },
+    )
+    .expect("reorder itinerary");
+
+    let timeline = get_day_timeline(&conn, trip.trip_id, 1).expect("read reordered itinerary");
+    assert_eq!(timeline.itineraries[0].id, second.itinerary_id);
+    assert_eq!(timeline.itineraries[1].id, first.itinerary_id);
 }
 
 #[test]

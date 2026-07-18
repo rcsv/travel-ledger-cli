@@ -14,6 +14,7 @@ vi.mock("@tauri-apps/api/app", () => ({
 
 vi.mock("./api", () => ({
   createItinerary: vi.fn(),
+  reorderItinerary: vi.fn(),
   updateItinerary: vi.fn(),
   createTrip: vi.fn(),
   selectDatabase: vi.fn(),
@@ -103,6 +104,33 @@ const activityTimeline = {
   itineraries: [sampleActivity],
 };
 
+const reorderTimeline = {
+  ...emptyTimeline,
+  itineraries: [
+    sampleActivity,
+    {
+      ...sampleActivity,
+      id: 21,
+      title: "Lunch",
+      note: null,
+      start_time: "12:00",
+      sort_order: 2000,
+      location: "Market",
+      category: "meal",
+    },
+    {
+      ...sampleActivity,
+      id: 22,
+      title: "Beach",
+      note: null,
+      start_time: "15:00",
+      sort_order: 3000,
+      location: "Naminoue",
+      category: "sightseeing",
+    },
+  ],
+};
+
 async function finishBootstrap() {
   await waitFor(() =>
     expect(screen.queryByText("Starting…")).not.toBeInTheDocument(),
@@ -123,6 +151,11 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.restoreLastDatabase).mockResolvedValue({ status: "not_found" });
   vi.mocked(api.createItinerary).mockResolvedValue({ itinerary_id: 20 });
+  vi.mocked(api.reorderItinerary).mockResolvedValue({
+    itinerary_id: 20,
+    day_number: 1,
+    moved: true,
+  });
   vi.mocked(api.updateItinerary).mockResolvedValue({ itinerary_id: 20 });
   vi.mocked(api.createTrip).mockResolvedValue({ trip_id: 2 });
   vi.mocked(getVersion).mockResolvedValue("4.10.3");
@@ -963,6 +996,318 @@ describe("App", () => {
         .getAllByText(/in plan order$/)
         .map((item) => item.textContent),
     ).toEqual(["First in plan order", "Second in plan order"]);
+  });
+
+  it("exposes one-step reorder controls with boundary buttons disabled", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(reorderTimeline);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Move activity up: Museum visit",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Move activity down: Museum visit",
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Move activity up: Lunch" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Move activity down: Lunch" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Move activity up: Beach" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Move activity down: Beach" }),
+    ).toBeDisabled();
+  });
+
+  it("disables both reorder directions for a one-activity Day", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(activityTimeline);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Move activity up: Museum visit",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Move activity down: Museum visit",
+      }),
+    ).toBeDisabled();
+  });
+
+  it("moves one activity, refreshes only the selected Day, and restores focus", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.reorderItinerary).mockResolvedValue({
+      itinerary_id: 21,
+      day_number: 1,
+      moved: true,
+    });
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(reorderTimeline)
+      .mockResolvedValueOnce({
+        ...reorderTimeline,
+        itineraries: [
+          { ...reorderTimeline.itineraries[1], sort_order: 1000 },
+          { ...reorderTimeline.itineraries[0], sort_order: 2000 },
+          reorderTimeline.itineraries[2],
+        ],
+      });
+
+    render(<App />);
+    const moveUp = await screen.findByRole("button", {
+      name: "Move activity up: Lunch",
+    });
+    fireEvent.click(moveUp);
+
+    await waitFor(() =>
+      expect(api.reorderItinerary).toHaveBeenCalledWith({
+        trip_id: 1,
+        day_number: 1,
+        itinerary_id: 21,
+        direction: "up",
+        expected_order: [20, 21, 22],
+      }),
+    );
+    const timeline = await screen.findByRole("region", {
+      name: "Itinerary timeline",
+    });
+    await waitFor(() =>
+      expect(
+        within(timeline)
+          .getAllByText(/^(Lunch|Museum visit|Beach)$/)
+          .map((item) => item.textContent),
+      ).toEqual(["Lunch", "Museum visit", "Beach"]),
+    );
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+    expect(api.getTripDetail).toHaveBeenCalledTimes(1);
+    expect(api.listTripSummaries).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Moved Lunch up.");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Move activity down: Lunch" }),
+      ).toHaveFocus(),
+    );
+  });
+
+  it("locks all reorder controls immediately during a pending write", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(reorderTimeline);
+    let resolveReorder: (
+      value: { itinerary_id: number; day_number: number; moved: boolean },
+    ) => void = () => {};
+    vi.mocked(api.reorderItinerary).mockReturnValue(
+      new Promise((resolve) => {
+        resolveReorder = resolve;
+      }),
+    );
+
+    render(<App />);
+    const moveDown = await screen.findByRole("button", {
+      name: "Move activity down: Museum visit",
+    });
+    fireEvent.click(moveDown);
+    fireEvent.click(moveDown);
+
+    expect(api.reorderItinerary).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("region", { name: "Itinerary timeline" }),
+    ).toHaveAttribute("aria-busy", "true");
+    expect(
+      screen
+        .getAllByRole("button", { name: /Move activity (up|down):/ })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true);
+
+    resolveReorder({ itinerary_id: 20, day_number: 1, moved: true });
+    await waitFor(() => expect(api.getDayTimeline).toHaveBeenCalledTimes(2));
+  });
+
+  it("preserves an open Inspector draft while the selected activity moves", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(reorderTimeline)
+      .mockResolvedValueOnce({
+        ...reorderTimeline,
+        itineraries: [
+          { ...reorderTimeline.itineraries[1], sort_order: 1000 },
+          {
+            ...reorderTimeline.itineraries[0],
+            sort_order: 2000,
+            updated_at: "updated-by-reorder",
+          },
+          reorderTimeline.itineraries[2],
+        ],
+      });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "Unsaved museum draft" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Move activity down: Museum visit",
+      }),
+    );
+
+    await waitFor(() => expect(api.getDayTimeline).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("region", { name: "Edit activity" })).toBe(inspector);
+    expect(within(inspector).getByLabelText("Title")).toHaveValue(
+      "Unsaved museum draft",
+    );
+  });
+
+  it("keeps the current timeline on reorder write failure", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(reorderTimeline);
+    vi.mocked(api.reorderItinerary).mockRejectedValue({
+      code: "ITINERARY_PLACEMENT_CONFLICT",
+      message: "Activity order changed. Try again.",
+    });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Move activity up: Lunch" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Activity order changed. Try again.",
+      ),
+    );
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Museum visit")).toBeInTheDocument();
+    expect(screen.getByText("Lunch")).toBeInTheDocument();
+  });
+
+  it("separates a committed reorder from timeline refresh failure", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(reorderTimeline)
+      .mockRejectedValueOnce({
+        code: "STORAGE_FAILURE",
+        message: "reorder refresh failed",
+      });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Move activity down: Museum visit" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "reorder refresh failed",
+      ),
+    );
+    expect(api.reorderItinerary).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Museum visit")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Edit activity" })).not.toBeInTheDocument();
+  });
+
+  it("ignores a stale reorder completion after Day navigation", async () => {
+    await restoreWithSampleTrip();
+    let resolveReorder: (
+      value: { itinerary_id: number; day_number: number; moved: boolean },
+    ) => void = () => {};
+    vi.mocked(api.reorderItinerary).mockReturnValue(
+      new Promise((resolve) => {
+        resolveReorder = resolve;
+      }),
+    );
+    vi.mocked(api.getDayTimeline)
+      .mockResolvedValueOnce(reorderTimeline)
+      .mockResolvedValueOnce({
+        ...emptyTimeline,
+        day_id: 11,
+        day_number: 2,
+        date: "2026-04-27",
+        itineraries: [
+          {
+            ...sampleActivity,
+            id: 30,
+            day_number: 2,
+            title: "Day 2 activity",
+          },
+        ],
+      });
+
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Move activity up: Lunch" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    );
+    expect(await screen.findByText("Day 2 activity")).toBeInTheDocument();
+
+    resolveReorder({ itinerary_id: 21, day_number: 1, moved: true });
+    await waitFor(() => expect(api.reorderItinerary).toHaveBeenCalledTimes(1));
+    expect(api.getDayTimeline).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Day 2 activity")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Day 2 · Mon · Apr 27/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("disables reorder while quick add is open or an Inspector save is pending", async () => {
+    await restoreWithSampleTrip();
+    vi.mocked(api.getDayTimeline).mockResolvedValue(reorderTimeline);
+    let resolveUpdate: (value: { itinerary_id: number }) => void = () => {};
+    vi.mocked(api.updateItinerary).mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpdate = resolve;
+      }),
+    );
+
+    render(<App />);
+    await screen.findByRole("button", { name: "Move activity up: Lunch" });
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    expect(
+      screen
+        .getAllByRole("button", { name: /Move activity (up|down):/ })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true);
+
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "Add activity" })).getByRole(
+        "button",
+        { name: "Cancel" },
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit activity: Museum visit" }),
+    );
+    const inspector = screen.getByRole("region", { name: "Edit activity" });
+    fireEvent.change(within(inspector).getByLabelText("Title"), {
+      target: { value: "Pending edit" },
+    });
+    fireEvent.click(within(inspector).getByRole("button", { name: "Save" }));
+    expect(
+      screen
+        .getAllByRole("button", { name: /Move activity (up|down):/ })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true);
+    expect(api.reorderItinerary).not.toHaveBeenCalled();
+
+    resolveUpdate({ itinerary_id: 20 });
+    await waitFor(() => expect(api.getDayTimeline).toHaveBeenCalledTimes(2));
   });
 
   it("opens a contextual activity Inspector with a prefilled editable draft", async () => {

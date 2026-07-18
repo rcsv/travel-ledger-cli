@@ -2,6 +2,7 @@
 
 pub mod dto;
 mod itinerary_create;
+mod itinerary_reorder;
 mod itinerary_update;
 pub mod read_errors;
 mod read_facade;
@@ -12,6 +13,10 @@ pub use dto::{DayDetail, DaySummary, ItineraryDetail, TripDetail, TripSummary};
 pub use itinerary_create::{
     create_itinerary, CreateItineraryParams, CreateItineraryResult, ItineraryCreateError,
     ItineraryCreateErrorCode,
+};
+pub use itinerary_reorder::{
+    reorder_itinerary, ItineraryReorderDirection, ItineraryReorderError, ItineraryReorderErrorCode,
+    ReorderItineraryParams, ReorderItineraryResult,
 };
 pub use itinerary_update::{
     update_itinerary, ItineraryUpdateError, ItineraryUpdateErrorCode, UpdateItineraryParams,
