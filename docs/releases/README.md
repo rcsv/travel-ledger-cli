@@ -4,6 +4,7 @@ GitHub Release 用ノート一覧（新しい順）。
 
 | Version | Title | File |
 |---|---|---|
+| v4.13.0 | Desktop activity same-day reorder | [v4.13.0-notes.md](v4.13.0-notes.md) |
 | v4.12.0 | Desktop activity editing workflow | [v4.12.0-notes.md](v4.12.0-notes.md) |
 | v4.11.0 | Desktop trip and activity creation workflows | [v4.11.0-notes.md](v4.11.0-notes.md) |
 | v4.10.3 | Desktop settings navigation polish | [v4.10.3-notes.md](v4.10.3-notes.md) |
