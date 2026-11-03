@@ -14,7 +14,7 @@ categories = ["command-line-utilities"]
 anyhow = "1.0"
 chrono = "0.4"
 clap = { version = "4", features = ["derive"] }
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1.1"
